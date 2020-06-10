@@ -1,7 +1,7 @@
 rm(list = ls()); cat('\014')
 
-source('/Users/mwelz/Documents/msc/thesis/code/simulations-cancer/causal-ml-funs.R')
-source('/Users/mwelz/Documents/msc/thesis/publication/risk-modeling/rm-funs.R')
+source(paste0(getwd(), "/general-funs/general-funs.R"))
+source(paste0(getwd(), "/risk-modeling/rm-funs/rm-funs.R"))
 set.seed(1)
 n             <- 10000
 data          <- dgp.screening(n = n, share.lc = 1, reporting.bias = FALSE) # let everybody get LC 
@@ -9,8 +9,9 @@ covariates.df <- data$X
 y             <- data$binary.outcomes$outcomes$y
 w             <- data$w
 X             <- covariates.df[,1:7]
-G             <- covariates.df[,8]
-X.enc         <- encoder(X, G, 'sparse_low_rank')
+G             <- as.factor(covariates.df[,8])
+encoder       <- sufrep::make_encoder(X = X, G = G, method = "one_hot")
+X.enc         <- as.matrix(encoder(X, G))
 alpha         <- 1
 risk.model    <- risk.modeling(X.enc, w, y, alpha, offset.lp = TRUE)
 risk.pred     <- transform.to.probability(risk.model$risk.regular.w) # logistic fun to make it a probability

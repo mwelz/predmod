@@ -22,37 +22,6 @@ quantile.group <- function(x, cutoffs){
   return(group.mat)
 }
 
-
-encoder <- function(X, G, enc.G.method){
-  # enc.G.method \in c(means, mnl, sparse_low_rank, onehot)
-  
-  # load helper functions
-  source('/Users/mwelz/Documents/msc/thesis/code/simulations-cancer/causal-ml-funs.R')
-  source('/Users/mwelz/Documents/msc/thesis/code/simulations-screening/sufrep-funs.R')
-  
-  G              <- factor(G)
-  p              <- ncol(X)
-  num.components <- length(levels(G))
-  
-  if(enc.G.method == 'means'){
-    # we can add the corresponding features
-    encoder.fn  <- make_encoder(X = X, G = G, method = enc.G.method, prefix = 'ENC_', num_components = num.components)
-    X.enc       <- encoder.fn(X = X, G = G)
-  } else if(enc.G.method == 'onehot'){
-    # we can add the corresponding features
-    G.oh        <- make.binary.factor.mat(G, idx.factor = 1, sep = '_')
-    names(G.oh) <- paste0('x8', substr(names(G.oh), start = 5, stop = 100000))
-    X.enc       <- data.frame(X, G.oh)
-  } else{
-    # we cannot add the corresponding features
-    encoder.fn  <- make_encoder(X = X, G = G, method = enc.G.method, prefix = 'ENC', num_components = num.components)
-    X.enc       <- encoder.fn(X = X, G = G)
-  }
-  
-  return(as.matrix(X.enc))
-}
-
-
 risk.model.stage1 <- function(X, y, alpha = 1){
   
   # stage 1 doesn't use W!
