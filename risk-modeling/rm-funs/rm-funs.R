@@ -42,9 +42,9 @@ risk.model.stage1 <- function(X, y, alpha = 1){
 
 
 risk.model.stage2 <- function(lp, y, w, lambda, offset.lp = TRUE ){
-  
-  X.stage2 <- cbind(w = w, wlp = w * lp)
 
+  X.stage2 <- cbind(w = w, wlp = w * lp)
+  
   if(offset.lp){
     oset <- lp
   } else{
@@ -58,16 +58,26 @@ risk.model.stage2 <- function(lp, y, w, lambda, offset.lp = TRUE ){
                                intercept = FALSE,
                                offset = oset) 
   
-  ## risk prediction:
-  # Note:values aren't bounded by (0,1) because of lp. For true probabilities, set newoffset=0.
-  probs <- glmnet::predict.glmnet(mod.stage2, 
-                                  newx = X.stage2,
-                                  type = "response", 
-                                  newoffset = oset)
+  ### risk prediction:
+  ## Note: values aren't bounded by (0,1) because of lp. For true probabilities, set newoffset=0.
+  # 1) ordinary w
+  probs.regular <- glmnet::predict.glmnet(mod.stage2, 
+                                          newx = X.stage2,
+                                          type = "response", 
+                                          newoffset = oset)
+  # 2) w flipped
+  w.rev           <- ifelse(w == 1, 0, 1)
+  X.stage2.rev    <- cbind(w = w.rev, wlp = w.rev * lp)
+  probs.flipped.w <- glmnet::predict.glmnet(mod.stage2, 
+                                            newx = X.stage2.rev,
+                                            type = "response", 
+                                            newoffset = oset)
   
+  # return
   return(list(mod.stage2 = mod.stage2,
-              risk.pred = as.numeric(probs)
-              ))
+              risk.pred.regular = as.numeric(probs.regular),
+              risk.pred.flipped.w = as.numeric(probs.flipped.w)
+  ))
 }
 
 
@@ -75,28 +85,26 @@ risk.modeling <- function(X, w, y, alpha, offset.lp = TRUE){
   ## stage 1
   stage1 <- risk.model.stage1(X = X, y = y, alpha = alpha)
   
-  ## stage 2: once with correct w, once with w flipped
-  stage2.reg <- risk.model.stage2(lp = stage1$lp,
-                                  y = y, 
-                                  w = w,
-                                  lambda = stage1$lambda.min,
-                                  offset.lp = offset.lp)
+  ## stage 2
+  stage2 <- risk.model.stage2(lp = stage1$lp,
+                              y = y, 
+                              w = w,
+                              lambda = stage1$lambda.min,
+                              offset.lp = offset.lp)
   
-  stage2.rev <- risk.model.stage2(lp = stage1$lp,
-                                  y = y, 
-                                  w = ifelse(w == 1, 0, 1),
-                                  lambda = stage1$lambda.min,
-                                  offset.lp = offset.lp)
+  # predicted benefit
+  pred.ben.raw <- stage2$risk.pred.regular - stage2$risk.pred.flipped.w
+  pred.ben     <- ifelse(w == 1, -pred.ben.raw, pred.ben.raw)
   
   return(list(
     inputs = list(X = X, w = w, y = y),
     mod.stage1 = stage1$models.stage1.cv,
-    mod.stage2.regular.w = stage2.reg$mod.stage2,
-    mod.stage2.flipped.w = stage2.rev$mod.stage2,
+    mod.stage2 = stage2$mod.stage2,
     linear.predictor = stage1$lp,
-    risk.regular.w = stage2.reg$risk.pred,
-    risk.flipped.w = stage2.rev$risk.pred,
-    predicted.benefit = stage2.reg$risk.pred - stage2.rev$risk.pred
+    risk.regular.w = stage2$risk.pred.regular,
+    risk.flipped.w = stage2$risk.pred.flipped.w,
+    predicted.benefit = pred.ben,
+    predicted.benefit.raw = pred.ben.raw
   ))
 }
 
