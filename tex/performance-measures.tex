@@ -1,0 +1,94 @@
+\documentclass[12pt]{article}
+
+\usepackage{hyperref,
+		    xcolor, 
+		    fancyhdr, 
+		    graphicx,
+		    caption,
+		    subcaption,
+		    float}
+
+			
+%%%%%%%%%%%%% LAYOUT %%%%%%	
+\usepackage[
+  top=2cm,
+  bottom=2cm,
+  left=1.5in,
+  right=1.5in,
+  headheight=17pt, % as per the warning by fancyhdr
+  includehead,includefoot,
+  heightrounded, % to avoid spurious underfull messages
+]{geometry} 
+
+
+\pagestyle{fancy}
+\fancyhf{} 
+\renewcommand{\headrulewidth}{1pt}
+\fancyfoot[C]{\thepage}
+\fancyhead[L]{\nouppercase{\leftmark}}
+\fancyhead[R]{Performance Measures}
+
+%%%%%%%% COLORS %%%
+\hypersetup{
+	hidelinks,
+    colorlinks = true,
+    linkbordercolor = {white},
+    citecolor = blue,
+    urlcolor = blue,
+    linkcolor = blue,
+    linktoc = all % make both sections and subsections in ToC clickable
+}
+
+% Figure caption options
+\captionsetup{labelfont = {bf, sc, color=blue}} % figure label 
+\captionsetup{font = {singlespacing, small}} % caption
+
+% name of ToC
+\renewcommand{\contentsname}{Table of Contents}
+
+
+%%%%%%%%%% BIBLIOGRAPHY %%%%
+\usepackage{natbib}
+\bibliographystyle{apalike}
+
+\begin{filecontents}{\jobname.bib}
+@article{steyerberg2010,
+  title={{Assessing the Performance of Prediction Models: A Framework for Some Traditional and Novel Measures}},
+  author={Steyerberg, Ewout W and Vickers, Andrew J and Cook, Nancy R and Gerds, Thomas and Gonen, Mithat and Obuchowski, Nancy and Pencina, Michael J and Kattan, Michael W},
+  journal={Epidemiology},
+  volume={21},
+  pages={128--138},
+  year={2010},
+  publisher={NIH Public Access}
+}
+
+\end{filecontents}
+
+%%%%%%%%%%%% DOCUMENT %%%%%%%
+
+\begin{document}
+This is based on \cite{steyerberg2010}. Let there be a given statistical prediction model. Measuring how close predictions are to the actual outcome can be done by measures such as explained variation ($R^2$). 
+
+
+\section{Traditional Performance Measures}
+Main focus is on distance between predicted outcome and actual outcome. For binary outcomes, $\hat{y} = p$, where $p$ is the predicted probability. 
+
+See Table 1 in \cite{steyerberg2010} for a nice overview.
+
+\subsection{Discrimination}
+Idea: ``do patients with the outcome have higher risk predictions than those without?''
+
+Accurate predictions discriminate between those with and those without the outcome. Several measures can be used to indicate how well we classify patients in a binary prediction problem. The concordance ($c$) statistic is the most commonly used performance measure to indicate the discriminative ability of generalized linear regression models. For a binary outcome, $c$ is identical to the area under the receiver operating characteristic (ROC) curve, which plots the sensitivity (true positive rate) against 1 – specificity (false positive rate) for consecutive cut- offs for the probability of an outcome.
+
+\subsection{Calibration}
+Idea: ``do close to x of 100 patients
+with a risk prediction of x\% have the outcome?''
+
+Calibration refers to the agreement between observed outcomes and predictions. For example, if we predict a 20\% risk of residual tumor for a testicular cancer patient, the observed frequency of tumor should be approximately 20 of 100 patients with such a prediction. A graphical assessment of calibration is possible, with predictions on the x-axis and the outcome on the y-axis. Perfect predictions should be on the 45-degree line. For binary data, smoothing techniques can be used to estimate the observed probabilities of the outcome ($p(y=1)$) in relation to the predicted probabilities (like loess).
+
+
+
+
+\bibliography{\jobname}
+\end{document}
+
