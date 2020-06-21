@@ -50,3 +50,7 @@ hist(risk.model$predicted.benefit, main = "Histogram of Predicted Benefit", xlab
 
 # calibration plot with the 4 quartiles
 calibration.plot(risk.model)
+
+# c index (based on second stage risk probabilities)
+risk    <- transform.to.probability(risk.model$risk.regular.w)
+c.index <- Hmisc::rcorr.cens(risk, y)[1]
