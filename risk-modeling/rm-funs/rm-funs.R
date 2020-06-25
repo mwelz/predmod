@@ -1,5 +1,8 @@
 
-quantile.group <- function(x, cutoffs){
+transform.to.probability <- function(x) 1 / (1 + exp(-x))
+
+
+quantile.group <- function(x, cutoffs = c(0.25, 0.5, 0.75)){
   # cutoffs are the quantile cutoffs (like c(0.25, 0.5, 0.75))
   q         <- quantile(x, cutoffs)
   q         <- c(-Inf, q, Inf)
@@ -55,7 +58,7 @@ risk.model.stage2 <- function(lp, y, w, lambda, offset.lp = TRUE ){
   mod.stage2 <- glmnet::glmnet(X.stage2, y, 
                                family = "binomial",
                                lambda = lambda,
-                               intercept = FALSE,
+                               intercept = TRUE,
                                offset = oset) 
   
   ### risk prediction:
@@ -75,8 +78,8 @@ risk.model.stage2 <- function(lp, y, w, lambda, offset.lp = TRUE ){
   
   # return
   return(list(mod.stage2 = mod.stage2,
-              risk.pred.regular = as.numeric(probs.regular),
-              risk.pred.flipped.w = as.numeric(probs.flipped.w)
+              risk.pred.regular = transform.to.probability(as.numeric(probs.regular)),
+              risk.pred.flipped.w = transform.to.probability(as.numeric(probs.flipped.w))
   ))
 }
 
@@ -96,28 +99,35 @@ risk.modeling <- function(X, w, y, alpha, offset.lp = TRUE){
   pred.ben.raw <- stage2$risk.pred.regular - stage2$risk.pred.flipped.w
   pred.ben     <- ifelse(w == 1, -pred.ben.raw, pred.ben.raw)
   
+  # coefficients
+  coefs.stage1 <- as.matrix(glmnet::coef.glmnet(stage1$models.stage1.cv, s = "lambda.min"))
+  coefs.stage2 <- as.matrix(glmnet::coef.glmnet(stage2$mod.stage2))
+  colnames(coefs.stage2) <- colnames(coefs.stage1) <- "Estimated Coefficient"
+  
+  
   return(list(
     inputs = list(X = X, w = w, y = y),
     mod.stage1 = stage1$models.stage1.cv,
     mod.stage2 = stage2$mod.stage2,
+    coefficients.stage1 = coefs.stage1,
+    coefficients.stage2 = coefs.stage2,
     linear.predictor = stage1$lp,
+    risk.baseline = transform.to.probability(stage1$lp),
     risk.regular.w = stage2$risk.pred.regular,
     risk.flipped.w = stage2$risk.pred.flipped.w,
     predicted.benefit = pred.ben,
-    predicted.benefit.raw = pred.ben.raw
+    predicted.benefit.raw = pred.ben.raw,
+    ate.hat = mean(pred.ben)
   ))
 }
 
 
-transform.to.probability <- function(x) 1 / (1 + exp(-x))
-
-
-get.benefits <- function(risk.model.obj, cutoffs){
+get.benefits <- function(risk.model.obj, cutoffs = c(0.25, 0.5, 0.75)){
   y <- risk.model.obj$inputs$y
   w <- risk.model.obj$inputs$w
   
-  # group observations by their quantile of predicted baseline risk (lp here)
-  quantile.groups <- quantile.group(risk.model.obj$linear.predictor, cutoffs)
+  # group observations by their quantile of predicted baseline risk
+  quantile.groups <- quantile.group(risk.model.obj$risk.baseline, cutoffs)
   
   # extract predicted benefit
   pred.ben <- risk.model.obj$predicted.benefit
@@ -149,7 +159,8 @@ get.benefits <- function(risk.model.obj, cutoffs){
   
   return(list(
     group.observed.benefit = obs.ben.mat,
-    group.predicted.benefit = pred.ben.mat
+    group.predicted.benefit = pred.ben.mat,
+    group.membership = quantile.groups
   ))
 }
 
