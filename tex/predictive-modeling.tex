@@ -82,17 +82,17 @@ In a first stage, we estimate the baseline mortality risk \textit{without} the i
 \end{equation}
 for $i=1,\dots,n$, where the $(p+1)$-vector $\mathbf{x}_i^* = (1, \mathbf{x}_i^\top)^\top$ was defined to accommodate an intercept term. Note that if we choose $g$ to be the logistic function, equation \eqref{eq:rm-stage1} corresponds to a logistic regression model.
 
-Suppose now that we have used equation \eqref{eq:rm-stage1} to estimate $\bm{\hat{\theta}}$ for a given choice of $g$. Then, given $\mathbf{X}_i = \mathbf{x}_i$, define the linear predictor $\widehat{lp}_i = \bm{\hat{\theta}}^\top \mathbf{x}_i^*$ and fix another linear mapping $h: \mathbb{R} \to (0,1)$. Then, in a second stage, estimate the two coefficients $\bm{\gamma} = (\gamma_0, \gamma_1)^\top$ in the model
+Suppose now that we have used equation \eqref{eq:rm-stage1} to estimate $\bm{\hat{\theta}}$ for a given choice of $g$. Then, given $\mathbf{X}_i = \mathbf{x}_i$, define the linear predictor $\widehat{lp}_i = \bm{\hat{\theta}}^\top \mathbf{x}_i^*$ and fix another linear mapping $h: \mathbb{R} \to (0,1)$. Then, in a second stage, estimate the three coefficients $\bm{\gamma} = (\gamma_0, \gamma_1, \gamma_2)^\top$ in the model
 
 \begin{equation}
 	\mathbb{P} \Big( Y_i = 1\ |\ \mathbf{X}_i = \mathbf{x}_i, W_i = w_i, \widehat{lp}_i \Big) 
 	=
 	h\Big( 
-	\widehat{lp}_i + \gamma_0 w_i + \gamma_1 (w_i \cdot \widehat{lp}_i)
+	\widehat{lp}_i + \gamma_0 + \gamma_1 w_i + \gamma_2 (w_i \cdot \widehat{lp}_i)
 	\Big),
 \end{equation}
 for $i=1,\dots,n$. This model estimates $\bm{\hat{\gamma}}$. Using this estimated coefficient vector $\bm{\hat{\gamma}}$, define $\widehat{\mathbb{P}}_i = h\Big( 
-	\widehat{lp}_i + \hat{\gamma}_0 w_i + \hat{\gamma}_1 (w_i \cdot \widehat{lp}_i)
+	\widehat{lp}_i + \hat{\gamma_0} + \hat{\gamma}_1 w_i + \hat{\gamma}_2 (w_i \cdot \widehat{lp}_i)
 	\Big)$, given $W_i = w_i$.
 
 Next, we then define a ``reversed'' treatment assignment $W_i^{rev}$ by  
@@ -104,7 +104,7 @@ Next, we then define a ``reversed'' treatment assignment $W_i^{rev}$ by
 	\end{cases},
 \]
 and use it to calculate $\widehat{\mathbb{P}}_i^{rev} = h\Big( 
-	\widehat{lp}_i + \hat{\gamma}_0 w_i^{rev} + \hat{\gamma}_1 (w_i^{rev} \cdot \widehat{lp}_i)
+	\widehat{lp}_i + \hat{\gamma}_0 + \hat{\gamma}_1 w_i^{rev} + \hat{\gamma}_2 (w_i^{rev} \cdot \widehat{lp}_i)
 	\Big)$, given $W_i^{rev} = w_i^{rev}$.
 	
 We can then estimate the predicted benefit $pb_i$ by

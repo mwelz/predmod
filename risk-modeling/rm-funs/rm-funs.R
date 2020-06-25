@@ -62,7 +62,10 @@ risk.model.stage2 <- function(lp, y, w, lambda, offset.lp = TRUE ){
                                offset = oset) 
   
   ### risk prediction:
-  ## Note: values aren't bounded by (0,1) because of lp. For true probabilities, set newoffset=0.
+  ## Note: This might be a bug in glmnet, but a nonzero offset causes the predicted 'probabilities' to 
+  # not be bounded by [0,1] anymore. Hence we need to apply to logistic transformation on them one more time
+  # (we do so in the 'return' line)
+  
   # 1) ordinary w
   probs.regular <- glmnet::predict.glmnet(mod.stage2, 
                                           newx = X.stage2,
