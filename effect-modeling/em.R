@@ -35,24 +35,26 @@ y1 <- rbinom(n, 1, pi1)
 y  <- ifelse(w == 1, y1, y0) # observed outcome
 
 ## predictive modeling approach:
+alpha <- 1
 
 effect.modeling <- function(x, w, y, alpha = alpha){
   # split the sample as suggested in Wasserman and Roeder (2009)
   n    <- nrow(x)
+  p    <- ncol(x)
   set1 <- sample(1:n, floor(0.5 * n), replace = FALSE)
   set2 <- setdiff(1:n, set1)
   
   # prepare the variable set as in rekkas2019:
-  colnames(x) <- paste0("x", 1:p)
+  colnames.orig     <- colnames(x)
+  colnames(x)       <- paste0("x", 1:p)
   interaction.terms <- sapply(1:p, function(j) ifelse(w == 1, x[,j], 0))
   interaction.terms <- cbind(w, interaction.terms)
-  colnames(interaction.terms) <- c("w", paste0("w.", colnames(x)))
-  x.star <- cbind(x, interaction.terms)
-  alpha <- 1 
-  
+  colnames(interaction.terms) <- c("w.w", paste0("w.", colnames(x)))
+  x.star            <- cbind(x, interaction.terms)
+
   # stage 1: penalized regression on whole set x.star
-  mod.pm        <- glmnet::cv.glmnet(x.star[set1,], y[set1], family = "binomial", alpha = alpha, 
-                                     nfolds = 10)
+  mod.pm <- glmnet::cv.glmnet(x.star[set1,], y[set1], family = "binomial", alpha = alpha, 
+                              nfolds = 10)
   
   # stage 2: perform variable selection based on the "best" model
   coefs.obj     <- glmnet::coef.glmnet(mod.pm, s = "lambda.min")
@@ -95,11 +97,24 @@ effect.modeling <- function(x, w, y, alpha = alpha){
   # if we reject the null, go with the smaller (the reduced model) to make risk predictions
   probs <- unname(predict.glm(final.model, newdata = as.data.frame(x.final), type = "response"))
   
+  # get predicted benefit by flipping w
+  kept.x <- colnames(x.final)[startsWith(colnames(x.final), "x")]
+  kept.w <- sub(".*\\.", "", colnames(x.final)[startsWith(colnames(x.final), "w.")])
+  x.star <- cbind(x, w = ifelse(w == 1, 0, 1))
+  interaction.terms.flipped <- sapply(kept.w, 
+                                      function(j) ifelse(w == 1, 0, x.star[,j]))
+  x.rev <- cbind(x[,kept.x], interaction.terms.flipped)
+  
+  probs.flipped.w <- predict.glm(final.model, 
+                                 newx = x.rev,
+                                 type = "response")
+  
   return(list(
     formula.final.model = formula.final.model,
     x.final = x.final,
     final.model = final.model,
     probs = probs,
+    probs.flipped.w = probs.flipped.w,
     test.stat = test.stat,
     df = df,
     pval = pval
@@ -107,8 +122,7 @@ effect.modeling <- function(x, w, y, alpha = alpha){
 }
 
 
-foo <- effect.modeling(x, w, y, alpha = 1)
-  
 # TODO: bugfix in risk modeling functions: the kept.vars index at 0 refers to the coefficient, so we do not have zero indexing! (like the way we did it here)
 # standardization of X before Lasso; see ESL p. 63
-  
+# TODO: interaction effects are not necessarily included for each variable. Make this optional.
+# TODO: colnames.orig and colnames in x.final, formulas, and final.model! Right now, it reads w.w everywhere! Maybe do if(w.w %in% x.final){gsub(replace w.w with w in these objects)}
