@@ -201,4 +201,145 @@ calibration.plot <- function(risk.model.obj, quantiles = c(0.25, 0.5, 0.75), alp
 }
 
 
+effect.modeling <- function(x, w, y, 
+                            alpha = alpha, 
+                            interaction.vars = interaction.vars,
+                            sig.level = 0.05, ...){
+  
+  ### 0. preparation ----
+  # split the sample as suggested in Wasserman and Roeder (2009)
+  n    <- nrow(x)
+  p    <- ncol(x)
+  set1 <- sample(1:n, floor(0.5 * n), replace = FALSE)
+  set2 <- setdiff(1:n, set1)
+  
+  # prepare the variable set as in rekkas2019:
+  colnames.orig     <- colnames(x)
+  colnames(x)       <- paste0("x", 1:p)
+  
+  if(is.null(interaction.vars)){
+    interaction.vars <- colnames(x)
+  } else{
+    interaction.vars <- paste0("x", which(colnames.orig %in% interaction.vars))
+  }
+  
+  # add interaction variables
+  interaction.terms <- sapply(which(colnames(x) %in% interaction.vars),
+                              function(j) ifelse(w == 1, x[,j], 0))
+  
+  interaction.terms <- cbind(w, interaction.terms)
+  colnames(interaction.terms) <- c("w", paste0("w.", interaction.vars))
+  x.star <- cbind(x, interaction.terms)
+  
+  ### 1. stage 1: penalized regression on whole set  ----
+  # whole set is x.star. We apply sample splitting as suggested in Wasserman and Roeder (2009)
+  mod.pm <- glmnet::cv.glmnet(x.star[set1,], y[set1], family = "binomial", alpha = alpha, ...)
+  
+  ### 2. stage 2: perform variable selection based on the "best" model ----
+  coefs.obj     <- glmnet::coef.glmnet(mod.pm, s = "lambda.min")
+  kept.vars     <- coefs.obj@i 
+  if(0 %in% kept.vars){
+    kept.vars <- kept.vars[-which(kept.vars == 0)]
+  }
+  kept.vars.nam <- colnames(x.star)[kept.vars]
+  
+  ### 3. stage 3: perform chi-squared test on significance of interactions in the "best" model ----
+  # big model
+  x.kept <- x.star[, kept.vars.nam]
+  
+  # reduced model: (X_lambda, w), where X_lambda are the retained (by the lasso) initial variables
+  kept.vars.no.x.nam <- 
+    kept.vars.nam[grepl(pattern = "w.", x = kept.vars.nam, fixed = TRUE)]
+  x.star.red <- x.kept[, -which(kept.vars.nam %in% kept.vars.no.x.nam)]
+  
+  # fit both large and reduced model
+  fit.1     <- glm(y ~., data = data.frame(y, x.kept)[set2,], family = binomial)
+  fit.0     <- glm(y ~., data = data.frame(y, x.star.red)[set2,], family = binomial) # reduced model
+  formula.0 <- paste0("y ~ ", paste(colnames(x.star.red), collapse = " + "))
+  formula.1 <- paste0("y ~ ", paste(colnames(x.kept), collapse = " + "))
+  
+  # perform likelihood ratio test
+  test.stat <- fit.0$deviance - fit.1$deviance
+  df        <- fit.0$df.residual - fit.1$df.residual
+  pval      <- pchisq(test.stat, df, lower.tail = FALSE)
+  
+  # if we reject the null, go with the smaller (the reduced model) to make risk predictions
+  if(pval < sig.level){
+    final.model         <- fit.0
+    x.final             <- x.star.red
+  } else{
+    final.model         <- fit.1
+    x.final             <- x.kept
+  }
+  
+  ### 4. use the final model to obtain risk estimates ----
+  
+  # risk with regular w
+  probs <- unname(predict.glm(final.model,
+                              newdata = as.data.frame(x.final), 
+                              type = "response"))
+  
+  # get risk with flipped w
+  kept.x <- colnames(x.final)[startsWith(colnames(x.final), "x")]
+  kept.w <- sub(".*\\.", "", colnames(x.final)[startsWith(colnames(x.final), "w")])
+  x.star <- cbind(x, w = ifelse(w == 1, 0, 1))
+  interaction.terms.flipped <- sapply(kept.w, 
+                                      function(j) ifelse(w == 1, 0, x.star[,j]))
+  x.rev <- cbind(x[,kept.x], interaction.terms.flipped)
+  colnames(x.rev) <- colnames(x.final)
+  probs.flipped.w <- unname(predict.glm(final.model, 
+                                        newdata = as.data.frame(x.rev),
+                                        type = "response"))
+  
+  # get predicted benefit
+  pred.ben.raw <- probs - probs.flipped.w
+  pred.ben     <- ifelse(w == 1, -pred.ben.raw, pred.ben.raw)
+  
+  
+  ### 5. housekeeping: make sure the naming is consistent
+  # update variable names
+  colnames.final.temp <- colnames(x.final)
+  colnames.final      <- rep(NA_character_, length(colnames.final.temp))
+  
+  for(i in 1:p){
+    idx <- grepl(pattern = paste0("x", i), x = colnames.final.temp, fixed = TRUE)
+    colnames.final[idx] <- gsub(paste0("x", i), colnames.orig[i], colnames.final.temp[idx])
+  }
+  colnames.final[is.na(colnames.final)] <- "w" # fill up 'w'
+  colnames(x.final)                     <- colnames.final
+  colnames(x)                           <- colnames.orig
+  formula.final.model                   <- paste0("y ~ ", 
+                                                  paste(colnames.final, collapse = " + "))
+  
+  # coefficients
+  coefficients <- final.model$coefficients
+  names(coefficients) <- c("(Intercept)", colnames.final)
+  
+  ## 5. fit baseline risk  ----
+  # no information on w allowed, so we cannot use the retained variables from the effect modeling
+  baseline.mod <- risk.model.stage1(X = x, y = y, alpha = alpha)
+  basline.risk <- transform.to.probability(baseline.mod$lp)
+  
+  ## 6. return ----
+  return(list(
+    inputs = list(X = x, w = w, y = y),
+    baseline.model = baseline.mod,
+    effect.model = list(formula = formula.final.model, 
+                        selected.data = x.final,
+                        glm.obj = final.model,
+                        coefficients = coefficients,
+                        model.building = list(test.stat = test.stat,
+                                              df = df,
+                                              pval = pval)),
+    risk.regular.w = probs,
+    risk.flipped.w = probs.flipped.w,
+    risk.baseline = basline.risk,
+    predicted.benefit = pred.ben,
+    predicted.benefit.raw = pred.ben.raw,
+    ate.hat = mean(pred.ben),
+    type = "effect.modeling"
+  ))
+}
+
+
 # TODO: remove unneccesary functions before execution

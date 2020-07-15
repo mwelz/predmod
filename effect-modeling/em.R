@@ -1,5 +1,8 @@
 rm(list = ls()) ; cat("\014")
 
+# load the helper functions
+source(paste0(getwd(), "/risk-modeling/rm-funs/rm-funs.R"))
+
 # define the logistic function
 logistic <- function(x) 1 / (1 + exp(-x))
 
@@ -36,93 +39,11 @@ y  <- ifelse(w == 1, y1, y0) # observed outcome
 
 ## predictive modeling approach:
 alpha <- 1
+colnames(x) <- paste0("z_", 1:ncol(x))
+interaction.vars <- c("z_2", "z_3", "z_4")
 
-effect.modeling <- function(x, w, y, alpha = alpha){
-  # split the sample as suggested in Wasserman and Roeder (2009)
-  n    <- nrow(x)
-  p    <- ncol(x)
-  set1 <- sample(1:n, floor(0.5 * n), replace = FALSE)
-  set2 <- setdiff(1:n, set1)
-  
-  # prepare the variable set as in rekkas2019:
-  colnames.orig     <- colnames(x)
-  colnames(x)       <- paste0("x", 1:p)
-  interaction.terms <- sapply(1:p, function(j) ifelse(w == 1, x[,j], 0))
-  interaction.terms <- cbind(w, interaction.terms)
-  colnames(interaction.terms) <- c("w.w", paste0("w.", colnames(x)))
-  x.star            <- cbind(x, interaction.terms)
 
-  # stage 1: penalized regression on whole set x.star
-  mod.pm <- glmnet::cv.glmnet(x.star[set1,], y[set1], family = "binomial", alpha = alpha, 
-                              nfolds = 10)
-  
-  # stage 2: perform variable selection based on the "best" model
-  coefs.obj     <- glmnet::coef.glmnet(mod.pm, s = "lambda.min")
-  kept.vars     <- coefs.obj@i 
-  if(0 %in% kept.vars){
-    kept.vars <- kept.vars[-which(kept.vars == 0)]
-  }
-  
-  
-  # stage 3: perform chi-squared test on model with kept variables and other set
-  # big model
-  x.kept <- x.star[, kept.vars]
-  
-  # reduced model: (X_lambda, w), where X_lambda are the retained (by the lasso) initial variables 
-  x.star.red <- x.star[, 1:(p + 1)]
-  x.star.red <- x.star.red[, (kept.vars <= (p + 1))[1:(p+1)]]
-  
-  # fit both large and reduced model
-  fit.1     <- glm(y ~., data = data.frame(y, x.kept)[set2,], family = binomial)
-  fit.0     <- glm(y ~., data = data.frame(y, x.star.red)[set2,], family = binomial) # reduced model
-  formula.0 <- paste0("y ~ ", paste(colnames(x.star.red), collapse = " + "))
-  formula.1 <- paste0("y ~ ", paste(colnames(x.kept), collapse = " + "))
-  
-  # perform likelihood ratio test
-  test.stat <- fit.0$deviance - fit.1$deviance
-  df        <- fit.0$df.residual - fit.1$df.residual
-  pval      <- pchisq(test.stat, df, lower.tail = FALSE)
-  
-  # if we reject the null, go with the smaller (the reduced model) to make risk predictions
-  if(pval < 0.05){
-    final.model         <- fit.0
-    x.final             <- x.star.red
-    formula.final.model <- formula.0
-  } else{
-    final.model         <- fit.1
-    x.final             <- x.kept
-    formula.final.model <- formula.1
-  }
-  
-  # if we reject the null, go with the smaller (the reduced model) to make risk predictions
-  probs <- unname(predict.glm(final.model, newdata = as.data.frame(x.final), type = "response"))
-  
-  # get predicted benefit by flipping w
-  kept.x <- colnames(x.final)[startsWith(colnames(x.final), "x")]
-  kept.w <- sub(".*\\.", "", colnames(x.final)[startsWith(colnames(x.final), "w.")])
-  x.star <- cbind(x, w = ifelse(w == 1, 0, 1))
-  interaction.terms.flipped <- sapply(kept.w, 
-                                      function(j) ifelse(w == 1, 0, x.star[,j]))
-  x.rev <- cbind(x[,kept.x], interaction.terms.flipped)
-  
-  probs.flipped.w <- predict.glm(final.model, 
-                                 newx = x.rev,
-                                 type = "response")
-  
-  return(list(
-    formula.final.model = formula.final.model,
-    x.final = x.final,
-    final.model = final.model,
-    probs = probs,
-    probs.flipped.w = probs.flipped.w,
-    test.stat = test.stat,
-    df = df,
-    pval = pval
-  ))
-}
-
+foo <- effect.modeling(x, w, y, alpha, interaction.vars = interaction.vars)
 
 # TODO: bugfix in risk modeling functions: the kept.vars index at 0 refers to the coefficient, so we do not have zero indexing! (like the way we did it here)
 # standardization of X before Lasso; see ESL p. 63
-# TODO: interaction effects are not necessarily included for each variable. Make this optional.
-# TODO: colnames.orig and colnames in x.final, formulas, and final.model! Right now, it reads w.w everywhere! Maybe do if(w.w %in% x.final){gsub(replace w.w with w in these objects)}
