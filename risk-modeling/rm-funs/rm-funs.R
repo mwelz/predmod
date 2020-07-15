@@ -31,9 +31,10 @@ risk.model.stage1 <- function(X, y, alpha = 1){
   models.stage1 <- glmnet::cv.glmnet(X, y, family = "binomial", alpha = alpha)
   lambda        <- models.stage1$lambda.min # best lambda (needs to be fixed in second stage)
   coefs.obj     <- glmnet::coef.glmnet(models.stage1, s = "lambda.min")
-  kept.vars     <- coefs.obj@i + 1 # adjust for zero-indexing
+  kept.vars     <- coefs.obj@i
+  if(0 %in% kept.vars) kept.vars <- kept.vars[-which(kept.vars == 0)]
   coefs         <- coefs.obj@x
-  X.star        <- cbind(intercept = 1, X)[,kept.vars]
+  X.star        <- cbind(intercept = 1, X[,kept.vars])
   lp            <- as.numeric(X.star %*% coefs)
   
   return(list(
@@ -137,7 +138,7 @@ get.benefits <- function(risk.model.obj, cutoffs = c(0.25, 0.5, 0.75)){
   
   ## calculate observed benefit and predicted benefit for each quantile group
   # initialize
-  obs.ben.mat           <- as.data.frame(matrix(NA, ncol(quantile.groups), 4))
+  obs.ben.mat           <- as.data.frame(matrix(NA_real_, ncol(quantile.groups), 4))
   colnames(obs.ben.mat) <- c("quantile", "mean", "stderr", "df")
   obs.ben.mat$quantile  <- gsub(" .*$", "", colnames(quantile.groups))
   pred.ben.mat          <- obs.ben.mat
@@ -203,7 +204,7 @@ calibration.plot <- function(risk.model.obj, quantiles = c(0.25, 0.5, 0.75), alp
 
 effect.modeling <- function(x, w, y, 
                             alpha = alpha, 
-                            interaction.vars = interaction.vars,
+                            interactions = NULL,
                             sig.level = 0.05, ...){
   
   ### 0. preparation ----
@@ -214,13 +215,17 @@ effect.modeling <- function(x, w, y,
   set2 <- setdiff(1:n, set1)
   
   # prepare the variable set as in rekkas2019:
-  colnames.orig     <- colnames(x)
-  colnames(x)       <- paste0("x", 1:p)
+  if(!is.null(colnames(x))){
+    colnames.orig <- colnames(x)
+  } else{
+    colnames.orig <- paste0("x", 1:p)
+  }
+  colnames(x)     <- paste0("x", 1:p)
   
-  if(is.null(interaction.vars)){
+  if(is.null(interactions)){
     interaction.vars <- colnames(x)
   } else{
-    interaction.vars <- paste0("x", which(colnames.orig %in% interaction.vars))
+    interaction.vars <- paste0("x", which(colnames.orig %in% interactions))
   }
   
   # add interaction variables
