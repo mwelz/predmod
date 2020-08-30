@@ -1,7 +1,7 @@
 rm(list = ls()) ; cat("\014")
 
 # load the helper functions
-source(paste0(getwd(), "/risk-modeling/rm-funs/rm-funs.R"))
+source(paste0(getwd(), "/tester-funs.R"))
 
 # define the logistic function
 logistic <- function(x) 1 / (1 + exp(-x))
@@ -26,7 +26,7 @@ theta <- c(0.2, 0.5, -0.3, 0.7, -0.1, 0.4)
 # compute Pr(Y = 1 | X) for each individual (with noise)
 eps <-  rnorm(n, mean = 0, sd = 0.5)
 #pi1 <- logistic(tau + as.numeric(cbind(1, x) %*% theta) + eps)
-pi1 <- logistic(as.numeric(cbind(1, x) %*% theta) + eps) * 0.8
+pi1 <- logistic(as.numeric(cbind(1, x) %*% theta) + eps) * 0.4 # relatively 20% reduction. Absolutely it will differ.
 pi0 <- logistic(as.numeric(cbind(1, x) %*% theta) + eps)
 hte <- pi1 - pi0
 
@@ -44,6 +44,9 @@ ate.hat - ate # accurate estimation!
 
 ### 1. risk modeling ----
 risk.model <- risk.modeling(X = x, w = w, y = y, alpha = 1, offset.lp = TRUE)
+
+ben <- get.benefits(risk.model)
+ben$group.predicted.benefit
 
 # calibration plot with the 4 quartiles
 calibration.plot(risk.model)

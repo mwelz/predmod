@@ -155,7 +155,7 @@ get.benefits <- function(pred.model.obj,
   } else{
     pred.ben <- pred.model.obj$predicted.absolute.benefit
   }
-  
+ 
   ## calculate observed benefit and predicted benefit for each quantile group
   # initialize
   obs.ben.mat           <- as.data.frame(matrix(NA_real_, ncol(quantile.groups), 4))
@@ -349,12 +349,12 @@ effect.modeling <- function(x, w, y,
   
   # get observed predicted benefit
   pred.ben.abs.raw <- probs - probs.flipped.w
-  pred.ben.abs     <- ifelse(w == 1, -pred.ben.abs.raw, pred.ben.abs.raw)
+  pred.ben.abs     <- ifelse(w == 1, -pred.ben.raw, pred.ben.raw)
   
   # get relative predicted benefit
   pred.ben.rel.raw <- probs / probs.flipped.w
   pred.ben.rel     <- ifelse(w == 1, pred.ben.rel.raw, 1 / pred.ben.rel.raw)
-  
+
   
   ### 5. housekeeping: make sure the naming is consistent
   # update variable names

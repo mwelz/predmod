@@ -107,13 +107,9 @@ risk.modeling <- function(X, w, y, alpha, offset.lp = TRUE){
                               lambda = stage1$lambda.min,
                               offset.lp = offset.lp)
   
-  # absolute predicted benefit
-  pred.ben.abs.raw <- stage2$risk.pred.regular - stage2$risk.pred.flipped.w
-  pred.ben.abs     <- ifelse(w == 1, -pred.ben.abs.raw, pred.ben.abs.raw)
-  
-  # relative predicted benefit
-  pred.ben.rel.raw <- stage2$risk.pred.regular / stage2$risk.pred.flipped.w
-  pred.ben.rel     <- ifelse(w == 1, pred.ben.rel.raw, 1 / pred.ben.rel.raw)
+  # predicted benefit
+  pred.ben.raw <- stage2$risk.pred.regular - stage2$risk.pred.flipped.w
+  pred.ben     <- ifelse(w == 1, -pred.ben.raw, pred.ben.raw)
   
   # coefficients
   coefs.stage1 <- as.matrix(glmnet::coef.glmnet(stage1$models.stage1.cv, s = "lambda.min"))
@@ -131,30 +127,24 @@ risk.modeling <- function(X, w, y, alpha, offset.lp = TRUE){
     risk.baseline = transform.to.probability(stage1$lp),
     risk.regular.w = stage2$risk.pred.regular,
     risk.flipped.w = stage2$risk.pred.flipped.w,
-    predicted.absolute.benefit = pred.ben.abs,
-    predicted.absolute.benefit.raw = pred.ben.abs.raw,
-    predicted.relative.benefit = pred.ben.rel,
-    predicted.relative.benefit.raw = pred.ben.rel.raw,
-    ate.hat = mean(pred.ben.abs)
+    predicted.benefit = pred.ben,
+    predicted.benefit.raw = pred.ben.raw,
+    ate.hat = mean(pred.ben)
   ))
 }
 
 
-get.benefits <- function(pred.model.obj, 
-                         cutoffs = c(0.25, 0.5, 0.75),
-                         relative = FALSE){
-  y <- pred.model.obj$inputs$y
-  w <- pred.model.obj$inputs$w
+get.benefits <- function(risk.model.obj, cutoffs = c(0.25, 0.5, 0.75)){
+  y <- risk.model.obj$inputs$y
+  w <- risk.model.obj$inputs$w
   
   # group observations by their quantile of predicted baseline risk
-  quantile.groups <- quantile.group(pred.model.obj$risk.baseline, cutoffs)
+  quantile.groups <- quantile.group(risk.model.obj$risk.baseline, cutoffs)
   
-  # get predicted benefit (relative or absolute, depends on input)
-  if(relative){
-    pred.ben <- pred.model.obj$predicted.relative.benefit
-  } else{
-    pred.ben <- pred.model.obj$predicted.absolute.benefit
-  }
+  # We changed it from absolute predicted benefit to relative predicted benefit
+  # pred.ben <- risk.model.obj$predicted.benefit # this is absolute
+  pred.ben.raw <- risk.model.obj$risk.regular.w / risk.model.obj$risk.flipped.w
+  pred.ben     <- ifelse(w == 1, pred.ben.raw, 1 / pred.ben.raw)
   
   ## calculate observed benefit and predicted benefit for each quantile group
   # initialize
@@ -166,21 +156,14 @@ get.benefits <- function(pred.model.obj,
   for(i in 1:ncol(quantile.groups)){
     group <- quantile.groups[,i]
     
-    
-    if(!relative){
-      ## observed absolute benefit
-      # corresponds to difference in mean(y[group & W=w])
-      ttest                    <- t.test(y[group & w == 1], y[group & w == 0])
-      obs.ben.mat[i, "mean"]   <- unname(ttest$estimate[1] - ttest$estimate[2])
-      obs.ben.mat[i, "stderr"] <- unname(ttest$stderr) 
-      obs.ben.mat[i, "df"]     <- unname(ttest$parameter)
-    } else{
-      ## observed relative benefit
-      ttest                    <- t.test(y[group & w == 1], y[group & w == 0])
-      obs.ben.mat[i, "mean"]   <- mean(y[group & w == 1]) / mean(y[group & w == 0])
-      obs.ben.mat[i, "stderr"] <- unname(ttest$stderr) # TODO: wrong, check how it works!
-      obs.ben.mat[i, "df"]     <- sum(group) - 1  
-    } # IF
+    ## observed benefit
+    # corresponds to difference in mean(y[group & W=w])
+    x1                        <- y[group & w == 1]
+    x2                        <- y[group & w == 0]
+    ttest                     <- t.test(x1, x2)
+    obs.ben.mat[i, "mean"]    <- unname(ttest$estimate[1] / ttest$estimate[2]) # divide
+    obs.ben.mat[i, "stderr"]  <- unname(ttest$stderr) # TODO: this is done in excel file: rate ratio(poisson). Or binomial
+    obs.ben.mat[i, "df"]      <- unname(ttest$parameter)
     
     ## group by predicted benefit
     pred.ben.mat[i, "mean"]   <- mean(pred.ben[group])
@@ -196,16 +179,10 @@ get.benefits <- function(pred.model.obj,
 }
 
 
-calibration.plot <- function(pred.model.obj,
-                             quantiles = c(0.25, 0.5, 0.75), 
-                             relative = FALSE,
-                             title = NULL,
-                             alpha.significance = 0.05){
+calibration.plot <- function(risk.model.obj, quantiles = c(0.25, 0.5, 0.75), alpha.significance = 0.05){
   
   # get observed and predicted benefit by quantile group
-  benefits <- get.benefits(pred.model.obj = pred.model.obj, 
-                           cutoffs = quantiles, 
-                           relative = relative)
+  benefits <- get.benefits(risk.model.obj, cutoffs = quantiles)
   
   # make everything positive for visualization
   benefits$group.predicted.benefit$mean <- abs(benefits$group.predicted.benefit$mean) 
@@ -221,20 +198,13 @@ calibration.plot <- function(pred.model.obj,
   
   # the plot
   library(ggplot2)
-  
-  # make sure risk quantile is in correct order
-  risk.quantile <- factor(benefits$group.observed.benefit$quantile)
-  lv <- levels(risk.quantile)
-  lv <- lv[order.intervals(lv, quantile.nam = TRUE)]
-  risk.quantile <- factor(risk.quantile, levels = lv)
-  
   df <- data.frame(pb.means = benefits$group.predicted.benefit$mean,
                    ob.means = benefits$group.observed.benefit$mean,
                    ob.means.ci.up = benefits$group.observed.benefit$mean + whisker.obs.ben,
                    ob.means.ci.lo = benefits$group.observed.benefit$mean - whisker.obs.ben,
-                   risk.quantile = risk.quantile)
+                   risk.quantile = factor(benefits$group.observed.benefit$quantile))
   
-  if(is.null(title)) title <- "Calibration plot"
+  df$risk.quantile <- with(df, reorder(risk.quantile, ob.means)) # reorder for the legend
   
   ggplot(mapping = aes(x = pb.means,
                        y = ob.means, color = risk.quantile), data = df) +
@@ -245,11 +215,8 @@ calibration.plot <- function(pred.model.obj,
     geom_vline(xintercept = 0, linetype = 2) +
     geom_abline(intercept = 0, slope = 1) +
     coord_cartesian(xlim = limits, ylim = limits) +
-    labs(x = ifelse(relative, "Predicted relative benefit", "Predicted absolute benefit"),
-         y = "Observed benefit") +
-    theme_classic() +
-    ggtitle(title) +
-    theme(legend.position = "bottom")
+    labs(x = "Predicted benefit", y = "Observed benefit") +
+    theme_classic()
 }
 
 
@@ -347,13 +314,9 @@ effect.modeling <- function(x, w, y,
                                         newdata = as.data.frame(x.rev),
                                         type = "response"))
   
-  # get observed predicted benefit
-  pred.ben.abs.raw <- probs - probs.flipped.w
-  pred.ben.abs     <- ifelse(w == 1, -pred.ben.abs.raw, pred.ben.abs.raw)
-  
-  # get relative predicted benefit
-  pred.ben.rel.raw <- probs / probs.flipped.w
-  pred.ben.rel     <- ifelse(w == 1, pred.ben.rel.raw, 1 / pred.ben.rel.raw)
+  # get predicted benefit
+  pred.ben.raw <- probs - probs.flipped.w
+  pred.ben     <- ifelse(w == 1, -pred.ben.raw, pred.ben.raw)
   
   
   ### 5. housekeeping: make sure the naming is consistent
@@ -399,15 +362,12 @@ effect.modeling <- function(x, w, y,
     risk.regular.w = probs,
     risk.flipped.w = probs.flipped.w,
     risk.baseline = basline.risk,
-    predicted.absolute.benefit = pred.ben.abs,
-    predicted.absolute.benefit.raw = pred.ben.abs.raw,
-    predicted.relative.benefit = pred.ben.rel,
-    predicted.relative.benefit.raw = pred.ben.rel.raw,
-    ate.hat = mean(pred.ben.abs)
+    predicted.benefit = pred.ben,
+    predicted.benefit.raw = pred.ben.raw,
+    ate.hat = mean(pred.ben),
+    type = "effect.modeling"
   ))
 }
-
-
 
 
 group.static <- function(x, group.bounds){
@@ -440,8 +400,7 @@ group.static <- function(x, group.bounds){
 }
 
 
-subgroup.plot <- function(pred.model.obj, x, 
-                          relative = FALSE,
+subgroup.plot <- function(pred.mod.obj, x, 
                           group.bounds = NULL, 
                           quantile.bounds = c(0.25, 0.5, 0.75), 
                           quantile.nam = TRUE,
@@ -452,24 +411,21 @@ subgroup.plot <- function(pred.model.obj, x,
   if(!is.null(group.bounds) & !is.list(group.bounds)) stop("group.bounds needs to be a list")
   
   if(!is.null(group.bounds)){
-    x.group.mat <- group.static(x, group.bounds = group.bounds)
+    x.group.mat <- group.static(x, group.bounds)
   } else if(!is.null(quantile.bounds)){
-    x.group.mat <- quantile.group(x, cutoffs = quantile.bounds, quantile.nam = quantile.nam)
+    x.group.mat <- quantile.group(x, quantile.bounds, quantile.nam)
   } else stop("Please specify quantile bounds or group bounds")
   
   
   # x-axis: risk group
-  risk.group.mat <- quantile.group(pred.model.obj$risk.baseline, risk.quantile.bounds) 
+  risk.group.mat <- quantile.group(pred.mod.obj$risk.baseline, risk.quantile.bounds) 
   risk.group <- rep(NA_character_, length(x))
   for(nam in colnames(risk.group.mat)){
     risk.group[which(risk.group.mat[,nam])] <- nam
   }
   
-  # drop the word 'quantile' and make sure x-axis is in logical order
+  # drop the word 'quantile'
   risk.group <- factor(gsub( " .*$", "", risk.group))
-  lv <- levels(risk.group)
-  lv <- lv[order.intervals(lv, quantile.nam = TRUE)]
-  risk.group <- factor(risk.group, levels = lv)
   
   ## group by x's values
   x.group <- rep(NA_character_, length(x))
@@ -477,55 +433,22 @@ subgroup.plot <- function(pred.model.obj, x,
     x.group[which(x.group.mat[,nam])] <- nam
   }
   
-  if(quantile.nam){
-    # drop the word 'quantile' and make sure groups are in logical order
-    x.group <- factor(gsub( " .*$", "", x.group))
-    lv <- levels(x.group)
-    lv <- lv[order.intervals(lv, quantile.nam = TRUE)]
-    x.group <- factor(x.group, levels = lv)
-    leg.tit <- paste0("Quantile of ", deparse(substitute(x)))
-  } else{
-    x.group <- factor(gsub( " .*$", "", x.group))
-    lv <- levels(x.group)
-    lv <- lv[order.intervals(lv, quantile.nam = FALSE)]
-    x.group <- factor(x.group, levels = lv)
-    leg.tit <- paste0("Group of ", deparse(substitute(x)))
-  }
-  
   # y-axis: predicted benefit
-  if(relative){
-    pred.ben <- pred.model.obj$predicted.relative.benefit
-  } else{
-    pred.ben <- pred.model.obj$predicted.absolute.benefit
-  }
+  #pred.ben <- risk.model$predicted.benefit # abolue. Relative is below
+  pred.ben.raw <- pred.mod.obj$risk.regular.w / pred.mod.obj$risk.flipped.w
+  pred.ben     <- ifelse(pred.mod.obj$inputs$w == 1, pred.ben.raw, 1 / pred.ben.raw)
   
   # prepare data frame
   df <- na.omit(data.frame(pred.ben, risk.group, x.group))
-  
   library(ggplot2)
   
   ggplot(data = df, aes(x = risk.group, y = pred.ben, fill = x.group)) + 
     geom_boxplot() +
     theme_bw() +
     xlab("Baseline risk quantile") +
-    ylab(ifelse(relative, "Predicted relative benefit", "Predicted absolute benefit")) +
-    scale_fill_discrete(name = leg.tit) +
-    theme(legend.position = "bottom")
-}
-
-order.intervals <- function(intervals, quantile.nam){
-  if(quantile.nam){
-    is.first <- startsWith(intervals, "<")
-    is.last  <- startsWith(intervals, ">")
-    cut      <- as.numeric(gsub("[^0-9.-]", "",  gsub(",.*", "", intervals)))
-    cut[is.first] <- -Inf
-    cut[is.last]  <- Inf
-    ord           <- order(cut, decreasing = FALSE)
-  } else{
-    ord <- order(as.numeric(substr(gsub(",.*", "", intervals), 2, 1e8)), 
-                 decreasing = FALSE)
-  }
-  return(ord)
+    ylab("Predicted benefit") +
+    scale_fill_discrete(name = "Group") +
+    ggtitle(deparse(substitute(x)))
 }
 
 # TODO: remove unneccesary functions before execution
