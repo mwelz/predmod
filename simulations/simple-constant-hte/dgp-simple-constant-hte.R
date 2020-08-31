@@ -1,7 +1,7 @@
 rm(list = ls()) ; cat("\014")
 
 # load the helper functions
-source(paste0(getwd(), "/risk-modeling/rm-funs/rm-funs.R"))
+source(paste0(getwd(), "/funs/estimation-funs.R"))
 
 # define the logistic function
 logistic <- function(x) 1 / (1 + exp(-x))
@@ -42,19 +42,19 @@ y  <- ifelse(w == 1, y1, y0) # observed outcome
 risk.model <- risk.modeling(X = x, w = w, y = y, alpha = 1, offset.lp = TRUE)
 
 
-pdf(file = paste0(getwd(), "/tester-plots/const-rm-calibration-relative.pdf"))
+pdf(file = paste0(getwd(), "/plots/const-rm-calibration-relative.pdf"))
 calibration.plot(risk.model, relative = TRUE, title = "Risk Model, Calibration: Predicted Relative Benefit")
 dev.off()
 
-pdf(file = paste0(getwd(), "/tester-plots/const-rm-calibration-absolute.pdf"))
+pdf(file = paste0(getwd(), "/plots/const-rm-calibration-absolute.pdf"))
 calibration.plot(risk.model, relative = FALSE, title = "Risk Model, Calibration: Predicted Absolute Benefit")
 dev.off()
 
-pdf(file = paste0(getwd(), "/tester-plots/const-rm-subgroup-absolute.pdf"))
+pdf(file = paste0(getwd(), "/plots/const-rm-subgroup-absolute.pdf"))
 subgroup.plot(risk.model, x[,1], relative = FALSE)
 dev.off()
 
-pdf(file = paste0(getwd(), "/tester-plots/const-rm-subgroup-relative.pdf"))
+pdf(file = paste0(getwd(), "/plots/const-rm-subgroup-relative.pdf"))
 subgroup.plot(risk.model, x[,1], relative = TRUE)
 dev.off()
 
@@ -78,9 +78,9 @@ grf.obj <- list()
 grf.obj$risk.baseline <- as.numeric(rf$predictions)
 grf.obj$predicted.absolute.benefit <- as.numeric(cf$predictions)
 grf.obj$inputs <- list(X = x, w = w, y = y)
-pdf(file = paste0(getwd(), "/tester-plots/const-cf-calibration-absolute.pdf"))
+pdf(file = paste0(getwd(), "/plots/const-cf-calibration-absolute.pdf"))
 calibration.plot(grf.obj, relative = FALSE, title = "Causal Forest, Calibration: Predicted Absolute Benefit") # TODO: make doubly robust
 dev.off()
 grf::average_treatment_effect(cf)
 
-
+# TODO: x vs X in arguments; c-statistic
