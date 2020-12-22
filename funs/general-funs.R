@@ -17,6 +17,15 @@ dgp.screening <- function(n, share.lc = 0.1, reporting.bias = FALSE){
   x7                         <- x1 - start.age - yrs.since.stop                       # smk years
   x7[x7 < 0] <- 0
   
+  #Intermediate lifeyears:
+  #set 5 lifeyears as base survival
+  Base_lifeyears = 5
+  #Change lifeyears based on x covariates: higher age reducese LY, female sex increases, education increases, health increases, BMI below 20 and above 25 decrease
+  #number of cigarettes decrease, current smoking decreases, time smoked increases, time since smoking cessation decreases.
+  Lifeyear_coeffs = c(-0.1,2,0.05,0.1,-0.2,-0.01,0.2,0.01,-0.02)
+  Lifeyears_intermediate    <-  Base_lifeyears +  (Lifeyear_coeffs[1]*x1 ) + (Lifeyear_coeffs[2]*x2 ) + (Lifeyear_coeffs[3]*x3 ) + (Lifeyear_coeffs[4]*x4 ) + (Lifeyear_coeffs[5]*ifelse(x5<20 |x5>25,1,0 )) + (Lifeyear_coeffs[6]*x6 ) + (Lifeyear_coeffs[7]*x7 )
+  Lifeyears_intermediate <-ifelse(Lifeyears_intermediate<=0,0,Lifeyears_intermediate )
+  
   ## Histology
   # the his-function is a continuous version of histology (the unobserved truth)
   l <- rnorm(n, 0.5, 1) # unobserved risk factor
@@ -126,17 +135,23 @@ dgp.screening <- function(n, share.lc = 0.1, reporting.bias = FALSE){
   y.bin  <- ifelse(w == 1, y1.bin, y0.bin) # observed outcome
   
   
+  
   ### 7) True parameter values ----
+  
+  #adjust life-years for lung cancer mortality here: assume 20% reduction in life-years left from lung cancer mortality
+  Lifeyears = Lifeyears_intermediate *ifelse(y.bin == 1, 0.8, 1) 
+  
   ate.con <- mean(y1.con) - mean(y0.con)
   hte.con <- y1.con - y0.con
   ate.bin <- mean(pi1) - mean(pi0)
   hte.bin <- pi1 - pi0
+  rateratio.bin <-  rateratio.test(c(sum(y1.bin),sum(y0.bin)),c(sum(Lifeyears[w==1]),sum(Lifeyears[w==0]))) #NB: close to mean(pi1) / mean(pi0)
   
   ### 8) Organize Output in a List ----
   y        <- y.con ; y0 <- y0.con ; y1 <- y1.con # to be consistent with naming
   lst.con <- list(outcomes = data.frame(y, y0, y1), hte = hte.con, ate = ate.con)
   y       <- y.bin ; y0 <- y0.bin ; y1 <- y1.bin 
-  lst.bin <- list(outcomes = data.frame(y, y0, y1), hte = hte.bin, ate = ate.bin, pi0 = pi0, pi1 = pi1)
+  lst.bin <- list(outcomes = data.frame(y, y0, y1), hte = hte.bin, ate = ate.bin, pi0 = pi0, pi1 = pi1,rateratio=rateratio.bin$estimate[1])
   
   data <- list(X = data.frame(x1, x2, x3, x4, x5, x6, x7, x8), 
                w = w, continuous.histology = his,
