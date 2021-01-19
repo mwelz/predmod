@@ -50,21 +50,6 @@ LY_intermediate <- (Base_LY + x  %*% LY_coeffs) * ifelse(y == 1, 0.9, 1)
 LY <- ifelse(LY_intermediate<=0,0,LY_intermediate) 																																												  
 
 
-#Testset for LY with same signs for coefficients as x values
-Base_LY <- 5
-LY_coeffs2 <- c( -0.5, 0.3, -0.7, 0.1, -0.4) #reversed signs of the coeffs compared to LY
-LY_intermediate2 <- (Base_LY + x  %*% LY_coeffs2) * ifelse(y == 1, 0.9, 1) 
-#set LY of 0 or less to 0 LY
-LY2 <- ifelse(LY_intermediate2<=0,0,LY_intermediate2) 		
-
-
-#Assume base 5 Lifeyears per person, assuming higher risk for lung cancer is correlated with lower life-years and that those who die from lung cancer lose 10% of their lifeyears left
-Base_LY3 <- 5
-LY_coeffs3 <- c( 0.5, -0.3, 0.7, -0.1, 0.4) #reversed signs of the coeffs for lung cancer as placeholder
-LY_intermediate3 <- (Base_LY3 + x  %*% LY_coeffs3) * ifelse(y == 1, 0.7, 1) 
-#set LY of 0 or less to 0 LY
-LY3 <- ifelse(LY_intermediate3<=0,0,LY_intermediate3) 	
-
 
 
 
@@ -155,61 +140,70 @@ library(rms)
 #                    family = poisson(link = "log"))    
 #Poissonmodel2
 
-
 Poissonmodel_Baseline <- glm(y ~ x,offset = log(LY),
                           family = poisson(link = "log"))    
 summary(Poissonmodel_Baseline )
+
+#Values for x coefficients are off; in part affected by LY offset (see further analyses below)
+
+
 
 #Make a separate dataframe to allow for predictions from the Poisson model
 Predictdata_Baseline = data.frame(x,y,LY)
 
 #Predicted values for the Poisson model
-Poisson_predictions_Baseline=predict(Poissonmodel_Baseline,name=Predictdata_Baseline, type = "response")
+LP_Poisson=predict(Poissonmodel_Baseline,name=Predictdata_Baseline, type = "response")
 
+Predictdata_LP= data.frame(x,y,LY,LP_Poisson,w)
+w.rev           <- ifelse(w == 1, 0, 1)
+Predictdata_LP_wflipped= data.frame(x,y,LY,LP_Poisson,w=w.rev)
 
-
-Poissonmodel_Treat <- glm(y ~ x+w,offset = log(LY),
-                    family = poisson(link = "log"))    
+#Not yet sure how to do the offset for lifeyears here; the LP does take those into account though.
+Poissonmodel_Treat <- glm(y ~ w,offset = log(LP_Poisson),
+                   family = poisson(link = "log")) 
 summary(Poissonmodel_Treat )
 
-#Without offset
-Poissonmodel_Treat_no_offset <- glm(y ~ x+w,
-                          family = poisson(link = "log"))    
-summary(Poissonmodel_Treat_no_offset )
-
-#Test with alternative Lifeyears
-Poissonmodel_Treat_LY2 <- glm(y ~ x+w,offset = log(LY2),
-                          family = poisson(link = "log"))    
-summary(Poissonmodel_Treat_LY2 )
-
-#Test with alternative Lifeyears
-Poissonmodel_Treat_LY3 <- glm(y ~ x+w,offset = log(LY3),
-                              family = poisson(link = "log"))    
-summary(Poissonmodel_Treat_LY3 )
 
 
-#Value for w is -0.387194; closer to 0.60 than 0.70; Sign of the coefficients is influenced by the set of Lifeyears LY, LY2 and LY3. Effect of w on LY definitely plays a role
-
-#w with LY1 (lung cancer death lowers LY by 10%):  -0.387194
-#w with LY3 (lung cancer death lowers LY by 30%):  -0.434136 
-
-#Make a separate dataframe to allow for predictions from the Poisson model
-Predictdata_Treat = data.frame(x,w,y,LY)
-
-#Predicted values for the Poisson model
-Poisson_predictions_Treat=predict(Poissonmodel,name=Predictdata_Treat, type = "response")
+#Predicted values for the treatment Poisson model
+LP_Poisson=predict.glm(Poissonmodel_Treat,Predictdata_LP, type = "response")
+LP_Poisson_wflipped=predict.glm(Poissonmodel_Treat,Predictdata_LP_wflipped, type = "response")
 
 
+# absolute predicted benefit
+pred.ben.abs.raw <- LP_Poisson - LP_Poisson_wflipped
+pred.ben.abs     <- ifelse(w == 1, -pred.ben.abs.raw, pred.ben.abs.raw)
 
-Pois.obj <- list()
-#Placeholders; need to read up how to account for effect of LY's in absolute benefit prediction.
-#Pois.obj$risk.baseline <- as.numeric(Poisson_predictions_Baseline)
-#Pois.obj$predicted.absolute.benefit <- as.numeric()
-#Pois.obj$inputs <- list(X = x, w = w, y = y)
-#pdf(file = paste0(getwd(), "/plots/const-cf-calibration-absolute.pdf"))
-#calibration.plot(Pois.obj, relative = FALSE, title = "Poisson regression, Calibration: Predicted Absolute Benefit") # TODO: make doubly robust
+# relative predicted benefit
+pred.ben.rel.raw <- LP_Poisson / LP_Poisson_wflipped
+pred.ben.rel     <- ifelse(w == 1, pred.ben.rel.raw, 1 / pred.ben.rel.raw)
 
-dev.off()
+pois.ate.hat = mean(pred.ben.abs)
+#
+
+Predictdata_LP= data.frame(x,y,LY,LP_Poisson,w)
+Treatmentsubset=subset(Predictdata_LP,w==1)
+No_Treatmentsubset=subset(Predictdata_LP,w==0)
+
+#rates per 1,000 personyears
+Rate_treatment_1000 =  (sum(Treatmentsubset$y)/sum(Treatmentsubset$LY))*1000
+Rate_no_treatment_1000 = (sum(No_Treatmentsubset$y)/sum(No_Treatmentsubset$LY))*1000
+
+rel.hat = mean(pred.ben.rel)
+rel.hat2 = Rate_treatment_1000/Rate_no_treatment_1000
+
+##No LY Offset analyses
+
+Poissonmodel_Baseline_no_offset <- glm(y ~ x,
+                             family = poisson(link = "log"))    
+summary(Poissonmodel_Baseline_no_offset )
+
+
+
+
+
+
+
 
 
 ### 6.0 Cox proportional hazard----
@@ -220,11 +214,6 @@ g <- Survival(f)   # g is a function
 ftwo <- coxph(S ~ x + w)
 
 predict(ftwo,type="expected")
-
-Predict(f,Predictdata)
-View(g)
-
-
 
 
 
