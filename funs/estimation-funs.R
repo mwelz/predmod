@@ -253,43 +253,43 @@ calibration.plot <- function(pred.model.obj,
 }
 
 
-effect.modeling <- function(x, w, y, 
+effect.modeling <- function(X, w, y, 
                             alpha = alpha, 
                             interactions = NULL,
                             sig.level = 0.05, ...){
   
   ### 0. preparation ----
   # split the sample as suggested in Wasserman and Roeder (2009)
-  n    <- nrow(x)
-  p    <- ncol(x)
+  n    <- nrow(X)
+  p    <- ncol(X)
   set1 <- sample(1:n, floor(0.5 * n), replace = FALSE)
   set2 <- setdiff(1:n, set1)
   
   # prepare the variable set as in rekkas2019:
-  if(!is.null(colnames(x))){
-    colnames.orig <- colnames(x)
+  if(!is.null(colnames(X))){
+    colnames.orig <- colnames(X)
   } else{
-    colnames.orig <- paste0("x", 1:p)
+    colnames.orig <- paste0("X", 1:p)
   }
-  colnames(x)     <- paste0("x", 1:p)
+  colnames(X)     <- paste0("X", 1:p)
   
   if(is.null(interactions)){
-    interaction.vars <- colnames(x)
+    interaction.vars <- colnames(X)
   } else{
-    interaction.vars <- paste0("x", which(colnames.orig %in% interactions))
+    interaction.vars <- paste0("X", which(colnames.orig %in% interactions))
   }
   
   # add interaction variables
-  interaction.terms <- sapply(which(colnames(x) %in% interaction.vars),
-                              function(j) ifelse(w == 1, x[,j], 0))
+  interaction.terms <- sapply(which(colnames(X) %in% interaction.vars),
+                              function(j) ifelse(w == 1, X[,j], 0))
   
   interaction.terms <- cbind(w, interaction.terms)
   colnames(interaction.terms) <- c("w", paste0("w.", interaction.vars))
-  x.star <- cbind(x, interaction.terms)
+  X.star <- cbind(X, interaction.terms)
   
   ### 1. stage 1: penalized regression on whole set  ----
   # whole set is x.star. We apply sample splitting as suggested in Wasserman and Roeder (2009)
-  mod.pm <- glmnet::cv.glmnet(x.star[set1,], y[set1], family = "binomial", alpha = alpha)
+  mod.pm <- glmnet::cv.glmnet(X.star[set1,], y[set1], family = "binomial", alpha = alpha)
   
   ### 2. stage 2: perform variable selection based on the "best" model ----
   coefs.obj     <- glmnet::coef.glmnet(mod.pm, s = "lambda.min")
@@ -297,22 +297,22 @@ effect.modeling <- function(x, w, y,
   if(0 %in% kept.vars){
     kept.vars <- kept.vars[-which(kept.vars == 0)]
   }
-  kept.vars.nam <- colnames(x.star)[kept.vars]
+  kept.vars.nam <- colnames(X.star)[kept.vars]
   
   ### 3. stage 3: perform chi-squared test on significance of interactions in the "best" model ----
   # big model
-  x.kept <- x.star[, kept.vars.nam]
+  X.kept <- X.star[, kept.vars.nam]
   
   # reduced model: (X_lambda, w), where X_lambda are the retained (by the lasso) initial variables
   kept.vars.no.x.nam <- 
     kept.vars.nam[grepl(pattern = "w.", x = kept.vars.nam, fixed = TRUE)]
-  x.star.red <- x.kept[, -which(kept.vars.nam %in% kept.vars.no.x.nam)]
+  X.star.red <- X.kept[, -which(kept.vars.nam %in% kept.vars.no.x.nam)]
   
   # fit both large and reduced model
-  fit.1     <- glm(y ~., data = data.frame(y, x.kept)[set2,], family = binomial)
-  fit.0     <- glm(y ~., data = data.frame(y, x.star.red)[set2,], family = binomial) # reduced model
-  formula.0 <- paste0("y ~ ", paste(colnames(x.star.red), collapse = " + "))
-  formula.1 <- paste0("y ~ ", paste(colnames(x.kept), collapse = " + "))
+  fit.1     <- glm(y ~., data = data.frame(y, X.kept)[set2,], family = binomial)
+  fit.0     <- glm(y ~., data = data.frame(y, X.star.red)[set2,], family = binomial) # reduced model
+  formula.0 <- paste0("y ~ ", paste(colnames(X.star.red), collapse = " + "))
+  formula.1 <- paste0("y ~ ", paste(colnames(X.kept), collapse = " + "))
   
   # perform likelihood ratio test
   test.stat <- fit.0$deviance - fit.1$deviance
@@ -322,29 +322,29 @@ effect.modeling <- function(x, w, y,
   # if we reject the null, go with the smaller (the reduced model) to make risk predictions
   if(pval < sig.level){
     final.model         <- fit.0
-    x.final             <- x.star.red
+    X.final             <- X.star.red
   } else{
     final.model         <- fit.1
-    x.final             <- x.kept
+    X.final             <- X.kept
   }
   
   ### 4. use the final model to obtain risk estimates ----
   
   # risk with regular w
   probs <- unname(predict.glm(final.model,
-                              newdata = as.data.frame(x.final), 
+                              newdata = as.data.frame(X.final), 
                               type = "response"))
   
   # get risk with flipped w
-  kept.x <- colnames(x.final)[startsWith(colnames(x.final), "x")]
-  kept.w <- sub(".*\\.", "", colnames(x.final)[startsWith(colnames(x.final), "w")])
-  x.star <- cbind(x, w = ifelse(w == 1, 0, 1))
+  kept.X <- colnames(X.final)[startsWith(colnames(X.final), "X")]
+  kept.w <- sub(".*\\.", "", colnames(X.final)[startsWith(colnames(X.final), "w")])
+  X.star <- cbind(X, w = ifelse(w == 1, 0, 1))
   interaction.terms.flipped <- sapply(kept.w, 
-                                      function(j) ifelse(w == 1, 0, x.star[,j]))
-  x.rev <- cbind(x[,kept.x], interaction.terms.flipped)
-  colnames(x.rev) <- colnames(x.final)
+                                      function(j) ifelse(w == 1, 0, X.star[,j]))
+  X.rev <- cbind(X[,kept.X], interaction.terms.flipped)
+  colnames(X.rev) <- colnames(X.final)
   probs.flipped.w <- unname(predict.glm(final.model, 
-                                        newdata = as.data.frame(x.rev),
+                                        newdata = as.data.frame(X.rev),
                                         type = "response"))
   
   # get observed predicted benefit
@@ -358,16 +358,16 @@ effect.modeling <- function(x, w, y,
   
   ### 5. housekeeping: make sure the naming is consistent
   # update variable names
-  colnames.final.temp <- colnames(x.final)
+  colnames.final.temp <- colnames(X.final)
   colnames.final      <- rep(NA_character_, length(colnames.final.temp))
   
   for(i in 1:p){
-    idx <- grepl(pattern = paste0("x", i), x = colnames.final.temp, fixed = TRUE)
-    colnames.final[idx] <- gsub(paste0("x", i), colnames.orig[i], colnames.final.temp[idx])
+    idx <- grepl(pattern = paste0("X", i), x = colnames.final.temp, fixed = TRUE)
+    colnames.final[idx] <- gsub(paste0("X", i), colnames.orig[i], colnames.final.temp[idx])
   }
   colnames.final[is.na(colnames.final)] <- "w" # fill up 'w'
-  colnames(x.final)                     <- colnames.final
-  colnames(x)                           <- colnames.orig
+  colnames(X.final)                     <- colnames.final
+  colnames(X)                           <- colnames.orig
   formula.final.model                   <- paste0("y ~ ", 
                                                   paste(colnames.final, collapse = " + "))
   
@@ -381,15 +381,15 @@ effect.modeling <- function(x, w, y,
   
   ## 5. fit baseline risk  ----
   # no information on w allowed, so we cannot use the retained variables from the effect modeling
-  baseline.mod <- risk.model.stage1(X = x, y = y, alpha = alpha)
+  baseline.mod <- risk.model.stage1(X = X, y = y, alpha = alpha)
   basline.risk <- transform.to.probability(baseline.mod$lp)
   
   ## 6. return ----
   return(list(
-    inputs = list(X = x, w = w, y = y),
+    inputs = list(X = X, w = w, y = y),
     baseline.model = baseline.mod,
     effect.model = list(formula = formula.final.model, 
-                        selected.data = x.final,
+                        selected.data = X.final,
                         glm.obj = final.model,
                         coefficients = coefficients,
                         summary = summry,
@@ -526,6 +526,45 @@ order.intervals <- function(intervals, quantile.nam){
                  decreasing = FALSE)
   }
   return(ord)
+}
+
+
+
+#' Returns a rateratio object as in the package rateratio.test as well as an estimate of the rate ratio.
+#' 
+#' @param y A binary vector of outcomes
+#' @param w A binary vector of treatment status (1 = treatment group)
+#' @param lifeyars A vector of life-years
+#' @param subgroup A logical vector indicating a subgroup
+#' @param ... Additional arguments for rateratio.test()
+#' @return a rateratio object and an etsimate of the rate ratio
+#' 
+#' @export
+rate.ratio <- function(y, w, lifeyears, subgroup = NULL, ...){
+  
+  # input check
+  if(!all(c(0, 1) %in% y)) warning("y is not a binary vector!")
+  if(any(lifeyears < 0)) warning("Some life years are negative")
+  
+  # if no subgroup is specified, all samples are considered
+  if(is.null(subgroup)){
+    smpl <- 1:length(y)
+  } else{
+    smpl <- subgroup
+  }
+  
+  # the subgroups, grouped by treatment status
+  smpl.w1 <- w == 1 & smpl
+  smpl.w0 <- w == 0 & smpl
+  
+  # rate ratio object
+  rr.obj <- rateratio.test::rateratio.test(
+    x = c(sum(y[smpl.w1]), sum(y[smpl.w0])),
+    n = c(sum(lifeyears[smpl.w1]), sum(lifeyears[smpl.w0])),
+    ...)
+  
+  return(list(rate.ratio = unname(rr.obj$estimate["Rate Ratio"]),
+              rate.ratio.obj = rr.obj))
 }
 
 # TODO: remove unneccesary functions before execution
