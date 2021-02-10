@@ -95,8 +95,8 @@ for(r in 1:R){
   # group-level calibration performance (in absolute values)
   em.calib.rel            <- calibration.plot(effect.model, relative = TRUE)$data
   em.calib.abs            <- calibration.plot(effect.model, relative = FALSE)$data
-  em.arr["abs.pb",,r]     <- em.calib.rel$pb.means
-  em.arr["abs.ob",,r]     <- em.calib.rel$ob.means
+  em.arr["abs.pb",,r]     <- em.calib.abs$pb.means
+  em.arr["abs.ob",,r]     <- em.calib.abs$ob.means
   em.arr["rel.pb",,r]     <- em.calib.rel$pb.means
   em.arr["rel.ob",,r]     <- em.calib.rel$ob.means
   
