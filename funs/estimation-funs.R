@@ -120,6 +120,8 @@ risk.modeling <- function(X, w, y, alpha, offset.lp = TRUE){
   coefs.stage2 <- as.matrix(glmnet::coef.glmnet(stage2$mod.stage2))
   colnames(coefs.stage2) <- colnames(coefs.stage1) <- "Estimated Coefficient"
   
+  # calculate C index by using predicted risk (with regular w)
+  c.index <- unname(Hmisc::rcorr.cens(x = stage2$risk.pred.regular, S = y)[1])
   
   return(list(
     inputs = list(X = X, w = w, y = y),
@@ -135,7 +137,8 @@ risk.modeling <- function(X, w, y, alpha, offset.lp = TRUE){
     predicted.absolute.benefit.raw = pred.ben.abs.raw,
     predicted.relative.benefit = pred.ben.rel,
     predicted.relative.benefit.raw = pred.ben.rel.raw,
-    ate.hat = mean(pred.ben.abs)
+    ate.hat = mean(pred.ben.abs),
+    c.index = c.index
   ))
 }
 
@@ -384,6 +387,9 @@ effect.modeling <- function(X, w, y,
   baseline.mod <- risk.model.stage1(X = X, y = y, alpha = alpha)
   basline.risk <- transform.to.probability(baseline.mod$lp)
   
+  # calculate C index by using predicted risk (with regular w)
+  c.index <- unname(Hmisc::rcorr.cens(x = probs, S = y)[1])
+  
   ## 6. return ----
   return(list(
     inputs = list(X = X, w = w, y = y),
@@ -403,7 +409,8 @@ effect.modeling <- function(X, w, y,
     predicted.absolute.benefit.raw = pred.ben.abs.raw,
     predicted.relative.benefit = pred.ben.rel,
     predicted.relative.benefit.raw = pred.ben.rel.raw,
-    ate.hat = mean(pred.ben.abs)
+    ate.hat = mean(pred.ben.abs),
+    c.index = c.index
   ))
 }
 
@@ -565,6 +572,18 @@ rate.ratio <- function(y, w, lifeyears, subgroup = NULL, ...){
   
   return(list(rate.ratio = unname(rr.obj$estimate["Rate Ratio"]),
               rate.ratio.obj = rr.obj))
+}
+
+
+#' Returns the C index of given risk predictions
+#' 
+#' @param y A binary vector of outcomes
+#' @param risk.predictions A vector of risk predictions for each observation
+#' @return The C index
+#' 
+#' @export
+c.index <- function(y, risk.predictions){
+  unname(Hmisc::rcorr.cens(x = risk.predictions, S = y)[1])
 }
 
 # TODO: remove unneccesary functions before execution

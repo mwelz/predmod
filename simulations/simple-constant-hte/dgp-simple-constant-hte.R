@@ -85,6 +85,7 @@ risk.model <- risk.modeling(X = x, w = w, y = y, alpha = 1, offset.lp = TRUE)
 
 risk.model$ate.hat # 0.164 (average of predicted abolute benefits)
 mean(risk.model$predicted.relative.benefit) # 0.68
+risk.model$c.index # 0.713
 
 ### 2. effect modeling ----
 effect.model <- effect.modeling(X = x, w = w, y = y, alpha = 1) 
@@ -98,6 +99,7 @@ effect.model <- effect.modeling(X = x, w = w, y = y, alpha = 1)
 
 effect.model$ate.hat # 0.161 (average of predicted abolute benefits)
 mean(effect.model$predicted.relative.benefit) # 0.675
+effect.model$c.index # 0.712
 
 ### 3. GRF ----
 cf <- grf::causal_forest(x, y, w)
