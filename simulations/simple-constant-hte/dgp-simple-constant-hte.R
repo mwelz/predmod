@@ -102,21 +102,30 @@ mean(effect.model$predicted.relative.benefit) # 0.675
 effect.model$c.index # 0.712
 
 ### 3. GRF ----
-cf <- grf::causal_forest(x, y, w)
-rf <- grf::regression_forest(x, y)
+grf.obj <- grf.modeling(X = x, y = y, w = w)
+grf.obj$ate # -0.166
+ate.ci.lo <- grf.obj$ate.hat - grf.obj$ate.hat.se * qt(0.975, df = n - p)
+ate.ci.up <- grf.obj$ate.hat + grf.obj$ate.hat.se * qt(0.975, df = n - p)
+(ate.ci.lo <= ate) & (ate <= ate.ci.up) # ATE is in 95% CI
 
-# prepare a proxy object as input for the calibration plots
-grf.obj <- list()
-grf.obj$risk.baseline <- as.numeric(rf$predictions)
-grf.obj$predicted.absolute.benefit <- as.numeric(cf$predictions)
-grf.obj$inputs <- list(X = x, w = w, y = y)
-grf::average_treatment_effect(cf) # -0.165. Disadvantage: No estimation of relative risk feasible.
+grf.obj$c.index # 0.679 # but this is just experimental!
+grf.calibration <- calibration.plot.grf(grf.obj)
+
+
+# cf <- grf::causal_forest(x, y, w)
+# rf <- grf::regression_forest(x, y)
+# 
+# # prepare a proxy object as input for the calibration plots
+# grf.obj <- list()
+# grf.obj$risk.baseline <- as.numeric(rf$predictions)
+# grf.obj$predicted.absolute.benefit <- as.numeric(cf$predictions)
+# grf.obj$inputs <- list(X = x, w = w, y = y)
+# grf::average_treatment_effect(cf) # -0.165. Disadvantage: No estimation of relative risk feasible.
 
 # # calibration plot (commented out)
 # pdf(file = paste0(getwd(), "/plots/const-cf-calibration-absolute.pdf"))
 # calibration.plot(grf.obj, relative = FALSE, title = "Causal Forest, Calibration: Predicted Absolute Benefit") # TODO: make doubly robust
 # dev.off()
-
 
 ### 4.0 Rate-ratio ----
 
