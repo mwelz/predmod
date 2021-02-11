@@ -103,7 +103,7 @@ effect.model$c.index # 0.712
 
 ### 3. GRF ----
 grf.obj <- grf.modeling(X = x, y = y, w = w)
-grf.obj$ate # -0.166
+grf.obj$ate.hat # -0.166
 ate.ci.lo <- grf.obj$ate.hat - grf.obj$ate.hat.se * qt(0.975, df = n - p)
 ate.ci.up <- grf.obj$ate.hat + grf.obj$ate.hat.se * qt(0.975, df = n - p)
 (ate.ci.lo <= ate) & (ate <= ate.ci.up) # ATE is in 95% CI
