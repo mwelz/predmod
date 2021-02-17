@@ -20,7 +20,7 @@ dgp.screening <- function(n, share.lc = 0.1, reporting.bias = FALSE){
   #Intermediate lifeyears:
   #set 5 lifeyears as base survival
   Base_lifeyears = 5
-  #Change lifeyears based on x covariates: higher age reducese LY, female sex increases, education increases, health increases, BMI below 20 and above 25 decrease
+  #Change lifeyears based on x covariates: higher age reduces LY, female sex increases, education increases, health increases, BMI below 20 and above 25 decrease
   #number of cigarettes decrease, current smoking decreases, time smoked increases, time since smoking cessation decreases.
   Lifeyear_coeffs = c(-0.1,2,0.05,0.1,-0.2,-0.01,0.2,0.01,-0.02)
   Lifeyears_intermediate    <-  Base_lifeyears +  (Lifeyear_coeffs[1]*x1 ) + (Lifeyear_coeffs[2]*x2 ) + (Lifeyear_coeffs[3]*x3 ) + (Lifeyear_coeffs[4]*x4 ) + (Lifeyear_coeffs[5]*ifelse(x5<20 |x5>25,1,0 )) + (Lifeyear_coeffs[6]*x6 ) + (Lifeyear_coeffs[7]*x7 )

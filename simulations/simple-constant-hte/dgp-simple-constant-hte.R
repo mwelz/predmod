@@ -12,14 +12,15 @@
 #'   where Y = 1 indicates a death.
 #' - lifeyears are also generated (needed for duration models)
 #' 
-#' Authors: kth, mwelz
-#' Last changed: Feb 10, 2021, by mwelz   
+#' Authors: mwelz, kth
+#' Last changed: Feb 17, 2021, by mwelz   
 ################################################################################
 rm(list = ls()) ; cat("\014")
 
 # load the helper functions
 source(paste0(getwd(), "/funs/estimation-funs.R"))
-
+source(paste0(getwd(), "/funs/Poiss_test_estimation-funs.R")) 
+source(paste0(getwd(), "//funs/Poiss_treat_test_estimation-funs.R")) 
 # define the logistic function
 logistic <- function(x) 1 / (1 + exp(-x))
 
@@ -148,22 +149,62 @@ rate.ratio(y = y, w = w, lifeyears = LY, subgroup = x[,1] >= 0)$rate.ratio # 0.6
 
 ### 5.0 Poisson regression ----
 #load rateratio.test
-library(rms)
-
-#Regular glm
 
 
-#Glm (note capital G) from rms; need to check what causes differences
-#Poissonmodel2 <- Glm(y ~ x+w,
-#                    offset = log(LY),
-#                    family = poisson(link = "log"))    
-#Poissonmodel2
+
+### 1. risk modeling ---- poisson
+risk.model.poiss <- risk.modeling.poiss(X = x, w = w, y = y, ly=LY, alpha = 1, offset.lp = TRUE)
+
+risk.model.poiss$ate.hat # 0.0804255 (average of predicted abolute benefits)
+mean(risk.model.poiss$predicted.relative.benefit) # 0.7625825
+risk.model.poiss$c.index # 0.7008737
+
+
+risk.model.poiss$coefficients.stage1
+#Estimated Coefficient
+#(Intercept)         -2.3828534773
+#V1                   0.0842111114
+#V2                  -0.0533773920
+#V3                   0.1179584473
+#V4                   0.0009180406
+#V5                   0.0706628505
+
+#stage 1 coefficients look similar to moddeling by hand
+Poissonmodel_Baseline <- glm(y ~ x,offset = log(LY),
+                             family = poisson(link = "log"))    
+summary(Poissonmodel_Baseline)
+#Coefficients:
+#  Estimate Std. Error  z value Pr(>|z|)    
+#(Intercept) -2.384801   0.015682 -152.073  < 2e-16 ***
+#  x1           0.087120   0.014839    5.871 4.33e-09 ***
+#  x2          -0.056215   0.014628   -3.843 0.000122 ***
+#  x3           0.120814   0.014768    8.181 2.82e-16 ***
+#  x4           0.003697   0.014774    0.250 0.802413    
+#x5           0.073584   0.014884    4.944 7.66e-07 ***
+
+
+#coefficients for stage 2 look different:
+
+#glmnet:
+#$coefficients.stage2
+#Estimated Coefficient
+#(Intercept)             1.7583695
+#w                       1.2717477
+#wlp                     0.6992437
+
+#By hand:
+#Estimate Std. Error z value Pr(>|z|)    
+#(Intercept) -1.16442    0.01936 -60.134  < 2e-16 ***
+#  w           -0.18558    0.02991  -6.204 5.49e-10 ***
+
+
+#made explicit assumption of relative treatment effect; so w*lp not incorporated
+
+#poisson-risk modelling by-hand:
 
 Poissonmodel_Baseline <- glm(y ~ x,offset = log(LY),
-                          family = poisson(link = "log"))    
-summary(Poissonmodel_Baseline )
-
-#Values for x coefficients are off; in part affected by LY offset (see further analyses below)
+                             family = poisson(link = "log"))    
+summary(Poissonmodel_Baseline)
 
 
 
@@ -178,8 +219,8 @@ w.rev           <- ifelse(w == 1, 0, 1)
 Predictdata_LP_wflipped= data.frame(x,y,LY,LP_Poisson,w=w.rev)
 
 #Not yet sure how to do the offset for lifeyears here; the LP does take those into account though.
-Poissonmodel_Treat <- glm(y ~ w,offset = log(LP_Poisson),
-                   family = poisson(link = "log")) 
+Poissonmodel_Treat <- glm(y ~ w,offset = (LP_Poisson),
+                          family = poisson(link = "log")) 
 summary(Poissonmodel_Treat )
 
 
@@ -211,11 +252,17 @@ Rate_no_treatment_1000 = (sum(No_Treatmentsubset$y)/sum(No_Treatmentsubset$LY))*
 rel.hat = mean(pred.ben.rel)
 rel.hat2 = Rate_treatment_1000/Rate_no_treatment_1000
 
-##No LY Offset analyses
 
-Poissonmodel_Baseline_no_offset <- glm(y ~ x,
-                             family = poisson(link = "log"))    
-summary(Poissonmodel_Baseline_no_offset )
+
+### 2. effect modeling ----poisson
+effect.model.poiss <- effect.modeling.poiss(X = x, w = w, y = y, ly=LY,alpha = 1) 
+
+effect.model.poiss$ate.hat #0.1566682 (average of predicted abolute benefits)
+mean(effect.model.poiss$predicted.relative.benefit) #0.7034062
+effect.model.poiss$c.index #0.6577288
+
+
+
 
 
 

@@ -14,7 +14,7 @@
 #' ! All other models are simulated in other scripts.
 #' 
 #' Author: mwelz
-#' Last changed: February 11, 2021
+#' Last changed: February 17, 2021
 #' --------------------------------------------
 rm(list = ls()) ; gc() ; cat("\014")
 
@@ -31,12 +31,15 @@ n        <- 10000
 p        <- 5
 theta    <- c(0.2, 0.5, -0.3, 0.7, -0.1, 0.4)
 risk.rel <- 0.7 # relative risk (i.e. pi0 / pi1), so not the reduction!
+base.lifeyears = 10 
+lifeyear.coefs = c(-0.5, 0.3, -0.7, 0.1, -0.4) 
+lc.effect.ly = 0.2
 
 for(r in 1:R){
   
   # generate data
   data <- dgp.baseline(n = n, p = p, theta = theta, 
-                       risk.rel = risk.rel, seed = seeds[r])
+                       risk.rel = risk.rel,base.lifeyears=base.lifeyears, lifeyear.coefs=lifeyear.coefs, lc.effect.ly=lc.effect.ly, seed = seeds[r])
   
   ## 1. GRF modeling ----
   grf.model <- grf.modeling(X = data$x, w = data$w, y = data$y, num.trees = 2000)

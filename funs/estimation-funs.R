@@ -211,13 +211,16 @@ calibration.plot <- function(pred.model.obj,
                            relative = relative)
   
   # make everything positive for visualization
-  benefits$group.predicted.benefit$mean <- abs(benefits$group.predicted.benefit$mean) 
-  benefits$group.observed.benefit$mean  <- abs(benefits$group.observed.benefit$mean)
+  #NB  removed abs() as adverse effects in subgroups can occur, so benefits may be negative in some subgroups.
+  benefits$group.predicted.benefit$mean <- -(benefits$group.predicted.benefit$mean) 
+  benefits$group.observed.benefit$mean  <- -(benefits$group.observed.benefit$mean)
+ 
+  #altered cartesian limits to be more generalizable to other outcomes
   
-  # limits of the plot
-  limits <- c(min(benefits$group.predicted.benefit$mean, benefits$group.observed.benefit$mean, -0.2),
-              max(benefits$group.predicted.benefit$mean, benefits$group.observed.benefit$mean, 0.3))
+  limits <- c(min(benefits$group.predicted.benefit$mean, benefits$group.observed.benefit$mean) -0.1,
+              max(benefits$group.predicted.benefit$mean, benefits$group.observed.benefit$mean) +0.1)
   
+    
   # get the whiskers (SE*quantile)
   whisker.obs.ben <- benefits$group.observed.benefit$stderr *
     qt(1-alpha.significance/2, benefits$group.observed.benefit$df)
