@@ -13,7 +13,7 @@
 #' 
 #' 
 #' Author: mwelz, kth
-#' Last changed: February 17, 2021
+#' Last changed: February 17, 2021 by kth
 #' --------------------------------------------
 dgp.baseline <- function(n, p,
                          theta = c(0.2, 0.5, -0.3, 0.7, -0.1, 0.4), # includes intercept
@@ -36,6 +36,7 @@ dgp.baseline <- function(n, p,
   
   # covariates
   x <- mvtnorm::rmvnorm(n, mean = rep(0, p), sigma = diag(p))
+  colnames(x) <- paste0("x", 1:p)
   
   # define the logistic function
   logistic <- function(x) 1 / (1 + exp(-x))

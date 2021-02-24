@@ -81,11 +81,11 @@ for(r in 1:R){
     
     # variable selection in effect modeling
     em.vars           <- matrix(NA, R, 2*p+1)
-    x.nam.full        <- c(paste0("x", 1:p), "w", paste0("w.x", 1:p))
+    x.nam.full        <- c(colnames(data$x), "w", paste0("w.", colnames(data$x)))
     colnames(em.vars) <- x.nam.full
     
     em.poiss.vars           <- matrix(NA, R, 2*p+1)
-    x.nam.full        <- c(paste0("x", 1:p), "w", paste0("w.x", 1:p))
+    x.nam.full        <- c(colnames(data$x), "w", paste0("w.", colnames(data$x))) # Max: conflict with name; TODO!
     colnames(em.poiss.vars) <- x.nam.full
     
     # rate-ratio results
