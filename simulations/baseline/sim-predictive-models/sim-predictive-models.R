@@ -72,10 +72,8 @@ for(r in 1:R){
     rm.mat            <- matrix(NA_real_, R, 5)
     colnames(rm.mat)  <- c("abs.pb", "abs.pb.err", "rel.pb", "rel.pb.err", "c.index")
     em.mat            <- rm.mat
-    # rm.poiss.mat       <- rm.mat
-    # em.poiss.mat       <- rm.mat
-  
-    # initialize arrays that store the group-level results (TODO: add same for poisson[rm.poiss.arr])
+
+    # initialize arrays that store the group-level results 
     em.arr.ls <- lapply(quantile.groups, function(group){
       
       rm.arr.group <<- array(NA_real_, dim = c(6, length(quantile.groups.ls[[group]]) + 1, R))
