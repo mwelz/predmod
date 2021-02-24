@@ -2,5 +2,10 @@
 Predictive modeling of heterogeneous treatment effects in medicine.
 
 # Todo list
-* []  I should create and analyze 100 simple datasets like the ones in our presentation. Also think of a more sophisticated DGP. Kevin recommends one in which not everybody gets LC.
-* []  Also, implement Chernozhukov and Poisson regression (the latter requires the person years, which Kevin will supply)
+
+- [ ] Implement Chernozhukov models
+- [ ] Risk modeling with Poisson leads to weird results, Kevin believes it occurs in the second stage and is related to w * lp, because if we do not include this interaction effect, results are good again. Experiment a bit with offset
+- [ ] Write my own Hmisc::cstat to avoid the stupid package clash
+- [ ] Equation 3 in rekkas2019 is discussed in the publication. Implement!
+- [ ] Update the analyzer of the predictive models 
+- [ ] Poisson models, build on skeleton 
