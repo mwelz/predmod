@@ -7,7 +7,7 @@
 #' ----------------------------------------------------------------------
 rm(list = ls()) ; cat("\014")
 
-# load the helper functions and seeds
+# load the helper functions 
 source(paste0(getwd(), "/funs/estimation-funs.R"))
 
 # load results of the simulation (from script "sim-predictive-models.R")

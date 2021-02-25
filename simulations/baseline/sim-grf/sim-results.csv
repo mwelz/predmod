@@ -1,6 +1,2 @@
-"Predicted absolute benefit","|Error predicted absolute benefit|","Coverage at 95% level","C index",""
-"0.1618","0.0067","0.94","0.6857",""
-"","","","",""
-"Quantile baseline risk","<=25%","(25,50]%","(50,75]%",">75%"
-"Causal forest: Predicted absolute benefit","0.09042","0.13788","0.1853","0.23356"
-"Causal forest: Observed absolute benefit","0.09024","0.13797","0.18537","0.23354"
+"Predicted absolute benefit","|Error predicted absolute benefit|","Coverage at 95% level","C index"
+"0.1618","0.0066","0.94","0.6858"
