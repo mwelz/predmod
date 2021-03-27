@@ -121,7 +121,7 @@ risk.modeling <- function(X, w, y, alpha, offset.lp = TRUE){
   colnames(coefs.stage2) <- colnames(coefs.stage1) <- "Estimated Coefficient"
   
   # calculate C index by using predicted risk (with regular w)
-  c.index <- unname(Hmisc::rcorr.cens(x = stage2$risk.pred.regular, S = y)[1])
+  c.index <- DescTools::Cstat(x = stage2$risk.pred.regular, resp = y)
   
   return(list(
     inputs = list(X = X, w = w, y = y),
@@ -391,7 +391,7 @@ effect.modeling <- function(X, w, y,
   basline.risk <- transform.to.probability(baseline.mod$lp)
   
   # calculate C index by using predicted risk (with regular w)
-  c.index <- unname(Hmisc::rcorr.cens(x = probs, S = y)[1])
+  c.index <- DescTools::Cstat(x = probs, resp = y)
   
   ## 6. return ----
   return(list(
@@ -586,7 +586,7 @@ rate.ratio <- function(y, w, lifeyears, subgroup = NULL, ...){
 #' 
 #' @export
 c.index <- function(y, risk.predictions){
-  unname(Hmisc::rcorr.cens(x = risk.predictions, S = y)[1])
+  DescTools::Cstat(x = risk.predictions, resp = y)
 }
 
 get.benefits.grf <- function(grf.model.obj, 
@@ -715,7 +715,7 @@ grf.modeling <- function(X, w, y, num.trees = 2000, ...){
   grf.model.obj$ate.hat.se            <- unname(ate.obj["std.err"])
   
   # TODO: experimental: C statistic (not sure if this is correct as we are using baseline risk)
-  grf.model.obj$c.index <- unname(Hmisc::rcorr.cens(x = grf.model.obj$risk.baseline, S = y)[1])
+  grf.model.obj$c.index <- DescTools::Cstat(x = grf.model.obj$risk.baseline, resp = y)
   
   return(grf.model.obj)
 }
