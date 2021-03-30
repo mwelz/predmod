@@ -109,7 +109,7 @@ risk.modeling <- function(X, w, y, alpha, offset.lp = TRUE){
   
   # absolute predicted benefit
   pred.ben.abs.raw <- stage2$risk.pred.regular - stage2$risk.pred.flipped.w
-  pred.ben.abs     <- ifelse(w == 1, -pred.ben.abs.raw, pred.ben.abs.raw)
+  pred.ben.abs     <- ifelse(w == 1, pred.ben.abs.raw, -pred.ben.abs.raw) 
   
   # relative predicted benefit
   pred.ben.rel.raw <- stage2$risk.pred.regular / stage2$risk.pred.flipped.w
@@ -507,7 +507,7 @@ effect.modeling <- function(X, w, y,
   
   # get observed predicted benefit
   pred.ben.abs.raw <- probs - probs.flipped.w
-  pred.ben.abs     <- ifelse(w == 1, -pred.ben.abs.raw, pred.ben.abs.raw)
+  pred.ben.abs     <- ifelse(w == 1, pred.ben.abs.raw, -pred.ben.abs.raw)
   
   # get relative predicted benefit
   pred.ben.rel.raw <- probs / probs.flipped.w
