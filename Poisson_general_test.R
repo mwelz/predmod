@@ -69,6 +69,11 @@
                                family = poisson(link = "log"))    
   summary(Poissonmodel_Baseline)
   
+  #Baseline estimate Poisson model
+  Poissonmodel_two <- glm(y ~ x,offset = log(LY),
+                               family = poisson)    
+  summary(Poissonmodel_two)
+  
   #Check values manually, to double check predictions
   intercept = Poissonmodel_Baseline$coefficients[[1]]
   b1 = Poissonmodel_Baseline$coefficients[[2]]
@@ -94,13 +99,13 @@
   Predict_values_baseline = predict.glm(Poissonmodel_Baseline, type = "response")
   Predict_values_baseline[[1]] #0.2863868 #predictions take into account personyears
   
-  LP_Poisson_estimates = intercept+(b1*x[,1])+(b2*x[,2])+(b3*x[,3])+(b4*x[,4])+(b5*x[,5])
-  Exp_LP_Poisson_estimates = exp(intercept+(b1*x[,1])+(b2*x[,2]+(b3*x[,3])+(b4*x[,4])+(b5*x[,5])))
+  LP_Poisson_estimates = intercept+(b1*x[,1])+(b2*x[,2])+(b3*x[,3])+(b4*x[,4])+(b5*x[,5]) #LP
+  Exp_LP_Poisson_estimates = exp(intercept+(b1*x[,1])+(b2*x[,2]+(b3*x[,3])+(b4*x[,4])+(b5*x[,5]))) #LP-exponentiated
+  Exp_LP_Poisson_estimates_LY = Exp_LP_Poisson_estimates*LY #LP-exponentiated*personyears
+  Exp_LP_Poisson_estimates_LY[1] #0.2863868
   
   
-  
-  
-  #2nd stage
+  #2nd stage - base LP
   Poissonmodel_stage2 <- glm(y ~ w,offset = (LP_Poisson_estimates),
                              family = poisson(link = "log")) 
   summary(Poissonmodel_stage2 )
@@ -110,17 +115,10 @@
   #(Intercept)  1.75722    0.01936   90.75   <2e-16 ***
   #  w           -0.35935    0.02991  -12.01   <2e-16 ***
   
-  #Check how using exponentiated values affect estimates
-  Poissonmodel_stage2_exp <- glm(y ~ w,offset = (Exp_LP_Poisson_estimates),
-                                 family = poisson(link = "log")) 
-  summary(Poissonmodel_stage2_exp )
   
-  #Estimate Std. Error z value Pr(>|z|)    
-  #(Intercept) -0.70951    0.01936  -36.64   <2e-16 ***
-  #  w           -0.35174    0.02991  -11.76   <2e-16 ***
   
-  #mostly afffects value of the intercept
   
+  #With base LP
   Predictdata_LP= data.frame(x,y,LY,w)
   w.rev           <- ifelse(w == 1, 0, 1)
   Predictdata_LP_wflipped= data.frame(x,y,LY,w=w.rev)
@@ -132,7 +130,6 @@
   test = exp( 1.7572+-0.3594*w[1]+  (LP_Poisson_estimates[1]))
   
   
-  LP_Poisson_w[1]
   # absolute predicted benefit
   pred.ben.abs.raw <- LP_Poisson_w - LP_Poisson_wflipped
   pred.ben.abs     <- ifelse(w == 1, -pred.ben.abs.raw, pred.ben.abs.raw)
@@ -151,6 +148,99 @@
   estimated_w1_rate_per_1000=sum(LP_Poisson_w[w==1])/sum(LY[w==1])*1000
   
   Estimated_reduction_per_1000 = estimated_w1_rate_per_1000-estimated_w0_rate_per_1000
+  #36.24553
+  
+  
+  #Check how using exponentiated values affect estimates
+  Poissonmodel_stage2_exp <- glm(y ~ w,offset = (Exp_LP_Poisson_estimates),
+                                 family = poisson(link = "log")) 
+  summary(Poissonmodel_stage2_exp )
+  
+  #Estimate Std. Error z value Pr(>|z|)    
+  #(Intercept) -0.70951    0.01936  -36.64   <2e-16 ***
+  #  w           -0.35174    0.02991  -11.76   <2e-16 ***
+  
+  #mostly afffects value of the intercept
+  
+  
+  
+  Predictdata_LP_EXP= data.frame(x,y,LY,w)
+  w.rev           <- ifelse(w == 1, 0, 1)
+  Predictdata_LP_EXP_wflipped= data.frame(x,y,LY,w=w.rev)
+  
+  #Predicted values for the treatment Poisson model
+  LP_EXP_Poisson_w=predict.glm( Poissonmodel_stage2_exp,Predictdata_LP_EXP, type = "response")
+  LP_EXP_Poisson_wflipped=predict.glm( Poissonmodel_stage2_exp,Predictdata_LP_EXP_wflipped, type = "response")
+ 
+  
+  # absolute predicted benefit
+  pred.ben.exp.abs.raw <- LP_EXP_Poisson_w - LP_EXP_Poisson_wflipped
+  pred.ben.exp.abs     <- ifelse(w == 1, -pred.ben.exp.abs.raw, pred.ben.exp.abs.raw)
+  
+  
+  
+  # relative predicted benefit
+  pred.ben.exp.rel.raw <- LP_EXP_Poisson_w / LP_EXP_Poisson_wflipped
+  pred.ben.exp.rel     <- ifelse(w == 1, pred.ben.exp.rel.raw, 1 / pred.ben.exp.rel.raw)
+  
+  pois.ate.exp.hat = mean(pred.ben.exp.abs) #0.1601887
+  rel.exp.hat = mean(pred.ben.exp.rel) #0.7034657
+  
+  #estimated rates
+  estimated_w0_EXP_rate_per_1000=sum(LP_EXP_Poisson_w[w==0])/sum(LY[w==0])*1000
+  estimated_w1_EXP_rate_per_1000=sum(LP_EXP_Poisson_w[w==1])/sum(LY[w==1])*1000
+  
+  Estimated_reduction_per_1000_EXP = estimated_w1_EXP_rate_per_1000-estimated_w0_EXP_rate_per_1000
+  #-36.24553
+  
+  
+    #Stage 2 model with correction for lifeyears
+  Poissonmodel_stage2_exp_LY <- glm(y ~ w,offset = (Exp_LP_Poisson_estimates_LY),
+                                 family = poisson(link = "log")) 
+  summary(Poissonmodel_stage2_exp_LY )
+  
+  #            Estimate Std. Error z value Pr(>|z|)    
+ # (Intercept) -1.08117    0.01936  -55.84   <2e-16 ***
+ #   w           -0.36847    0.02991  -12.32   <2e-16 ***
+  #
+  
+  
+  
+  
+  Predictdata_LP_EXP_LY= data.frame(x,y,LY,w)
+  w.rev           <- ifelse(w == 1, 0, 1)
+  Predictdata_LP_EXP_LY_wflipped= data.frame(x,y,LY,w=w.rev)
+  
+  #Predicted values for the treatment Poisson model
+  LP_Poisson_EXP_LY_w=predict.glm( Poissonmodel_stage2_exp_LY,Predictdata_LP, type = "response")
+  LP_Poisson_EXP_LY_wflipped=predict.glm( Poissonmodel_stage2_exp_LY,Predictdata_LP_wflipped, type = "response")
+  LP_Poisson_EXP_LY_w[1]
+       
+ exp(Poissonmodel_stage2_exp_LY$coefficients[[1]] +(Poissonmodel_stage2_exp_LY$coefficients[[2]]*w[1] )*log(Exp_LP_Poisson_estimates_LY[1]))
+  exp(-1.081166 +(-0.3684708*w[1] ))*(Exp_LP_Poisson_estimates_LY[1])
+  
+  # absolute predicted benefit
+  pred.ben_EXP_LY.abs.raw <- LP_Poisson_EXP_LY_w - LP_Poisson_EXP_LY_wflipped
+  pred.ben_EXP_LY.abs     <- ifelse(w == 1, -pred.ben_EXP_LY.abs.raw, pred.ben_EXP_LY.abs.raw)
+  
+  
+  
+  # relative predicted benefit
+  pred.ben_EXP_LY.rel.raw <- LP_Poisson_EXP_LY_w / LP_Poisson_EXP_LY_wflipped
+  pred.ben_EXP_LY.rel     <- ifelse(w == 1, pred.ben_EXP_LY.rel.raw, 1 / pred.ben_EXP_LY.rel.raw)
+  
+  pois.ate_EXP_LY.hat = mean(pred.ben_EXP_LY.abs) #0.1679178
+  rel_EXP_LY.hat = mean(pred.ben_EXP_LY.rel) #0.6917914
+  
+  #estimated rates
+  estimated_w0_EXP_LY_rate_per_1000=sum(LP_Poisson_EXP_LY_w[w==0])/sum(LY[w==0])*1000
+  estimated_w1_EXP_LY_rate_per_1000=sum(LP_Poisson_EXP_LY_w[w==1])/sum(LY[w==1])*1000
+  
+  Estimated_reduction_per_1000_EXP_LY = estimated_w1_EXP_LY_rate_per_1000-estimated_w0_EXP_LY_rate_per_1000
+  #-36.24553
+  
+  
+  
   
   #Effect modeling
   #Baseline estimate Poisson model
@@ -185,5 +275,5 @@
   estimated_w1_effect_rate_per_1000=sum(Effect_Poisson[w==1])/sum(LY[w==1])*1000
   
   Estimated_reduction_effect_per_1000 = estimated_w1_effect_rate_per_1000-estimated_w0_effect_rate_per_1000
-  
+  #-36.24553
   

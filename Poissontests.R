@@ -64,7 +64,6 @@ LP_Poisson <-intercept+(b1*x[,1])+(b2*x[,2])+(b3*x[,3])+(b4*x[,4])+(b5*x[,5])
 
 
 
-
 #2nd stage
 Poissonmodel_stage2 <- glm(y ~ w,offset = LP_Poisson, family = poisson(link = "log")) 
 
@@ -134,13 +133,20 @@ estimated_w1_effect_rate_per_1000=sum(Effect_Poisson[w==1])/sum(LY[w==1])*1000
 Estimated_reduction_effect_per_1000 = estimated_w1_effect_rate_per_1000-estimated_w0_effect_rate_per_1000
 
 
+observed_rate_per_1000_treat=sum(y[w==0])/sum(LY[w==0])*1000
+observed_rate_per_1000_no_treat=sum(y[w==1])/sum(LY[w==1])*1000
+Observed_reduction_per_1000 = observed_rate_per_1000_no_treat-observed_rate_per_1000_treat
+
 return(list(
   generated.ate = ate,
   generated.rel = relative_effect,
   risk.ate = pois.ate.hat,
   risk.rel = rel.hat,
   effect.ate = pois.effect.ate.hat,
-  effect.rel = rel.effect.hat)
+  effect.rel = rel.effect.hat,
+  generated.reduction.rate.1000 = Observed_reduction_per_1000,
+  estimated.reduction.risk.rate.1000 =Estimated_reduction_per_1000,
+  estimated.reduction.effect.rate.1000 = Estimated_reduction_effect_per_1000)
 )
 
 }
