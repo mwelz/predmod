@@ -351,66 +351,6 @@ get.benefits.grf <- function(grf.model.obj,
 
 
 
-calibration.plot <- function(pred.model.obj,
-                             quantiles = c(0.25, 0.5, 0.75), 
-                             relative = FALSE,
-                             title = NULL,
-                             alpha.significance = 0.05){
-  
-  # get observed and predicted benefit by quantile group
-  benefits <- get.benefits(pred.model.obj = pred.model.obj, 
-                           cutoffs = quantiles, 
-                           relative = relative)
-  
-  # make everything positive for visualization
-  #NB  removed abs() as adverse effects in subgroups can occur, so benefits may be negative in some subgroups.
-  benefits$group.predicted.benefit$mean <- -(benefits$group.predicted.benefit$mean) 
-  benefits$group.observed.benefit$mean  <- -(benefits$group.observed.benefit$mean)
- 
-  #altered cartesian limits to be more generalizable to other outcomes
-  
-  limits <- c(min(benefits$group.predicted.benefit$mean, benefits$group.observed.benefit$mean) -0.1,
-              max(benefits$group.predicted.benefit$mean, benefits$group.observed.benefit$mean) +0.1)
-  
-    
-  # get the whiskers (SE*quantile)
-  whisker.obs.ben <- benefits$group.observed.benefit$stderr *
-    qt(1-alpha.significance/2, benefits$group.observed.benefit$df)
-  
-  # the plot
-  library(ggplot2)
-  
-  # make sure risk quantile is in correct order
-  risk.quantile <- factor(benefits$group.observed.benefit$quantile)
-  lv <- levels(risk.quantile)
-  lv <- lv[order.intervals(lv, quantile.nam = TRUE)]
-  risk.quantile <- factor(risk.quantile, levels = lv)
-  
-  df <- data.frame(pb.means = benefits$group.predicted.benefit$mean,
-                   ob.means = benefits$group.observed.benefit$mean,
-                   ob.means.ci.up = benefits$group.observed.benefit$mean + whisker.obs.ben,
-                   ob.means.ci.lo = benefits$group.observed.benefit$mean - whisker.obs.ben,
-                   risk.quantile = risk.quantile)
-  
-  if(is.null(title)) title <- "Calibration plot"
-  
-  ggplot(mapping = aes(x = pb.means,
-                       y = ob.means, color = risk.quantile), data = df) +
-    geom_point() +
-    geom_linerange(mapping = aes(ymin = ob.means.ci.lo,
-                                 ymax = ob.means.ci.up)) +
-    geom_hline(yintercept = 0, linetype = 2) +
-    geom_vline(xintercept = 0, linetype = 2) +
-    geom_abline(intercept = 0, slope = 1) +
-    coord_cartesian(xlim = limits, ylim = limits) +
-    labs(x = ifelse(relative, "Predicted relative benefit", "Predicted absolute benefit"),
-         y = "Observed benefit") +
-    theme_classic() +
-    ggtitle(title) +
-    theme(legend.position = "bottom")
-}
-
-
 effect.modeling <- function(X, w, y, 
                             alpha = alpha, 
                             interactions = NULL,
@@ -742,60 +682,6 @@ c.index <- function(y, risk.predictions){
 }
 
 
-calibration.plot.grf <- function(grf.model.obj,
-                                 quantiles = c(0.25, 0.5, 0.75), 
-                                 title = NULL,
-                                 alpha.significance = 0.05){
-  # only absolute benefit possible, not relative!
-  # get observed and predicted benefit by quantile group
-  benefits <- get.benefits.grf(grf.model.obj = grf.model.obj, 
-                               cutoffs = quantiles)
-  
-  # make everything positive for visualization
-  benefits$group.predicted.benefit$mean <- abs(benefits$group.predicted.benefit$mean) 
-  benefits$group.observed.benefit$mean  <- abs(benefits$group.observed.benefit$mean)
-  
-  # limits of the plot
-  limits <- c(min(benefits$group.predicted.benefit$mean, benefits$group.observed.benefit$mean, -0.2),
-              max(benefits$group.predicted.benefit$mean, benefits$group.observed.benefit$mean, 0.3))
-  
-  # get the whiskers (SE*quantile)
-  whisker.obs.ben <- benefits$group.observed.benefit$stderr *
-    qt(1-alpha.significance/2, benefits$group.observed.benefit$df)
-  
-  # the plot
-  library(ggplot2)
-  
-  # make sure risk quantile is in correct order
-  risk.quantile <- factor(benefits$group.observed.benefit$quantile)
-  lv <- levels(risk.quantile)
-  lv <- lv[order.intervals(lv, quantile.nam = TRUE)]
-  risk.quantile <- factor(risk.quantile, levels = lv)
-  
-  df <- data.frame(pb.means = benefits$group.predicted.benefit$mean,
-                   ob.means = benefits$group.observed.benefit$mean,
-                   ob.means.ci.up = benefits$group.observed.benefit$mean + whisker.obs.ben,
-                   ob.means.ci.lo = benefits$group.observed.benefit$mean - whisker.obs.ben,
-                   risk.quantile = risk.quantile)
-  
-  if(is.null(title)) title <- "Calibration plot"
-  
-  ggplot(mapping = aes(x = pb.means,
-                       y = ob.means, color = risk.quantile), data = df) +
-    geom_point() +
-    geom_linerange(mapping = aes(ymin = ob.means.ci.lo,
-                                 ymax = ob.means.ci.up)) +
-    geom_hline(yintercept = 0, linetype = 2) +
-    geom_vline(xintercept = 0, linetype = 2) +
-    geom_abline(intercept = 0, slope = 1) +
-    coord_cartesian(xlim = limits, ylim = limits) +
-    labs(x = "Predicted absolute benefit",
-         y = "Observed benefit") +
-    theme_classic() +
-    ggtitle(title) +
-    theme(legend.position = "bottom")
-}
-
 
 grf.modeling <- function(X, w, y, num.trees = 2000, ...){
   # no relative risk modeling possible!
@@ -827,5 +713,145 @@ grf.modeling <- function(X, w, y, num.trees = 2000, ...){
   
   return(grf.model.obj)
 }
+
+
+calibration.plot <- function( pred.model.obj,
+                              cutoffs = c(0.25, 0.5, 0.75), 
+                              relative = FALSE,
+                              significance.level = 0.05,
+                              title = NULL,
+                              xlim = NULL,
+                              ylim = NULL,
+                              flip.sign.of.absolute.benefit = FALSE){
+  
+  # get observed and predicted benefit by quantile group
+  benefits <- get.benefits(pred.model.obj, 
+                           cutoffs = cutoffs, 
+                           significance.level = significance.level)
+  
+  # the plot
+  library(ggplot2)
+  
+  # make sure risk quantile is in correct order
+  risk.quantile <- factor(benefits$absolute.observed.benefit$quantile)
+  lv <- levels(risk.quantile)
+  lv <- lv[order.intervals(lv, quantile.nam = TRUE)]
+  risk.quantile <- factor(risk.quantile, levels = lv)
+  
+  # adjust for relative and absolute benefit
+  if(relative){
+    
+    df <- data.frame(pb.means = benefits$relative.predicted.benefit$estimate,
+                     ob.means = benefits$relative.observed.benefit$estimate,
+                     ob.means.ci.lo = benefits$relative.observed.benefit$ci.lower,
+                     ob.means.ci.up = benefits$relative.observed.benefit$ci.upper,
+                     risk.quantile = risk.quantile)
+  } else{
+    
+    if(!flip.sign.of.absolute.benefit){
+      
+      df <- data.frame(pb.means = benefits$absolute.predicted.benefit$estimate,
+                       ob.means = benefits$absolute.observed.benefit$estimate,
+                       ob.means.ci.lo = benefits$absolute.observed.benefit$ci.lower,
+                       ob.means.ci.up = benefits$absolute.observed.benefit$ci.upper,
+                       risk.quantile = risk.quantile)
+      
+    } else{
+      
+      df <- data.frame(pb.means = -benefits$absolute.predicted.benefit$estimate,
+                       ob.means = -benefits$absolute.observed.benefit$estimate,
+                       ob.means.ci.lo = -benefits$absolute.observed.benefit$ci.lower,
+                       ob.means.ci.up = -benefits$absolute.observed.benefit$ci.upper,
+                       risk.quantile = risk.quantile)
+      
+    }
+  }
+  
+  
+  if(is.null(title)){
+    title <- paste0("Calibration plot of ", 
+                    ifelse(relative, "relative ", "absolute "), "benefit")
+  }
+  
+  ggplot(mapping = aes(x = pb.means,
+                       y = ob.means, color = risk.quantile), data = df) +
+    geom_point() +
+    geom_errorbar(mapping = aes(ymin = ob.means.ci.lo,
+                                ymax = ob.means.ci.up)) +
+    geom_hline(yintercept = 0, linetype = 2) +
+    geom_vline(xintercept = 0, linetype = 2) +
+    geom_abline(intercept = 0, slope = 1) +
+    coord_cartesian(xlim = xlim, ylim = ylim) +
+    labs(x = ifelse(relative, "Predicted relative benefit", "Predicted absolute benefit"),
+         y = ifelse(relative, "Observed relative benefit", "Observed absolute benefit")) +
+    theme_light() +
+    ggtitle(title) +
+    theme(legend.position = "bottom") 
+  
+}
+
+
+calibration.plot.grf <- function(grf.model.obj,
+                                 cutoffs = c(0.25, 0.5, 0.75), 
+                                 significance.level = 0.05,
+                                 title = NULL,
+                                 xlim = NULL,
+                                 ylim = NULL,
+                                 flip.sign.of.absolute.benefit = FALSE){
+  
+  # get observed and predicted benefit by quantile group
+  benefits <- get.benefits.grf(grf.model.obj, 
+                               cutoffs = cutoffs, 
+                               significance.level = significance.level)
+  
+  # the plot
+  library(ggplot2)
+  
+  # make sure risk quantile is in correct order
+  risk.quantile <- factor(benefits$absolute.observed.benefit$quantile)
+  lv <- levels(risk.quantile)
+  lv <- lv[order.intervals(lv, quantile.nam = TRUE)]
+  risk.quantile <- factor(risk.quantile, levels = lv)
+  
+  
+  # retrieve data
+  if(!flip.sign.of.absolute.benefit){
+    
+    df <- data.frame(pb.means = benefits$absolute.predicted.benefit$estimate,
+                     ob.means = benefits$absolute.observed.benefit$estimate,
+                     ob.means.ci.lo = benefits$absolute.observed.benefit$ci.lower,
+                     ob.means.ci.up = benefits$absolute.observed.benefit$ci.upper,
+                     risk.quantile = risk.quantile)
+    
+  } else{
+    
+    df <- data.frame(pb.means = -benefits$absolute.predicted.benefit$estimate,
+                     ob.means = -benefits$absolute.observed.benefit$estimate,
+                     ob.means.ci.lo = -benefits$absolute.observed.benefit$ci.lower,
+                     ob.means.ci.up = -benefits$absolute.observed.benefit$ci.upper,
+                     risk.quantile = risk.quantile)
+    
+  }
+  
+  
+  if(is.null(title)) title <- "Calibration plot of absolute benefit"
+  
+  ggplot(mapping = aes(x = pb.means,
+                       y = ob.means, color = risk.quantile), data = df) +
+    geom_point() +
+    geom_errorbar(mapping = aes(ymin = ob.means.ci.lo,
+                                ymax = ob.means.ci.up)) +
+    geom_hline(yintercept = 0, linetype = 2) +
+    geom_vline(xintercept = 0, linetype = 2) +
+    geom_abline(intercept = 0, slope = 1) +
+    coord_cartesian(xlim = xlim, ylim = ylim) +
+    labs(x = "Predicted absolute benefit",
+         y = "Observed absolute benefit") +
+    theme_light() +
+    ggtitle(title) +
+    theme(legend.position = "bottom") 
+  
+}
+
 
 # TODO: remove unneccesary functions before execution
