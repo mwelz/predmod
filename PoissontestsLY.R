@@ -92,12 +92,8 @@ Poisson_runs_LY <- function(startinglifeyears,diseasereduction,relative_effect)
   
   pois.ate.hat = mean(pred.ben.abs) 
   rel.hat = mean(pred.ben.rel) 
-  
-  #estimated rates
-  estimated_w0_rate_per_1000=sum(Poisson_w[w==0])/sum(LY[w==0])*1000
-  estimated_w1_rate_per_1000=sum(Poisson_w[w==1])/sum(LY[w==1])*1000
-  
-  Estimated_reduction_per_1000 = estimated_w1_rate_per_1000-estimated_w0_rate_per_1000
+  Estimated_reduction_per_1000 =  (sum(pred.ben.abs)/sum(LY))*1000
+
   
   #Effect modeling
   #Baseline estimate Poisson model
@@ -127,14 +123,12 @@ Poisson_runs_LY <- function(startinglifeyears,diseasereduction,relative_effect)
   pred.ben.effect.rel     <- ifelse(w == 1, pred.ben.effect.rel.raw, 1 / pred.ben.effect.rel.raw)
   rel.effect.hat = mean(pred.ben.effect.rel) 
   #estimated rates
-  estimated_w0_effect_rate_per_1000=sum(Effect_Poisson[w==0])/sum(LY[w==0])*1000
-  estimated_w1_effect_rate_per_1000=sum(Effect_Poisson[w==1])/sum(LY[w==1])*1000
-  
-  Estimated_reduction_effect_per_1000 = estimated_w1_effect_rate_per_1000-estimated_w0_effect_rate_per_1000
+
+  Estimated_reduction_effect_per_1000 =  (sum(pred.ben.abs_effect)/sum(LY))*1000
   
   
-  observed_rate_per_1000_treat=sum(y[w==0])/sum(LY[w==0])*1000
-  observed_rate_per_1000_no_treat=sum(y[w==1])/sum(LY[w==1])*1000
+  observed_rate_per_1000_treat=sum(y[w==1])/sum(LY[w==1])*1000
+  observed_rate_per_1000_no_treat=sum(y[w==0])/sum(LY[w==0])*1000
   Observed_reduction_per_1000 = observed_rate_per_1000_no_treat-observed_rate_per_1000_treat
   
   return(list(

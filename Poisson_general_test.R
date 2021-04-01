@@ -133,8 +133,8 @@
   # absolute predicted benefit
   pred.ben.abs.raw <- LP_Poisson_w - LP_Poisson_wflipped
   pred.ben.abs     <- ifelse(w == 1, -pred.ben.abs.raw, pred.ben.abs.raw)
-  
-  
+  Estimated_reduction_per_1000 =  (sum(pred.ben.abs)/sum(LY))*1000
+  #34.43595
   
   # relative predicted benefit
   pred.ben.rel.raw <- LP_Poisson_w / LP_Poisson_wflipped
@@ -143,12 +143,7 @@
   pois.ate.hat = mean(pred.ben.abs) #0.1637023
   rel.hat = mean(pred.ben.rel) #0.6981297
   
-  #estimated rates
-  estimated_w0_rate_per_1000=sum(LP_Poisson_w[w==0])/sum(LY[w==0])*1000
-  estimated_w1_rate_per_1000=sum(LP_Poisson_w[w==1])/sum(LY[w==1])*1000
-  
-  Estimated_reduction_per_1000 = estimated_w1_rate_per_1000-estimated_w0_rate_per_1000
-  #36.24553
+
   
   
   #Check how using exponentiated values affect estimates
@@ -185,13 +180,9 @@
   
   pois.ate.exp.hat = mean(pred.ben.exp.abs) #0.1601887
   rel.exp.hat = mean(pred.ben.exp.rel) #0.7034657
-  
+  Estimated_reduction_per_1000_EXP =  (sum(pred.ben.exp.abs)/sum(LY))*1000
   #estimated rates
-  estimated_w0_EXP_rate_per_1000=sum(LP_EXP_Poisson_w[w==0])/sum(LY[w==0])*1000
-  estimated_w1_EXP_rate_per_1000=sum(LP_EXP_Poisson_w[w==1])/sum(LY[w==1])*1000
-  
-  Estimated_reduction_per_1000_EXP = estimated_w1_EXP_rate_per_1000-estimated_w0_EXP_rate_per_1000
-  #-36.24553
+  #33.69683
   
   
     #Stage 2 model with correction for lifeyears
@@ -223,7 +214,9 @@
   pred.ben_EXP_LY.abs.raw <- LP_Poisson_EXP_LY_w - LP_Poisson_EXP_LY_wflipped
   pred.ben_EXP_LY.abs     <- ifelse(w == 1, -pred.ben_EXP_LY.abs.raw, pred.ben_EXP_LY.abs.raw)
   
-  
+  a=sum(LP_Poisson_EXP_LY_w)
+  b=sum(LP_Poisson_EXP_LY_wflipped)
+  ((a-b)/sum(LY))*1000
   
   # relative predicted benefit
   pred.ben_EXP_LY.rel.raw <- LP_Poisson_EXP_LY_w / LP_Poisson_EXP_LY_wflipped
@@ -231,13 +224,9 @@
   
   pois.ate_EXP_LY.hat = mean(pred.ben_EXP_LY.abs) #0.1679178
   rel_EXP_LY.hat = mean(pred.ben_EXP_LY.rel) #0.6917914
-  
+  Estimated_reduction_per_1000_EXP_LY =  (sum(pred.ben_EXP_LY.abs)/sum(LY))*1000
   #estimated rates
-  estimated_w0_EXP_LY_rate_per_1000=sum(LP_Poisson_EXP_LY_w[w==0])/sum(LY[w==0])*1000
-  estimated_w1_EXP_LY_rate_per_1000=sum(LP_Poisson_EXP_LY_w[w==1])/sum(LY[w==1])*1000
-  
-  Estimated_reduction_per_1000_EXP_LY = estimated_w1_EXP_LY_rate_per_1000-estimated_w0_EXP_LY_rate_per_1000
-  #-36.24553
+  #35.32269
   
   
   
@@ -271,9 +260,6 @@
   rel.effect.hat = mean(pred.ben.effect.rel) #0.6789596
   
   #estimated rates
-  estimated_w0_effect_rate_per_1000=sum(Effect_Poisson[w==0])/sum(LY[w==0])*1000
-  estimated_w1_effect_rate_per_1000=sum(Effect_Poisson[w==1])/sum(LY[w==1])*1000
-  
-  Estimated_reduction_effect_per_1000 = estimated_w1_effect_rate_per_1000-estimated_w0_effect_rate_per_1000
-  #-36.24553
+  Estimated_reduction_per_1000_EXP_LY =  (sum(pred.ben.abs_effect)/sum(LY))*1000
+  #37.14827
   
