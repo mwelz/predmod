@@ -1,6 +1,8 @@
 rm(list = ls()) ; cat("\014")
 
 source(paste0(getwd(), "/funs/generic-ml/generic-ml-estimation-funs.R"))
+source(paste0(getwd(), "/funs/generic-ml/generic-ml-auxiliary-funs.R"))
+
 
 logistic <- function(x) 1 / ( 1 + exp(-x))
 
@@ -46,14 +48,13 @@ proportion.in.main.set = 0.5 # argument
 propensity.scores.obj <- propensity.score(Z = Z, D = D, learner = "glm")
 propensity.scores     <- propensity.scores.obj$propensity.scores
 
-### step 2: randomly split sample into main set and auxiliary set A
+### step 2: randomly split sample into main set and auxiliary set A ----
 M.set <- sort(sample(x = N.set, size = floor(proportion.in.main.set * N), replace = FALSE),
               decreasing = FALSE)
 A.set <- setdiff(N.set, M.set)
 
 
-
-### step 2a: learn proxy predictors by using the auxiliary set
+### step 2a: learn proxy predictors by using the auxiliary set ----
 
 # get the proxy baseline estimator for the main sample
 proxy.baseline.obj <- baseline.proxy.estimator(Z = Z, D = D, Y = Y, 
@@ -61,7 +62,14 @@ proxy.baseline.obj <- baseline.proxy.estimator(Z = Z, D = D, Y = Y,
 proxy.baseline     <- proxy.baseline.obj$baseline.predictions.main.sample
 
 # get the proxy estimator of the CATE for the main sample
-proxy.cate.obj <- CATE.proxy.estimator(Z = Z, D = D, Y = Y,
-                                   auxiliary.sample = A.set, learner = "glm",
-                                   proxy.baseline.estimates = proxy.baseline.obj$baseline.predictions.full.sample)
+proxy.cate.obj <- 
+  CATE.proxy.estimator(Z = Z, D = D, Y = Y,
+                       auxiliary.sample = A.set, learner = "glm",
+                       proxy.baseline.estimates = proxy.baseline.obj$baseline.predictions.full.sample)
 proxy.cate <- proxy.cate.obj$CATE.predictions.main.sample
+
+
+### step 2b: estimate BLP parameters by OLS (TODO: HT transformation!)
+blp.obj <- get.BLP.params.classic(Z = Z[M.set], D = D[M.set], Y = Y[M.set],
+                                  propensity.scores = propensity.scores.obj$propensity.scores[M.set])
+
