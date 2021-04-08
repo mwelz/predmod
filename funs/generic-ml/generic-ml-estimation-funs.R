@@ -1,4 +1,5 @@
 library(mlr3)
+library(mlr3learners) # potentially a bug in mlr3; if this is not loaded, mlr::lrn won't recognize the learner class
 
 #' Estimates the propensity score
 #' 
