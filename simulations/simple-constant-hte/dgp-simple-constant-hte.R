@@ -19,8 +19,8 @@ rm(list = ls()) ; cat("\014")
 
 # load the helper functions
 source(paste0(getwd(), "/funs/estimation-funs.R"))
-source(paste0(getwd(), "/funs/Poiss_test_estimation-funs.R")) 
-source(paste0(getwd(), "//funs/Poiss_treat_test_estimation-funs.R")) 
+source(paste0(getwd(), "/funs/Poisson_risk_modelling.R")) 
+source(paste0(getwd(), "/funs/Poisson_effect_modelling.R")) 
 # define the logistic function
 logistic <- function(x) 1 / (1 + exp(-x))
 
@@ -62,7 +62,10 @@ Base_LY   <- 5
 LY_coeffs <- c(0.5, -0.3, 0.7, -0.1, 0.4) #reversed signs of the coeffs for lung cancer as placeholder
 LY_intermediate <- (Base_LY + x  %*% LY_coeffs) * ifelse(y == 1, 0.9, 1) 
 # set LY of 0 or less to 0 LY
-LY <- ifelse(LY_intermediate <=0, 0, LY_intermediate) 																																												  
+LY <- ifelse(LY_intermediate <=0, 0, LY_intermediate) 		
+
+Observed_rate_reduction =  ((sum(y[w==0])/sum(LY[w==0])*1000))-((sum(y[w==1])/sum(LY[w==1])*1000))
+
 
 ### 1. risk modeling ----
 risk.model <- risk.modeling(X = x, w = w, y = y, alpha = 1, offset.lp = TRUE)
@@ -147,143 +150,24 @@ rate.ratio(y = y, w = w, lifeyears = LY, subgroup = x[,1] < 0)$rate.ratio # 0.67
 rate.ratio(y = y, w = w, lifeyears = LY, subgroup = x[,1] >= 0)$rate.ratio # 0.6862652
 
 
-### 5.0 Poisson regression ----
-#load rateratio.test
-
 
 
 ### 1. risk modeling ---- poisson
-risk.model.poiss <- risk.modeling.poiss(X = x, w = w, y = y, ly=LY, alpha = 1, offset.lp = TRUE)
+risk.model.poiss <- risk.modeling.poiss(X = x, w = w, y = y, ly = LY, alpha = 1, offset.lp = TRUE)
 
-risk.model.poiss$ate.hat # 0.0804255 (average of predicted abolute benefits)
-mean(risk.model.poiss$predicted.relative.benefit) # 0.7625825
-risk.model.poiss$c.index # 0.7008737
-
-
-risk.model.poiss$coefficients.stage1
-#Estimated Coefficient
-#(Intercept)         -2.3828534773
-#V1                   0.0842111114
-#V2                  -0.0533773920
-#V3                   0.1179584473
-#V4                   0.0009180406
-#V5                   0.0706628505
-
-#stage 1 coefficients look similar to moddeling by hand
-Poissonmodel_Baseline <- glm(y ~ x,offset = log(LY),
-                             family = poisson(link = "log"))    
-summary(Poissonmodel_Baseline)
-#Coefficients:
-#  Estimate Std. Error  z value Pr(>|z|)    
-#(Intercept) -2.384801   0.015682 -152.073  < 2e-16 ***
-#  x1           0.087120   0.014839    5.871 4.33e-09 ***
-#  x2          -0.056215   0.014628   -3.843 0.000122 ***
-#  x3           0.120814   0.014768    8.181 2.82e-16 ***
-#  x4           0.003697   0.014774    0.250 0.802413    
-#x5           0.073584   0.014884    4.944 7.66e-07 ***
+risk.model.poiss$ate.hat # 0.1656584 (average of predicted abolute benefits)
+risk.model.poiss$rel.hat# 0.69529
+risk.model.poiss$ratereduction.1000ly #34.84742
 
 
-#coefficients for stage 2 look different:
-
-#glmnet:
-#$coefficients.stage2
-#Estimated Coefficient
-#(Intercept)             1.7583695
-#w                       1.2717477
-#wlp                     0.6992437
-
-#By hand:
-#Estimate Std. Error z value Pr(>|z|)    
-#(Intercept) -1.16442    0.01936 -60.134  < 2e-16 ***
-#  w           -0.18558    0.02991  -6.204 5.49e-10 ***
+### 2. effect modeling ---- poisson
+effect.model.poiss <- effect.modeling.poiss(X = x, w = w, y = y, ly = LY, alpha=1,interactions = NULL, sig.level = 0.05)
 
 
-#made explicit assumption of relative treatment effect; so w*lp not incorporated
-
-#poisson-risk modelling by-hand:
-
-Poissonmodel_Baseline <- glm(y ~ x,offset = log(LY),
-                             family = poisson(link = "log"))    
-summary(Poissonmodel_Baseline)
-
-
-
-#Make a separate dataframe to allow for predictions from the Poisson model
-Predictdata_Baseline = data.frame(x,y,LY)
-
-#Predicted values for the Poisson model
-LP_Poisson=predict(Poissonmodel_Baseline,name=Predictdata_Baseline, type = "response")
-
-Predictdata_LP= data.frame(x,y,LY,LP_Poisson,w)
-w.rev           <- ifelse(w == 1, 0, 1)
-Predictdata_LP_wflipped= data.frame(x,y,LY,LP_Poisson,w=w.rev)
-
-#Not yet sure how to do the offset for lifeyears here; the LP does take those into account though.
-Poissonmodel_Treat <- glm(y ~ w,offset = (LP_Poisson),
-                          family = poisson(link = "log")) 
-summary(Poissonmodel_Treat )
-
-
-
-#Predicted values for the treatment Poisson model
-LP_Poisson=predict.glm(Poissonmodel_Treat,Predictdata_LP, type = "response")
-LP_Poisson_wflipped=predict.glm(Poissonmodel_Treat,Predictdata_LP_wflipped, type = "response")
-
-
-# absolute predicted benefit
-pred.ben.abs.raw <- LP_Poisson - LP_Poisson_wflipped
-pred.ben.abs     <- ifelse(w == 1, -pred.ben.abs.raw, pred.ben.abs.raw)
-
-# relative predicted benefit
-pred.ben.rel.raw <- LP_Poisson / LP_Poisson_wflipped
-pred.ben.rel     <- ifelse(w == 1, pred.ben.rel.raw, 1 / pred.ben.rel.raw)
-
-pois.ate.hat = mean(pred.ben.abs)
-#
-
-Predictdata_LP= data.frame(x,y,LY,LP_Poisson,w)
-Treatmentsubset=subset(Predictdata_LP,w==1)
-No_Treatmentsubset=subset(Predictdata_LP,w==0)
-
-#rates per 1,000 personyears
-Rate_treatment_1000 =  (sum(Treatmentsubset$y)/sum(Treatmentsubset$LY))*1000
-Rate_no_treatment_1000 = (sum(No_Treatmentsubset$y)/sum(No_Treatmentsubset$LY))*1000
-
-rel.hat = mean(pred.ben.rel)
-rel.hat2 = Rate_treatment_1000/Rate_no_treatment_1000
-
-
-
-### 2. effect modeling ----poisson
-effect.model.poiss <- effect.modeling.poiss(X = x, w = w, y = y, ly=LY,alpha = 1) 
-
-effect.model.poiss$ate.hat #0.1566682 (average of predicted abolute benefits)
-mean(effect.model.poiss$predicted.relative.benefit) #0.7034062
-effect.model.poiss$c.index #0.6577288
-
-
-
-
-
-
-
-
-
-
-
-
-### 6.0 Cox proportional hazard----
-S <- survival::Surv(time = LY, event = y) #Survival time until event; if 0, right censored.
-f <- rms::cph(S ~ x + w, surv = TRUE)
-g <- rms::Survival(f)   # g is a function
-
-ftwo <- survival::coxph(S ~ x + w)
-
-predict(ftwo,type="expected")
-
-# TODO: c-statistic
-# TODO: make calibration plot doubly robust when we use causal forest
-
-
-
-
+X = x
+w = w
+y = y
+ly = LY
+alpha=1
+interactions = NULL
+sig.level = 0.05
