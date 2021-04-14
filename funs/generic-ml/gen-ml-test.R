@@ -16,6 +16,7 @@ D <- rbinom(num.obs, 1, 0.5)
 
 # covariates
 Z <- mvtnorm::rmvnorm(num.obs, mean = rep(0, num.vars), sigma = diag(num.vars))
+colnames(Z) <- paste0("z", 1:num.vars)
 
 # coefficients (including an intercept)
 theta <- c(0.2, 0.5, -0.3, 0.7, -0.1, 0.4)
@@ -39,68 +40,46 @@ Y  <- ifelse(D == 1, Y1, Y0) # observed outcome
 #####################
 
 # require: D, Z, Y, the learners, significance level
-# initialize
-N     <- length(Y)
-N.set <- 1:N
-
-quantile.cutoffs <- c(0.25, 0.5, 0.75) # for the GATES grouping of S (argument)
+# arguments: 
+quantile.cutoffs       = c(0.25, 0.5, 0.75) # for the GATES grouping of S (argument)
 proportion.in.main.set = 0.5 # argument
-Z.clan <- NULL # argument. The matrix of variables that shall be considered in CLAN
+Z.clan                 = NULL # argument. The matrix of variables that shall be considered in CLAN
+learners <- c('glm', 'tree')
+num.splits <- 2
 
-### step 0: input checks ---- 
-if(is.null(Z.clan)) Z.clan <- Z # if no inputprovided, set it equal to Z
 
 ### step 1: compute propensity scores ----
 propensity.scores.obj <- propensity.score(Z = Z, D = D, learner = "glm")
 propensity.scores     <- propensity.scores.obj$propensity.scores
 
-### step 2: randomly split sample into main set and auxiliary set A ----
-M.set <- sort(sample(x = N.set, size = floor(proportion.in.main.set * N), replace = FALSE),
-              decreasing = FALSE)
-A.set <- setdiff(N.set, M.set)
+### step 2: for each ML method, do the generic ML analysis
+## put the following in a function later
 
+# initialize
+generic.targets <- initializer.for.splits(Z = Z, Z.clan = Z.clan, 
+                                          learners = learners, num.splits = num.splits, 
+                                          quantile.cutoffs = quantile.cutoffs)
 
-### step 2a: learn proxy predictors by using the auxiliary set ----
+num.vars.in.Z.clan <- ifelse(is.null(Z.clan), ncol(Z), ncol(Z.clan))
 
-# get the proxy baseline estimator for the main sample
-proxy.baseline.obj <- baseline.proxy.estimator(Z = Z, D = D, Y = Y, 
-                                               auxiliary.sample = A.set, learner = "glm")
-proxy.baseline     <- proxy.baseline.obj$baseline.predictions.main.sample
-
-# get the proxy estimator of the CATE for the main sample
-proxy.cate.obj <- 
-  CATE.proxy.estimator(Z = Z, D = D, Y = Y,
-                       auxiliary.sample = A.set, learner = "glm",
-                       proxy.baseline.estimates = proxy.baseline.obj$baseline.predictions.full.sample)
-proxy.cate <- proxy.cate.obj$CATE.predictions.main.sample
-
-
-### step 2b: estimate BLP parameters by OLS (TODO: HT transformation!) ----
-blp.obj <- get.BLP.params.classic(D = D[M.set], Y = Y[M.set],
-                                  propensity.scores = propensity.scores.obj$propensity.scores[M.set])
-
-
-### step 2c: estimate GATES parameters by OLS (TODO: HT transformation!) ----
-# group the proxy estimators for the CATE in the main sample by quantiles. TODO: intervals need to be [) instead of (]
-group.membership.main.sample <- quantile.group(proxy.cate, 
-                                cutoffs = quantile.cutoffs, 
-                                quantile.nam = TRUE) 
-
-gates.obj <- get.GATES.params.classic(D = D[M.set], Y = Y[M.set],
-                                      propensity.scores = propensity.scores.obj$propensity.scores[M.set],
-                                      group.membership.main.sample = group.membership.main.sample)
-
-
-### step 2d: estimate CLAN parameters in the main sample
-clan.obj <- get.CLAN.parameters(Z.clan.main.sample = Z.clan[M.set,], 
-                                group.membership.main.sample = group.membership.main.sample)
-
-# comments on CLAN: If there are categorical variables, apply one-hot-encoding to Z.clan. The interpretation then becomes: Is there a factor that is overproportionally present in the least or most affected group?
-
-
-### step 2e: get parameters over which we maximize to find the "best" ML method ----
-best.obj <- best.ml.method.parameters(BLP.obj = blp.obj, 
-                                      GATES.obj = gates.obj, 
-                                      proxy.cate.main.sample = proxy.cate,
-                                      group.membership.main.sample = group.membership.main.sample)
-
+for(s in 1:num.splits){
+  for(i in 1:length(learners)){
+    
+    generic.ml.obj <- 
+      get.generic.ml.for.given.learner(Z = Z, D = D, Y = Y, 
+                                       propensity.scores = propensity.scores, 
+                                       learner = learners[i], 
+                                       Z.clan = Z.clan, 
+                                       proportion.in.main.set = proportion.in.main.set, 
+                                       quantile.cutoffs = quantile.cutoffs)
+    
+    generic.targets[[i]]$BLP[,,s]   <- generic.ml.obj$BLP$generic.targets
+    generic.targets[[i]]$GATES[,,s] <- generic.ml.obj$GATES$generic.targets
+    generic.targets[[i]]$best[,,s]  <- c(generic.ml.obj$best$lambda, generic.ml.obj$best$lambda.bar)
+    
+    for(j in 1:num.vars.in.Z.clan){
+      generic.targets[[i]]$CLAN[[j]] <- generic.ml.obj$CLAN$generic.targets[[j]]
+    }
+    
+  } # FOR learners
+} # FOR num.splits

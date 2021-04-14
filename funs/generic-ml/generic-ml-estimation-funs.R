@@ -258,3 +258,96 @@ CATE.proxy.estimator <- function(Z, D, Y,
               auxiliary.sample = auxiliary.sample))
   
 } # END FUN
+
+
+#' Performs generic ML for a given learning technique (with only one split of the data)
+#' 
+#' @param Z a matrix or data frame of covariates
+#' @param D a binary vector of treatment status of length 
+#' @param Y a vector of responses of length
+#' @param propensity.scores a vector of propensity scores
+#' @param learner The machine learner that shall be used
+#' @param quantile.cutoffs Cutoff points of quantiles that shall be used for GATES grouping
+#' 
+#' TODO: instructions on how mlr3 input is supposed to work (needs to be a string!)
+#' TODO: comments on CLAN: If there are categorical variables, apply one-hot-encoding to Z.clan. The interpretation then becomes: Is there a factor that is overproportionally present in the least or most affected group?
+#' 
+#' @export
+get.generic.ml.for.given.learner <- function(Z, D, Y, 
+                                             propensity.scores,
+                                             learner = 'mlr3::lrn("cv_glmnet", s = "lambda.min")',
+                                             Z.clan = NULL, 
+                                             proportion.in.main.set = 0.5, 
+                                             quantile.cutoffs = c(0.25, 0.5, 0.75)){
+  
+  ### step 1: input checks ---- 
+  if(is.null(Z.clan)) Z.clan <- Z # if no input provided, set it equal to Z
+  
+  # initialize
+  N     <- length(Y)
+  N.set <- 1:N
+  
+  ### step 2: randomly split sample into main set and auxiliary set A ----
+  M.set <- sort(sample(x = N.set, size = floor(proportion.in.main.set * N), replace = FALSE),
+                decreasing = FALSE)
+  A.set <- setdiff(N.set, M.set)
+  
+  
+  ### step 2a: learn proxy predictors by using the auxiliary set ----
+  
+  # get the proxy baseline estimator for the main sample
+  proxy.baseline.obj <- baseline.proxy.estimator(Z = Z, D = D, Y = Y, 
+                                                 auxiliary.sample = A.set, 
+                                                 learner = make.mlr3.string(learner, regr = TRUE))
+  proxy.baseline     <- proxy.baseline.obj$baseline.predictions.main.sample
+  
+  # get the proxy estimator of the CATE for the main sample
+  proxy.cate.obj <- 
+    CATE.proxy.estimator(Z = Z, D = D, Y = Y,
+                         auxiliary.sample = A.set, 
+                         learner = make.mlr3.string(learner, regr = TRUE),
+                         proxy.baseline.estimates = proxy.baseline.obj$baseline.predictions.full.sample)
+  proxy.cate <- proxy.cate.obj$CATE.predictions.main.sample
+  
+  
+  ### step 2b: estimate BLP parameters by OLS (TODO: HT transformation!) ----
+  blp.obj <- get.BLP.params.classic(D = D[M.set], Y = Y[M.set],
+                                    propensity.scores = propensity.scores.obj$propensity.scores[M.set],
+                                    proxy.baseline = proxy.baseline, 
+                                    proxy.cate = proxy.cate)
+  
+  
+  ### step 2c: estimate GATES parameters by OLS (TODO: HT transformation!) ----
+  # group the proxy estimators for the CATE in the main sample by quantiles. TODO: intervals need to be [) instead of (]
+  group.membership.main.sample <- quantile.group(proxy.cate, 
+                                                 cutoffs = quantile.cutoffs, 
+                                                 quantile.nam = TRUE) 
+  
+  gates.obj <- get.GATES.params.classic(D = D[M.set], Y = Y[M.set],
+                                        propensity.scores = propensity.scores.obj$propensity.scores[M.set],
+                                        group.membership.main.sample = group.membership.main.sample, 
+                                        proxy.baseline = proxy.baseline, proxy.cate = proxy.cate)
+  
+  
+  ### step 2d: estimate CLAN parameters in the main sample
+  clan.obj <- get.CLAN.parameters(Z.clan.main.sample = Z.clan[M.set,], 
+                                  group.membership.main.sample = group.membership.main.sample)
+  
+  
+  ### step 2e: get parameters over which we maximize to find the "best" ML method ----
+  best.obj <- best.ml.method.parameters(BLP.obj = blp.obj, 
+                                        GATES.obj = gates.obj, 
+                                        proxy.cate.main.sample = proxy.cate,
+                                        group.membership.main.sample = group.membership.main.sample)
+  
+  ### organize output in a list ----
+  return(list(BLP = blp.obj, 
+              GATES = gates.obj, 
+              CLAN = clan.obj,
+              best = best.obj,
+              M.set = M.set, A.set = A.set, 
+              CATE.proxy = proxy.cate.obj,
+              baseline.proxy = proxy.baseline,
+              group.membership_M.set = group.membership.main.sample))
+  
+} # END FUN

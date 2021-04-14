@@ -6,13 +6,15 @@ source(paste0(getwd(), "/funs/estimation-funs.R"))
 #' 
 #' @param D a binary vector of treatment status of length _|M|_
 #' @param Y a vector of responses of length _|M|_
+#' @param proxy.baseline a vector of proxy baseline estimates of length _M_
+#' @param proxy.cate a vector of proxy CATE estimates of length _M_
 #' @param propensity.scores a vector of propensity scores of length _|M|_
 #' @return BLP coefficients with inference statements
 #' 
 #' @export
 #' 
 #' TODO: implement same with HT transformation! 
-get.BLP.params.classic <- function(D, Y, propensity.scores){
+get.BLP.params.classic <- function(D, Y, propensity.scores, proxy.baseline, proxy.cate){
   
   # prepare weights
   weights <- 1 / (propensity.scores * (1 - propensity.scores))
@@ -20,8 +22,8 @@ get.BLP.params.classic <- function(D, Y, propensity.scores){
   # prepare covariate matrix
   X <- data.frame(B = proxy.baseline, 
                   S = proxy.cate,
-                  beta1 = D - propensity.scores, 
-                  beta2 = (D - propensity.scores) * (proxy.cate - mean(proxy.cate))) 
+                  beta.1 = D - propensity.scores, 
+                  beta.2 = (D - propensity.scores) * (proxy.cate - mean(proxy.cate))) 
   
   # fit weighted linear regression by OLS
   blp.obj <- lm(Y ~., data = data.frame(Y, X), weights = weights)
@@ -31,16 +33,18 @@ get.BLP.params.classic <- function(D, Y, propensity.scores){
   
   # inference on beta2: test the null that it is 1) = 0, 2) = 1.
   beta2.inference <- matrix(NA_real_, 2, 2)
-  rownames(beta2.inference) <- c("H0: beta2 = 0", "H0: beta2 = 1")
+  rownames(beta2.inference) <- c("H0: beta.2 = 0", "H0: beta.2 = 1")
   colnames(beta2.inference) <- c("t value", "Pr(>|t|)")
-  beta2.inference[1,] <- coefficients["beta2", c("t value", "Pr(>|t|)")]
+  beta2.inference[1,] <- coefficients["beta.2", c("t value", "Pr(>|t|)")]
   beta2.inference[2, "t value"] <- 
-    (coefficients["beta2", "Estimate"] - 1) / coefficients["beta2", "Std. Error"]  
+    (coefficients["beta.2", "Estimate"] - 1) / coefficients["beta.2", "Std. Error"]  
   beta2.inference[2, "Pr(>|t|)"] <- 
     2 * pt(beta2.inference[2, "t value"], df = blp.obj$df.residual, lower.tail = FALSE)
   
   return(list(lm.obj = blp.obj, 
-              blp.coefficients = blp.obj$coefficients[c("beta1", "beta2")],
+              blp.coefficients = blp.obj$coefficients[c("beta.1", "beta.2")],
+              generic.targets = matrix(coefficients["beta.2", ], nrow = 1,
+                                       dimnames = list("beta.2", colnames(coefficients))),
               coefficients = coefficients,
               beta2.inference = beta2.inference))
   
@@ -52,6 +56,8 @@ get.BLP.params.classic <- function(D, Y, propensity.scores){
 #' @param D a binary vector of treatment status of length _|M|_
 #' @param Y a vector of responses of length _|M|_
 #' @param propensity.scores a vector of propensity scores of length _|M|_
+#' @param proxy.baseline a vector of proxy baseline estimates of length _M_
+#' @param proxy.cate a vector of proxy CATE estimates of length _M_
 #' @param group.membership.main.sample a logical matrix with _M_ rows that indicate 
 #' the group memberships (such a matrix is returned by the function quantile.group())
 #' @return GATES coefficients 
@@ -61,6 +67,7 @@ get.BLP.params.classic <- function(D, Y, propensity.scores){
 #' TODO: implement same with HT transformation! 
 get.GATES.params.classic <- function(D, Y, 
                                      propensity.scores, 
+                                     proxy.baseline, proxy.cate,
                                      group.membership.main.sample){
   
   # make the group membership a binary matrix
@@ -73,20 +80,32 @@ get.GATES.params.classic <- function(D, Y,
   X <- data.frame(B = proxy.baseline, 
                   S = proxy.cate,
                   (D - propensity.scores) * groups)
-  colnames(X) <- c(colnames(X)[c(1,2)], paste0("gamma", 1:ncol(groups)))
+  colnames(X) <- c(colnames(X)[c(1,2)], paste0("gamma.", 1:ncol(groups)))
   
   # fit weighted linear regression by OLS
   gates.obj <- lm(Y ~., data = data.frame(Y, X), weights = weights)
   
   # extract coefficients
   coefficients                 <- summary(gates.obj)$coefficients
-  gates.coefficients           <- coefficients[paste0("gamma", 1:ncol(groups)), 1]
+  gates.coefficients           <- coefficients[paste0("gamma.", 1:ncol(groups)), 1]
   gates.coefficients.quantiles <- colnames(groups)
-  names(gates.coefficients.quantiles) <- paste0("gamma", 1:ncol(groups))
+  names(gates.coefficients.quantiles) <- paste0("gamma.", 1:ncol(groups))
+  
+  # prepare generic target parameters
+  covmat  <- stats::vcov(gates.obj)
+  diff    <- coefficients[paste0("gamma.", ncol(groups)), "Estimate"] - 
+    coefficients["gamma.1", "Estimate"]
+  diff.se <- sqrt(covmat[paste0("gamma.", ncol(groups)), paste0("gamma.", ncol(groups))] +
+                    covmat["gamma.1", "gamma.1"] - 2 * covmat[paste0("gamma.", ncol(groups)), "gamma.1"])
+  tstat   <- diff / diff.se
+  pval    <- 2 * pt(abs(tstat), lower.tail = FALSE, df = length(Y) - ncol(covmat))
   
   return(list(lm.obj = gates.obj, 
               gates.coefficients = gates.coefficients,
               gates.coefficients.quantiles = gates.coefficients.quantiles,
+              generic.targets = rbind(coefficients[-c(1,2,3),], 
+                                      matrix(c(diff, diff.se, tstat, pval), nrow = 1, 
+                                             dimnames = list("gamma.K-gamma.1", NULL)) ),
               coefficients = coefficients))
 
 } # END FUN
@@ -103,13 +122,46 @@ get.GATES.params.classic <- function(D, Y,
 get.CLAN.parameters <- function(Z.clan.main.sample, group.membership.main.sample){
   
   K <- ncol(group.membership.main.sample)
-  delta1 <- sapply(1:ncol(Z.clan.main.sample), function(j){
-    mean(Z.clan.main.sample[group.membership.main.sample[, 1], j])} )
-  deltaK <- sapply(1:ncol(Z.clan.main.sample), function(j){ 
-    mean(Z.clan.main.sample[group.membership.main.sample[, K], j])} )
-  names(delta1) <- names(deltaK) <- colnames(Z.clan.main.sample)
-  return(list(delta.1_parameters = delta1,
-              delta.K_parameters = deltaK))
+  
+  # initialize
+  generic.targets   <- list()
+  clan.coefficients <- matrix(NA_real_, nrow = 3, ncol = ncol(Z.clan.main.sample))
+  
+  # loop over the CLAN variables
+  for(j in 1:ncol(Z.clan.main.sample)){
+    
+    # initialize matrix
+    out.mat <- matrix(NA_real_, nrow = 3, ncol = 4)
+    
+    # get summary statistics for least affected group
+    ttest.delta1 <- stats::t.test(Z.clan.main.sample[group.membership.main.sample[, 1], j])
+    out.mat[1,]  <- c(ttest.delta1$estimate, ttest.delta1$stderr, 
+                      ttest.delta1$statistic, ttest.delta1$p.value)
+    
+    # get summary statistics for most affected group
+    ttest.deltaK <- stats::t.test(Z.clan.main.sample[group.membership.main.sample[, K], j])
+    out.mat[2,]  <- c(ttest.deltaK$estimate, ttest.deltaK$stderr, 
+                      ttest.deltaK$statistic, ttest.deltaK$p.value)
+    
+    # get summary statistics for difference between most and least affected group
+    diff        <- ttest.deltaK$estimate - ttest.delta1$estimate
+    diff.se     <- sqrt( ttest.deltaK$stderr^2 + ttest.delta1$stderr^2 )
+    diff.ttest  <- diff / diff.se
+    pval        <- 2 * pnorm(abs(diff.ttest), lower.tail = FALSE)
+    out.mat[3,] <- c(diff, diff.se, diff.ttest, pval)
+    
+    colnames(out.mat)     <- c("Estimate", "Std. Error", "t value", "Pr(>|t|)")
+    rownames(out.mat)     <- c("delta.1", "delta.K", "delta.K-delta.1")
+    generic.targets[[j]]  <- out.mat
+    clan.coefficients[,j] <- out.mat[,1] 
+
+  } # END FOR
+  
+  names(generic.targets) <- colnames(clan.coefficients) <- colnames(Z.clan.main.sample)
+  rownames(clan.coefficients) <- c("delta.1", "delta.K", "delta.K-delta.1")
+  
+  return(list(clan.coefficients = clan.coefficients,
+              generic.targets   = generic.targets))
   
 } # END FUN
 
@@ -129,7 +181,74 @@ best.ml.method.parameters <- function(BLP.obj,
                                       proxy.cate.main.sample, 
                                       group.membership.main.sample){
   
-  return(list(lambda = as.numeric(BLP.obj$blp.coefficients["beta2"]^2 * var(proxy.cate.main.sample)),
+  return(list(lambda = as.numeric(BLP.obj$blp.coefficients["beta.2"]^2 * var(proxy.cate.main.sample)),
               lambda.bar = as.numeric(colSums(group.membership.main.sample) %*%  GATES.obj$gates.coefficients^2)))
   
 } # END FUN
+
+
+make.mlr3.string <- function(learner.str, regr = TRUE){
+  # helper function. Requires input of type 'mlr3::lrn("cv_glmnet", s = "lambda.min")' (note the absence of classif and regr)
+  
+  if(substr(learner.str, start = 1, stop = 6) != "mlr3::"){
+    
+    learner <- learner.str
+    
+  } else{
+    
+    learner <- paste0(substr(learner.str, start = 1, stop = 11), ifelse(regr, "regr.", "classif."), 
+                      substr(learner.str, start = 12, stop = 1e8))
+    
+    learner <-eval(parse(text = learner))
+    
+  } # END IF
+  
+  return(learner)
+  
+} # END FUN
+
+
+initializer.for.splits <- function(Z, Z.clan, learners,
+                                   num.splits, quantile.cutoffs){
+  
+  # helper function that initializes object in the generic ML splitting procedure
+  
+  if(is.null(Z.clan)){
+    d <- ncol(Z)
+    Z.clan.nam <- colnames(Z)
+  } else{
+    d <- ncol(Z.clan)
+    Z.clan.nam <- colnames(Z.clan)
+  }
+  
+  clan <- array(NA_real_, dim = c(3, 4, num.splits), 
+                dimnames = list(c("delta.1", "delta.K", "delta.K-delta.1"), 
+                                c("Estimate", "Std. Error", "t value", "Pr(>|t|)"),
+                                NULL))
+  
+  gates <- array(NA_real_, dim = c(length(quantile.cutoffs)+2, 4, num.splits),
+                 dimnames = list(
+                   c(paste0("gamma.", 1:(length(quantile.cutoffs)+1)), "gamma.K-gamma.1"),
+                   c("Estimate", "Std. Error", "t value", "Pr(>|t|)"), NULL))
+  
+  blp <- array(NA_real_, dim = c(1, 4, num.splits),
+               dimnames = list("beta.2", 
+                               c("Estimate", "Std. Error", "t value", "Pr(>|t|)"), NULL))
+  
+  best <- array(NA_real_, dim = c(1, 2, num.splits), 
+                dimnames = list(NULL, c("lambda", "lambda.bar"), NULL))
+  
+  clan.lists <- lapply(1:d, function(...) clan )
+  names(clan.lists) <- Z.clan.nam
+  
+  out.ls <- lapply(1:length(learners), function(...){
+    
+    list(BLP = blp, GATES = gates, CLAN = clan.lists, best = best)
+    
+  })
+  
+  names(out.ls) <- learners
+  return(out.ls)
+  
+} # END FUN
+
