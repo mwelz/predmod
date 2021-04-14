@@ -1,9 +1,9 @@
 
 
 effect.modeling.poiss <- function(X, w, y,ly, 
-                            alpha = alpha, 
-                            interactions = NULL,
-                            sig.level = 0.05, ...){
+                                  alpha = alpha, 
+                                  interactions = NULL,
+                                  sig.level = 0.05, ...){
   
   ### 0. preparation ----
   # split the sample as suggested in Wasserman and Roeder (2009)
@@ -26,14 +26,19 @@ effect.modeling.poiss <- function(X, w, y,ly,
     interaction.vars <- paste0("X", which(colnames.orig %in% interactions))
   }
   
+  #Set X to X-star
+  X.star <- X
+  
   # add interaction variables
-  interaction.terms <- sapply(which(colnames(X) %in% interaction.vars),
-                              function(j) ifelse(w == 1, X[,j], 0))
-  
-  interaction.terms <- cbind(w, interaction.terms)
-  colnames(interaction.terms) <- c("w", paste0("w.", interaction.vars))
-  X.star <- cbind(X, interaction.terms)
-  
+  if(is.null(interactions)==TRUE || is.na(interactions)==FALSE)
+  {
+    interaction.terms <- sapply(which(colnames(X) %in% interaction.vars),
+                                function(j) ifelse(w == 1, X[,j], 0))
+    
+    interaction.terms <- cbind(w, interaction.terms)
+    colnames(interaction.terms) <- c("w", paste0("w.", interaction.vars))
+    X.star <- cbind(X, interaction.terms)
+  }
   ### 1. stage 1: penalized regression on whole set  ----
   # whole set is x.star. We apply sample splitting as suggested in Wasserman and Roeder (2009)
   mod.pm <- glmnet::cv.glmnet(X.star[set1,], y[set1], family = "poisson",offset=log(ly[set1]), alpha = alpha)
@@ -97,7 +102,7 @@ effect.modeling.poiss <- function(X, w, y,ly,
   # get observed predicted benefit
   pred.ben.abs.raw <- probs - probs.flipped.w
   pred.ben.abs     <- ifelse(w == 1, -pred.ben.abs.raw, pred.ben.abs.raw)
-  
+  Estimated_reduction_effect_per_1000 =  (sum(pred.ben.abs_effect)/sum(ly))*1000
   # get relative predicted benefit
   pred.ben.rel.raw <- probs / probs.flipped.w
   pred.ben.rel     <- ifelse(w == 1, pred.ben.rel.raw, 1 / pred.ben.rel.raw)
@@ -129,7 +134,7 @@ effect.modeling.poiss <- function(X, w, y,ly,
   ## 5. fit baseline risk  ----
   # no information on w allowed, so we cannot use the retained variables from the effect modeling
   baseline.mod <- risk.model.poiss.stage1(X = X, y = y, ly=ly, alpha = alpha)
-  basline.risk <- transform.to.probability(baseline.mod$lp)
+  basline.poiss <-   baseline.mod$lp
   
   # calculate C index by using predicted risk (with regular w)
   c.index <- unname(Hmisc::rcorr.cens(x = probs, S = y)[1])
@@ -148,13 +153,15 @@ effect.modeling.poiss <- function(X, w, y,ly,
                                               pval = pval)),
     risk.regular.w = probs,
     risk.flipped.w = probs.flipped.w,
-    risk.baseline = basline.risk,
+    basline.poiss = basline.poiss,
     predicted.absolute.benefit = pred.ben.abs,
     predicted.absolute.benefit.raw = pred.ben.abs.raw,
     predicted.relative.benefit = pred.ben.rel,
     predicted.relative.benefit.raw = pred.ben.rel.raw,
     ate.hat = mean(pred.ben.abs),
-    c.index = c.index
+    ratereduction.1000ly = Estimated_reduction_per_1000_lY,
+    c.index =NA
+    # c.index = c.index
   ))
 }
 

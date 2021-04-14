@@ -9,7 +9,8 @@ risk.model.poiss.stage1 <- function(X, y,ly, alpha = 1){
   if(0 %in% kept.vars) kept.vars <- kept.vars[-which(kept.vars == 0)]
   coefs         <- coefs.obj@x
   X.star        <- cbind(intercept = 1, X[,kept.vars])
-  lp            <- as.numeric(X.star %*% coefs)
+  lp_raw        <- as.numeric(exp(X.star %*% coefs))
+  lp            <- lp_raw*ly
   
   return(list(
     models.stage1.cv = models.stage1,
@@ -27,7 +28,7 @@ risk.model.poiss.stage2 <- function(lp , y, w, lambda, offset.lp  = TRUE ){
   } else{
     oset <- rep(0, length(lp))
   }
-
+  
   
   # use same lambda as model 1!
   mod.stage2 <- glmnet::glmnet(X.stage2, y, 
@@ -46,6 +47,9 @@ risk.model.poiss.stage2 <- function(lp , y, w, lambda, offset.lp  = TRUE ){
                                           newx = X.stage2,
                                           type = "response", 
                                           newoffset = oset)
+  probs.regular <- exp(probs.regular)
+  
+  
   # 2) w flipped
   w.rev           <- ifelse(w == 1, 0, 1)
   X.stage2.rev    <- cbind(w = w.rev, wlp = w.rev * lp)
@@ -54,10 +58,12 @@ risk.model.poiss.stage2 <- function(lp , y, w, lambda, offset.lp  = TRUE ){
                                             type = "response", 
                                             newoffset = oset)
   
+  probs.flipped.w <- exp(probs.flipped.w)
+  
   # return
   return(list(mod.stage2 = mod.stage2,
-              risk.pred.regular = transform.to.probability(as.numeric(probs.regular)),
-              risk.pred.flipped.w = transform.to.probability(as.numeric(probs.flipped.w))
+              risk.pred.regular = (as.numeric(probs.regular)),
+              risk.pred.flipped.w = (as.numeric(probs.flipped.w))
   ))
 }
 
@@ -68,14 +74,16 @@ risk.modeling.poiss <- function(X, w, y, ly, alpha, offset.lp = TRUE){
   
   ## stage 2
   stage2 <- risk.model.poiss.stage2(lp = stage1$lp,
-                              y = y, 
-                              w = w,
-                              lambda = stage1$lambda.min,
-                              offset.lp = offset.lp)
+                                    y = y, 
+                                    w = w,
+                                    lambda = stage1$lambda.min,
+                                    offset.lp = offset.lp)
   
   # absolute predicted benefit
   pred.ben.abs.raw <- stage2$risk.pred.regular - stage2$risk.pred.flipped.w
   pred.ben.abs     <- ifelse(w == 1, -pred.ben.abs.raw, pred.ben.abs.raw)
+  
+  Estimated_reduction_per_1000_lY =  (sum(pred.ben.abs)/sum(ly))*1000
   
   # relative predicted benefit
   pred.ben.rel.raw <- stage2$risk.pred.regular / stage2$risk.pred.flipped.w
@@ -95,16 +103,18 @@ risk.modeling.poiss <- function(X, w, y, ly, alpha, offset.lp = TRUE){
     mod.stage2 = stage2$mod.stage2,
     coefficients.stage1 = coefs.stage1,
     coefficients.stage2 = coefs.stage2,
-    linear.predictor = stage1$lp,
-    risk.baseline = transform.to.probability(stage1$lp),
-    risk.regular.w = stage2$risk.pred.regular,
-    risk.flipped.w = stage2$risk.pred.flipped.w,
+    poiss.baseline = stage1$lp,
+    poiss.stage2.regular.w = stage2$risk.pred.regular,
+    poiss.stage2.flipped.w = stage2$risk.pred.flipped.w,
     predicted.absolute.benefit = pred.ben.abs,
     predicted.absolute.benefit.raw = pred.ben.abs.raw,
     predicted.relative.benefit = pred.ben.rel,
     predicted.relative.benefit.raw = pred.ben.rel.raw,
     ate.hat = mean(pred.ben.abs),
-    c.index = c.index
+    rel.hat = mean(pred.ben.rel),
+    ratereduction.1000ly = Estimated_reduction_per_1000_lY,
+    c.index = NA
+    #c.index = c.index
   ))
 }
 
