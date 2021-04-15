@@ -14,7 +14,9 @@ source(paste0(getwd(), "/funs/estimation-funs.R"))
 #' @export
 #' 
 #' TODO: implement same with HT transformation! 
-get.BLP.params.classic <- function(D, Y, propensity.scores, proxy.baseline, proxy.cate){
+get.BLP.params.classic <- function(D, Y, propensity.scores, 
+                                   proxy.baseline, proxy.cate, 
+                                   significance.level = 0.05){
   
   # prepare weights
   weights <- 1 / (propensity.scores * (1 - propensity.scores))
@@ -41,10 +43,22 @@ get.BLP.params.classic <- function(D, Y, propensity.scores, proxy.baseline, prox
   beta2.inference[2, "Pr(>|t|)"] <- 
     2 * pt(beta2.inference[2, "t value"], df = blp.obj$df.residual, lower.tail = FALSE)
   
+  # generic targets
+  generic.targets <- coefficients["beta.2", ]
+  names(generic.targets) <- c("Estimate", "Std. Error", "z value", "Pr(>|z|)")
+  generic.targets["Pr(>|z|)"] <- 2 * pnorm(abs(generic.targets["z value"]), lower.tail = FALSE)
+  ci.lo <- generic.targets["Estimate"] - qnorm(1-significance.level/2) * generic.targets["Std. Error"]
+  ci.up <- generic.targets["Estimate"] + qnorm(1-significance.level/2) * generic.targets["Std. Error"]
+  generic.targets <- c(generic.targets, ci.lo, ci.up)
+  names(generic.targets) <- c("Estimate", "Std. Error", "z value", "Pr(>|z|)", "CI lower", "CI upper")
+  generic.targets <- generic.targets[c("Estimate", "CI lower", "CI upper", 
+                                       "Std. Error", "z value", "Pr(>|z|)")]
+  
+
   return(list(lm.obj = blp.obj, 
               blp.coefficients = blp.obj$coefficients[c("beta.1", "beta.2")],
-              generic.targets = matrix(coefficients["beta.2", ], nrow = 1,
-                                       dimnames = list("beta.2", colnames(coefficients))),
+              generic.targets = matrix(generic.targets, nrow = 1,
+                                       dimnames = list("beta.2", names(generic.targets))),
               coefficients = coefficients,
               beta2.inference = beta2.inference))
   
@@ -68,7 +82,8 @@ get.BLP.params.classic <- function(D, Y, propensity.scores, proxy.baseline, prox
 get.GATES.params.classic <- function(D, Y, 
                                      propensity.scores, 
                                      proxy.baseline, proxy.cate,
-                                     group.membership.main.sample){
+                                     group.membership.main.sample,
+                                     significance.level = 0.05){
   
   # make the group membership a binary matrix
   groups <- 1 * group.membership.main.sample
@@ -92,19 +107,32 @@ get.GATES.params.classic <- function(D, Y,
   names(gates.coefficients.quantiles) <- paste0("gamma.", 1:ncol(groups))
   
   # prepare generic target parameters
+  coefficients.temp <- coefficients[-c(1,2,3),]
+  colnames(coefficients.temp) <- c("Estimate", "Std. Error", "z value", "Pr(>|z|)")
+  coefficients.temp[,"Pr(>|z|)"] <- 2 * pnorm(abs(coefficients.temp[,"z value"]), lower.tail = FALSE)
+  ci.lo <- coefficients.temp[,"Estimate"] - qnorm(1-significance.level/2) * coefficients.temp[,"Std. Error"]
+  ci.up <- coefficients.temp[,"Estimate"] + qnorm(1-significance.level/2) * coefficients.temp[,"Std. Error"]
+  coefficients.temp <- cbind(coefficients.temp, ci.lo, ci.up)
+  colnames(coefficients.temp) <- c("Estimate", "Std. Error", "z value", "Pr(>|z|)", "CI lower", "CI upper")
+  coefficients.temp <- coefficients.temp[,c("Estimate", "CI lower", "CI upper", 
+                                            "Std. Error", "z value", "Pr(>|z|)")]
+  
+  # prepare generic target parameters for the difference
   covmat  <- stats::vcov(gates.obj)
   diff    <- coefficients[paste0("gamma.", ncol(groups)), "Estimate"] - 
     coefficients["gamma.1", "Estimate"]
   diff.se <- sqrt(covmat[paste0("gamma.", ncol(groups)), paste0("gamma.", ncol(groups))] +
                     covmat["gamma.1", "gamma.1"] - 2 * covmat[paste0("gamma.", ncol(groups)), "gamma.1"])
-  tstat   <- diff / diff.se
-  pval    <- 2 * pt(abs(tstat), lower.tail = FALSE, df = length(Y) - ncol(covmat))
+  ci.lo   <- diff - qnorm(1-significance.level/2) * diff.se
+  ci.up   <- diff + qnorm(1-significance.level/2) * diff.se
+  zstat   <- diff / diff.se
+  pval    <- 2 * pnorm(abs(zstat), lower.tail = FALSE)
   
   return(list(lm.obj = gates.obj, 
               gates.coefficients = gates.coefficients,
               gates.coefficients.quantiles = gates.coefficients.quantiles,
-              generic.targets = rbind(coefficients[-c(1,2,3),], 
-                                      matrix(c(diff, diff.se, tstat, pval), nrow = 1, 
+              generic.targets = rbind(coefficients.temp, 
+                                      matrix(c(diff, ci.lo, ci.up, diff.se, zstat, pval), nrow = 1, 
                                              dimnames = list("gamma.K-gamma.1", NULL)) ),
               coefficients = coefficients))
 
@@ -119,7 +147,9 @@ get.GATES.params.classic <- function(D, Y,
 #' @return The two CLAN parameters ("most" affected and "least" affected) for each variable in Z.clan.main.sample
 #' 
 #' @export
-get.CLAN.parameters <- function(Z.clan.main.sample, group.membership.main.sample){
+get.CLAN.parameters <- function(Z.clan.main.sample, 
+                                group.membership.main.sample, 
+                                significance.level = 0.05){
   
   K <- ncol(group.membership.main.sample)
   
@@ -131,26 +161,34 @@ get.CLAN.parameters <- function(Z.clan.main.sample, group.membership.main.sample
   for(j in 1:ncol(Z.clan.main.sample)){
     
     # initialize matrix
-    out.mat <- matrix(NA_real_, nrow = 3, ncol = 4)
+    out.mat <- matrix(NA_real_, nrow = 3, ncol = 6)
     
     # get summary statistics for least affected group
     ttest.delta1 <- stats::t.test(Z.clan.main.sample[group.membership.main.sample[, 1], j])
-    out.mat[1,]  <- c(ttest.delta1$estimate, ttest.delta1$stderr, 
-                      ttest.delta1$statistic, ttest.delta1$p.value)
+    ci.lo        <- ttest.delta1$estimate - qnorm(1-significance.level/2) * ttest.delta1$stderr 
+    ci.up        <- ttest.delta1$estimate + qnorm(1-significance.level/2) * ttest.delta1$stderr 
+    pval         <- 2 * pnorm(abs(ttest.delta1$statistic), lower.tail = FALSE)
+    out.mat[1,]  <- c(ttest.delta1$estimate, ci.lo, ci.up,
+                      ttest.delta1$stderr, ttest.delta1$statistic, pval)
     
     # get summary statistics for most affected group
     ttest.deltaK <- stats::t.test(Z.clan.main.sample[group.membership.main.sample[, K], j])
-    out.mat[2,]  <- c(ttest.deltaK$estimate, ttest.deltaK$stderr, 
-                      ttest.deltaK$statistic, ttest.deltaK$p.value)
+    ci.lo        <- ttest.deltaK$estimate - qnorm(1-significance.level/2) * ttest.deltaK$stderr 
+    ci.up        <- ttest.deltaK$estimate + qnorm(1-significance.level/2) * ttest.deltaK$stderr 
+    pval         <- 2 * pnorm(abs(ttest.deltaK$statistic), lower.tail = FALSE)
+    out.mat[2,]  <- c(ttest.deltaK$estimate, ci.lo, ci.up,
+                      ttest.deltaK$stderr, ttest.deltaK$statistic, pval)
     
     # get summary statistics for difference between most and least affected group
     diff        <- ttest.deltaK$estimate - ttest.delta1$estimate
     diff.se     <- sqrt( ttest.deltaK$stderr^2 + ttest.delta1$stderr^2 )
+    ci.lo       <- diff - qnorm(1-significance.level/2) * diff.se
+    ci.up       <- diff + qnorm(1-significance.level/2) * diff.se
     diff.ttest  <- diff / diff.se
     pval        <- 2 * pnorm(abs(diff.ttest), lower.tail = FALSE)
-    out.mat[3,] <- c(diff, diff.se, diff.ttest, pval)
+    out.mat[3,] <- c(diff, ci.lo, ci.up, diff.se, diff.ttest, pval)
     
-    colnames(out.mat)     <- c("Estimate", "Std. Error", "t value", "Pr(>|t|)")
+    colnames(out.mat)     <- c("Estimate", "CI lower", "CI upper", "Std. Error", "z value", "Pr(>|z|)")
     rownames(out.mat)     <- c("delta.1", "delta.K", "delta.K-delta.1")
     generic.targets[[j]]  <- out.mat
     clan.coefficients[,j] <- out.mat[,1] 
@@ -221,19 +259,21 @@ initializer.for.splits <- function(Z, Z.clan, learners,
     Z.clan.nam <- colnames(Z.clan)
   }
   
-  clan <- array(NA_real_, dim = c(3, 4, num.splits), 
+  clan <- array(NA_real_, dim = c(3, 6, num.splits), 
                 dimnames = list(c("delta.1", "delta.K", "delta.K-delta.1"), 
-                                c("Estimate", "Std. Error", "t value", "Pr(>|t|)"),
+                                c("Estimate", "CI lower", "CI upper", "Std. Error", "z value", "Pr(>|z|)"),
                                 NULL))
   
-  gates <- array(NA_real_, dim = c(length(quantile.cutoffs)+2, 4, num.splits),
+  gates <- array(NA_real_, dim = c(length(quantile.cutoffs)+2, 6, num.splits),
                  dimnames = list(
                    c(paste0("gamma.", 1:(length(quantile.cutoffs)+1)), "gamma.K-gamma.1"),
-                   c("Estimate", "Std. Error", "t value", "Pr(>|t|)"), NULL))
+                   c("Estimate", "CI lower", "CI upper", "Std. Error", "z value", "Pr(>|z|)"), 
+                   NULL))
   
-  blp <- array(NA_real_, dim = c(1, 4, num.splits),
+  blp <- array(NA_real_, dim = c(1, 6, num.splits),
                dimnames = list("beta.2", 
-                               c("Estimate", "Std. Error", "t value", "Pr(>|t|)"), NULL))
+                               c("Estimate", "CI lower", "CI upper", "Std. Error", "z value", "Pr(>|z|)"),
+                               NULL))
   
   best <- array(NA_real_, dim = c(1, 2, num.splits), 
                 dimnames = list(NULL, c("lambda", "lambda.bar"), NULL))
@@ -252,3 +292,121 @@ initializer.for.splits <- function(Z, Z.clan, learners,
   
 } # END FUN
 
+
+generic.ml.across.learners <- function(Z, D, Y, 
+                                       propensity.scores, 
+                                       learners, 
+                                       num.splits = 50,
+                                       Z.clan = NULL, 
+                                       proportion.in.main.set = 0.5, 
+                                       quantile.cutoffs = c(0.25, 0.5, 0.75),
+                                       significance.level = 0.05){
+  
+  # initialize
+  generic.targets <- initializer.for.splits(Z = Z, Z.clan = Z.clan, 
+                                            learners = learners, num.splits = num.splits, 
+                                            quantile.cutoffs = quantile.cutoffs)
+  
+  num.vars.in.Z.clan <- ifelse(is.null(Z.clan), ncol(Z), ncol(Z.clan))
+  
+  for(s in 1:num.splits){
+    for(i in 1:length(learners)){
+      
+      generic.ml.obj <- 
+        get.generic.ml.for.given.learner(Z = Z, D = D, Y = Y, 
+                                         propensity.scores = propensity.scores, 
+                                         learner = learners[i], 
+                                         Z.clan = Z.clan, 
+                                         proportion.in.main.set = proportion.in.main.set, 
+                                         quantile.cutoffs = quantile.cutoffs,
+                                         significance.level = significance.level)
+      
+      generic.targets[[i]]$BLP[,,s]   <- generic.ml.obj$BLP$generic.targets
+      generic.targets[[i]]$GATES[,,s] <- generic.ml.obj$GATES$generic.targets
+      generic.targets[[i]]$best[,,s]  <- c(generic.ml.obj$best$lambda, generic.ml.obj$best$lambda.bar)
+      
+      for(j in 1:num.vars.in.Z.clan){
+        generic.targets[[i]]$CLAN[[j]][,,s] <- generic.ml.obj$CLAN$generic.targets[[j]]
+      }
+      
+    } # FOR learners
+  } # FOR num.splits
+  
+  return(generic.targets)
+  
+} # END FUN
+
+
+get.best.learners <- function(generic.ml.across.learners.obj){
+  
+  learners <- names(generic.ml.across.learners.obj)  
+  
+  # for each learner, take medians over the number of splits
+  best.analysis <- sapply(learners, 
+                          function(learner) apply(gen.ml.different.learners[[learner]]$best, c(1,2), median))
+  rownames(best.analysis) <- c("lambda", "lambda.bar")
+  
+  return(list(best.learner.for.CATE  = learners[which.max(best.analysis["lambda", ])],
+              best.learner.for.GATES = learners[which.max(best.analysis["lambda.bar", ])]))
+  
+} # END FUN
+
+
+# get lower and upper median as in comment 4.2 in Chernozhukov et al. (2021)
+Med <- function(x){
+  
+  # get the empirical CDF of X
+  ecdf.x <- ecdf(x)
+  
+  # evaluate the ensuing probabilities
+  F.x <- ecdf.x(x)
+  
+  # get lower median and upper median
+  lower <- min(x[F.x >= 0.5])
+  upper <- max(x[(1 - F.x) >= 0.5])
+  
+  return(list(lower.median = lower, 
+              upper.median = upper, 
+              Med = mean(c(lower, upper))))
+  
+} # END FUN
+
+
+
+initialize.gen.ml <- function(generic.ml.across.learners.obj){
+  
+  # helper function for initialization of the final returned object
+  
+  gates.nam  <- rownames(generic.ml.across.learners.obj[[1]]$GATES[,,1])
+  z.clan.nam <- names(generic.ml.across.learners.obj[[1]]$CLAN)
+  clan.nam   <- rownames(generic.ml.across.learners.obj[[1]]$CLAN[[1]][,,1])
+  learners   <- names(generic.ml.across.learners.obj)
+  
+  blp.mat <- matrix(NA_real_, nrow = 1, ncol = 5, 
+                    dimnames = list("beta.2", 
+                                    c("Estimate", "CI lower", "CI upper", "p-value adjusted", "p-value raw")))
+  
+  gates.mat <- matrix(NA_real_, nrow = length(gates.nam), ncol = 5, 
+                      dimnames = list(gates.nam, 
+                                      c("Estimate", "CI lower", "CI upper", "p-value adjusted", "p-value raw")))
+  
+  clan.mat <- matrix(NA_real_, nrow = length(clan.nam), ncol = 5, 
+                     dimnames = list(clan.nam, 
+                                     c("Estimate", "CI lower", "CI upper", "p-value adjusted", "p-value raw")))
+  
+  
+  gates.ls <- lapply(learners, function(...) gates.mat)
+  names(gates.ls) <- learners
+  
+  blp.ls <- lapply(learners, function(...) blp.mat)
+  names(blp.ls) <- learners
+  
+  z.clan.ls <- lapply(z.clan.nam, function(...) clan.mat)
+  names(z.clan.ls) <- z.clan.nam
+  
+  clan.ls <- lapply(learners, function(...) z.clan.ls)
+  names(clan.ls) <- learners
+  
+  return(list(BLP = blp.ls, GATES = gates.ls, CLAN = clan.ls))
+  
+} # END FUN

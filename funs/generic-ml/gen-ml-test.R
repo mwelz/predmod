@@ -44,42 +44,35 @@ Y  <- ifelse(D == 1, Y1, Y0) # observed outcome
 quantile.cutoffs       = c(0.25, 0.5, 0.75) # for the GATES grouping of S (argument)
 proportion.in.main.set = 0.5 # argument
 Z.clan                 = NULL # argument. The matrix of variables that shall be considered in CLAN
-learners <- c('glm', 'tree')
-num.splits <- 2
+learners <- c('glm', 'tree', 'mlr3::lrn("ranger", num.trees = 50)')
+num.splits <- 4
+significance.level <- 0.05
 
 
 ### step 1: compute propensity scores ----
 propensity.scores.obj <- propensity.score(Z = Z, D = D, learner = "glm")
 propensity.scores     <- propensity.scores.obj$propensity.scores
 
-### step 2: for each ML method, do the generic ML analysis
-## put the following in a function later
+### step 2: for each ML method, do the generic ML analysis ----
 
-# initialize
-generic.targets <- initializer.for.splits(Z = Z, Z.clan = Z.clan, 
-                                          learners = learners, num.splits = num.splits, 
-                                          quantile.cutoffs = quantile.cutoffs)
+gen.ml.different.learners <- 
+  generic.ml.across.learners(Z = Z, D = D, Y = Y, 
+                             propensity.scores = propensity.scores, 
+                             learners = learners, 
+                             num.splits = num.splits,
+                             Z.clan = Z.clan, 
+                             proportion.in.main.set = proportion.in.main.set, 
+                             quantile.cutoffs = quantile.cutoffs,
+                             significance.level = significance.level)
 
-num.vars.in.Z.clan <- ifelse(is.null(Z.clan), ncol(Z), ncol(Z.clan))
 
-for(s in 1:num.splits){
-  for(i in 1:length(learners)){
-    
-    generic.ml.obj <- 
-      get.generic.ml.for.given.learner(Z = Z, D = D, Y = Y, 
-                                       propensity.scores = propensity.scores, 
-                                       learner = learners[i], 
-                                       Z.clan = Z.clan, 
-                                       proportion.in.main.set = proportion.in.main.set, 
-                                       quantile.cutoffs = quantile.cutoffs)
-    
-    generic.targets[[i]]$BLP[,,s]   <- generic.ml.obj$BLP$generic.targets
-    generic.targets[[i]]$GATES[,,s] <- generic.ml.obj$GATES$generic.targets
-    generic.targets[[i]]$best[,,s]  <- c(generic.ml.obj$best$lambda, generic.ml.obj$best$lambda.bar)
-    
-    for(j in 1:num.vars.in.Z.clan){
-      generic.targets[[i]]$CLAN[[j]] <- generic.ml.obj$CLAN$generic.targets[[j]]
-    }
-    
-  } # FOR learners
-} # FOR num.splits
+# extract the best learners
+best.learners <- get.best.learners(gen.ml.different.learners)
+
+### step 3: perform VEIN analysis ---- 
+vein <- VEIN(gen.ml.different.learners, best.learners)
+
+# analyze
+vein$best.learners$GATES # difference is insignificant, so no hetero
+vein$best.learners$BLP  # beta2 is insignificant, so no hetero
+vein$best.learners$CLAN$z1 # there seems to be hetero along z1

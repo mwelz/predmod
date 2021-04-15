@@ -278,7 +278,8 @@ get.generic.ml.for.given.learner <- function(Z, D, Y,
                                              learner = 'mlr3::lrn("cv_glmnet", s = "lambda.min")',
                                              Z.clan = NULL, 
                                              proportion.in.main.set = 0.5, 
-                                             quantile.cutoffs = c(0.25, 0.5, 0.75)){
+                                             quantile.cutoffs = c(0.25, 0.5, 0.75),
+                                             significance.level = 0.05){
   
   ### step 1: input checks ---- 
   if(is.null(Z.clan)) Z.clan <- Z # if no input provided, set it equal to Z
@@ -314,7 +315,8 @@ get.generic.ml.for.given.learner <- function(Z, D, Y,
   blp.obj <- get.BLP.params.classic(D = D[M.set], Y = Y[M.set],
                                     propensity.scores = propensity.scores.obj$propensity.scores[M.set],
                                     proxy.baseline = proxy.baseline, 
-                                    proxy.cate = proxy.cate)
+                                    proxy.cate = proxy.cate, 
+                                    significance.level = significance.level)
   
   
   ### step 2c: estimate GATES parameters by OLS (TODO: HT transformation!) ----
@@ -326,7 +328,8 @@ get.generic.ml.for.given.learner <- function(Z, D, Y,
   gates.obj <- get.GATES.params.classic(D = D[M.set], Y = Y[M.set],
                                         propensity.scores = propensity.scores.obj$propensity.scores[M.set],
                                         group.membership.main.sample = group.membership.main.sample, 
-                                        proxy.baseline = proxy.baseline, proxy.cate = proxy.cate)
+                                        proxy.baseline = proxy.baseline, proxy.cate = proxy.cate,
+                                        significance.level = significance.level)
   
   
   ### step 2d: estimate CLAN parameters in the main sample
@@ -348,6 +351,76 @@ get.generic.ml.for.given.learner <- function(Z, D, Y,
               M.set = M.set, A.set = A.set, 
               CATE.proxy = proxy.cate.obj,
               baseline.proxy = proxy.baseline,
-              group.membership_M.set = group.membership.main.sample))
+              group.membership_M.set = group.membership.main.sample,
+              significance.level = significance.level))
+  
+} # END FUN
+
+
+
+VEIN <- function(generic.ml.across.learners.obj, best.learners.obj){
+  
+  gen.ml.ls <- initialize.gen.ml(generic.ml.across.learners.obj)
+  learners  <- names(generic.ml.across.learners.obj)
+  
+  for(learner in learners){
+    
+    # GATES
+    gen.ml.ls$GATES[[learner]][,"Estimate"] <- 
+      apply(generic.ml.across.learners.obj[[learner]][["GATES"]][,"Estimate",], 1, function(z) Med(z)$Med)
+    gen.ml.ls$GATES[[learner]][,"CI lower"] <- 
+      apply(generic.ml.across.learners.obj[[learner]][["GATES"]][,"CI lower",], 1, function(z) Med(z)$upper.median)
+    gen.ml.ls$GATES[[learner]][,"CI upper"] <- 
+      apply(generic.ml.across.learners.obj[[learner]][["GATES"]][,"CI upper",], 1, function(z) Med(z)$lower.median)
+    pval <- 
+      apply(generic.ml.across.learners.obj[[learner]][["GATES"]][,"Pr(>|z|)",], 1, function(z) Med(z)$lower.median)
+    gen.ml.ls$GATES[[learner]][,"p-value raw"] <- pval
+    pval.adj <- 2 * pval
+    pval.adj[pval.adj > 1] <- 1 # p-values cannot exceed 1
+    gen.ml.ls$GATES[[learner]][,"p-value adjusted"] <- pval.adj
+    
+    
+    # BLP
+    gen.ml.ls$BLP[[learner]][,"Estimate"] <- 
+      Med(generic.ml.across.learners.obj[[learner]][["BLP"]][,"Estimate",])$Med
+    gen.ml.ls$BLP[[learner]][,"CI lower"] <- 
+      Med(generic.ml.across.learners.obj[[learner]][["BLP"]][,"CI lower",])$upper.median
+    gen.ml.ls$BLP[[learner]][,"CI upper"] <- 
+      Med(generic.ml.across.learners.obj[[learner]][["BLP"]][,"CI upper",])$lower.median
+    pval <- 
+      Med(generic.ml.across.learners.obj[[learner]][["BLP"]][,"Pr(>|z|)",])$lower.median
+    gen.ml.ls$BLP[[learner]][,"p-value raw"] <- pval
+    pval.adj <- 2 * pval
+    pval.adj[pval.adj > 1] <- 1 # p-values cannot exceed 1
+    gen.ml.ls$BLP[[learner]][,"p-value adjusted"] <- pval.adj
+    
+    
+    # CLAN
+    z.clan.nam <- names(generic.ml.across.learners.obj[[1]]$CLAN)
+    
+    for(z.clan in z.clan.nam){
+      
+      gen.ml.ls$CLAN[[learner]][[z.clan]][,"Estimate"] <- 
+        apply(generic.ml.across.learners.obj[[learner]][["CLAN"]][[z.clan]][,"Estimate",], 1, function(z) Med(z)$Med)
+      gen.ml.ls$CLAN[[learner]][[z.clan]][,"CI lower"] <- 
+        apply(generic.ml.across.learners.obj[[learner]][["CLAN"]][[z.clan]][,"CI lower",], 1, function(z) Med(z)$upper.median)
+      gen.ml.ls$CLAN[[learner]][[z.clan]][,"CI upper"] <- 
+        apply(generic.ml.across.learners.obj[[learner]][["CLAN"]][[z.clan]][,"CI upper",], 1, function(z) Med(z)$upper.median)
+      pval <- 
+        apply(generic.ml.across.learners.obj[[learner]][["CLAN"]][[z.clan]][,"Pr(>|z|)",], 1, function(z) Med(z)$lower.median)
+      gen.ml.ls$CLAN[[learner]][[z.clan]][,"p-value raw"] <- pval
+      pval.adj <- 2 * pval
+      pval.adj[pval.adj > 1] <- 1 # p-values cannot exceed 1
+      gen.ml.ls$CLAN[[learner]][[z.clan]][,"p-value adjusted"] <- pval.adj
+      
+    } # FOR Z.clan
+    
+  } # FOR learners
+  
+  
+  return(list(best.learners = list(BLP = gen.ml.ls$BLP[[best.learners$best.learner.for.CATE]],
+                                   GATES = gen.ml.ls$GATES[[best.learners$best.learner.for.GATES]],
+                                   CLAN = gen.ml.ls$CLAN[[best.learners$best.learner.for.GATES]]),
+              all.learners = gen.ml.ls))
   
 } # END FUN
