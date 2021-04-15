@@ -169,7 +169,7 @@ model.LLP2 = function(Age,Smokingduration,Familyhistory,Personalhistory,Pneumoni
   
   
   #Duration coefficients #never, 1-19 years, 20-39, 40-59, 60+
-  Smokingdurationcoeffs = c(0,0.7692,1.4516,2.5072,2.72434)
+  Smokingdurationcoeffs = c(0,0.7692,1.4516,2.5072,2.7243)
   if (Smokingduration==0) {Smokingdurationindicator=1}
   if ((Smokingduration<20) & (Smokingduration>0)) {Smokingdurationindicator=2}
   if ((Smokingduration<40) & (Smokingduration>19)) {Smokingdurationindicator=3}
