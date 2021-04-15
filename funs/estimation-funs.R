@@ -137,7 +137,7 @@ risk.modeling <- function(X, w, y, alpha, offset.lp = TRUE){
   # calculate C for benefit by using predicted risk (with regular w)
    c.index.benefit = unname(Hmisc::rcorr.cens(pred.ben.abs.paired, obs.ben)[1])
    c.index.stage1.youtcome <- unname(Hmisc::rcorr.cens(stage1$lp, y)[1])
-=======
+
   pred.ben.abs.paired = pred.ben.abs[control]-pred.ben.abs[treated]
   c.index.benefit = unname(Hmisc::rcorr.cens(pred.ben.abs.paired, obs.ben)[1])
   
