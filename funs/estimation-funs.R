@@ -132,7 +132,6 @@ risk.modeling <- function(X, w, y, alpha, offset.lp = TRUE){
   control <- control[-no.pairing]
   
   obs.ben <- y[control]-y[treated]
-<<<<<<< HEAD
   pred.ben.abs.paired = (pred.ben.abs[control]+pred.ben.abs[treated])/2 #Pairs are matched by predicted benefit; average over the pair
  
   # calculate C for benefit by using predicted risk (with regular w)
@@ -145,7 +144,7 @@ risk.modeling <- function(X, w, y, alpha, offset.lp = TRUE){
   # calculate C for benefit by using predicted risk (with regular w)
   c.index.old <- unname(Hmisc::rcorr.cens(pred.ben.abs, y)[1])
   c.index.youtcome <- unname(Hmisc::rcorr.cens(stage1$lp, y)[1])
->>>>>>> eb1103aba14ce20b24a8624d9ad41704188af9b1
+
   
   return(list(
     inputs = list(X = X, w = w, y = y),
@@ -164,7 +163,6 @@ risk.modeling <- function(X, w, y, alpha, offset.lp = TRUE){
     ate.hat = mean(pred.ben.abs),
     c.index.old = c.index.old,
     c.index.benefit = c.index.benefit,
-<<<<<<< HEAD
     c.index.stage1.youtcome = c.index.stage1.youtcome
 =======
     c.index.youtcome = c.index.youtcome
