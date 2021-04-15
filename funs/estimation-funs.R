@@ -164,9 +164,9 @@ risk.modeling <- function(X, w, y, alpha, offset.lp = TRUE){
     c.index.old = c.index.old,
     c.index.benefit = c.index.benefit,
     c.index.stage1.youtcome = c.index.stage1.youtcome
-=======
+
     c.index.youtcome = c.index.youtcome
->>>>>>> eb1103aba14ce20b24a8624d9ad41704188af9b1
+
   ))
 }
 
@@ -574,11 +574,8 @@ effect.modeling <- function(X, w, y,
     predicted.relative.benefit = pred.ben.rel,
     predicted.relative.benefit.raw = pred.ben.rel.raw,
     ate.hat = mean(pred.ben.abs),
-<<<<<<< HEAD
     c.index.youtcome = c.index.youtcome,
-=======
     c.index = c.index,
->>>>>>> eb1103aba14ce20b24a8624d9ad41704188af9b1
     c.index.benefit =c.index.benefit
   ))
 }
