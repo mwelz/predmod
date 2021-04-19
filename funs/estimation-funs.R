@@ -163,8 +163,7 @@ risk.modeling <- function(X, w, y, alpha, offset.lp = TRUE){
     ate.hat = mean(pred.ben.abs),
     c.index.old = c.index.old,
     c.index.benefit = c.index.benefit,
-    c.index.stage1.youtcome = c.index.stage1.youtcome
-
+    c.index.stage1.youtcome = c.index.stage1.youtcome,
     c.index.youtcome = c.index.youtcome
 
   ))
@@ -509,9 +508,7 @@ effect.modeling <- function(X, w, y,
   # no information on w allowed, so we cannot use the retained variables from the effect modeling
   baseline.mod <- risk.model.stage1(X = X, y = y, alpha = alpha)
   basline.risk <- transform.to.probability(baseline.mod$lp)
-  
-<<<<<<< HEAD
-=======
+
   
   
   #Match cases based on observed benefit
@@ -532,7 +529,7 @@ effect.modeling <- function(X, w, y,
   
   # calculate C index by using predicted risk (with regular w)
   c.index <- DescTools::Cstat(x = probs, resp = y)
->>>>>>> eb1103aba14ce20b24a8624d9ad41704188af9b1
+
   
   
   #Match cases based on observed benefit
@@ -780,7 +777,7 @@ grf.modeling <- function(X, w, y, num.trees = 2000, ...){
   grf.model.obj$ate.hat.se            <- unname(ate.obj["std.err"])
   
   # TODO: experimental: C statistic (not sure if this is correct as we are using baseline risk)
-  grf.model.obj$c.index.youtcome <-  Hmisc::rcorr.cens(rf.model.obj$risk.baseline, y)[1]
+  grf.model.obj$c.index.youtcome <-  Hmisc::rcorr.cens(grf.model.obj$risk.baseline, y)[1]
  
   
   #Match cases based on observed benefit
