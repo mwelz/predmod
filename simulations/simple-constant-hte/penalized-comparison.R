@@ -1,8 +1,10 @@
 rm(list = ls()) ; cat("\014")
 
 library(glmnet)
+source(paste0(getwd(), "/funs/estimation-funs.R"))
 
-### 0.1. Data generation ----
+
+### 0 Data generation ----
 set.seed(2)
 n <- 10000
 p <- 5
@@ -66,4 +68,7 @@ fit.reduced <- glm(y ~., data = data.frame(y, X.reduced), family = binomial)
 fit.reduced$coefficients
 c(beta, theta) # good performance
 
-# issue: Lasso is not allowed to kick out w
+# effect model
+em <- effect.modeling(X, w, y, alpha = 1)
+em$effect.model$coefficients
+c(beta, theta) # good performance
