@@ -1,6 +1,7 @@
 rm(list = ls()) ; cat("\014")
 
 library(glmnet)
+library(ggplot2)
 source(paste0(getwd(), "/funs/estimation-funs.R"))
 
 
@@ -72,3 +73,5 @@ c(beta, theta) # good performance
 em <- effect.modeling(X, w, y, alpha = 1)
 em$effect.model$coefficients
 c(beta, theta) # good performance
+calibration.plot(em, relative = TRUE)
+calibration.plot(em, relative = FALSE)
