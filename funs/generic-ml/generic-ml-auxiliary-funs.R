@@ -44,15 +44,15 @@ get.BLP.params.classic <- function(D, Y, propensity.scores,
     2 * pt(beta2.inference[2, "t value"], df = blp.obj$df.residual, lower.tail = FALSE)
   
   # generic targets
-  generic.targets <- coefficients["beta.2", ]
-  names(generic.targets) <- c("Estimate", "Std. Error", "z value", "Pr(>|z|)")
-  generic.targets["Pr(>|z|)"] <- 2 * pnorm(abs(generic.targets["z value"]), lower.tail = FALSE)
-  ci.lo <- generic.targets["Estimate"] - qnorm(1-significance.level/2) * generic.targets["Std. Error"]
-  ci.up <- generic.targets["Estimate"] + qnorm(1-significance.level/2) * generic.targets["Std. Error"]
-  generic.targets <- c(generic.targets, ci.lo, ci.up)
-  names(generic.targets) <- c("Estimate", "Std. Error", "z value", "Pr(>|z|)", "CI lower", "CI upper")
-  generic.targets <- generic.targets[c("Estimate", "CI lower", "CI upper", 
-                                       "Std. Error", "z value", "Pr(>|z|)")]
+  generic.targets <- coefficients[c("beta.1", "beta.2"), ]
+  colnames(generic.targets) <- c("Estimate", "Std. Error", "z value", "Pr(>|z|)")
+  generic.targets[,"Pr(>|z|)"] <- 2 * pnorm(abs(generic.targets[,"z value"]), lower.tail = FALSE)
+  ci.lo <- generic.targets[,"Estimate"] - qnorm(1-significance.level/2) * generic.targets[,"Std. Error"]
+  ci.up <- generic.targets[,"Estimate"] + qnorm(1-significance.level/2) * generic.targets[,"Std. Error"]
+  generic.targets <- cbind(generic.targets, ci.lo, ci.up)
+  colnames(generic.targets) <- c("Estimate", "Std. Error", "z value", "Pr(>|z|)", "CI lower", "CI upper")
+  generic.targets <- generic.targets[,c("Estimate", "CI lower", "CI upper", 
+                                        "Std. Error", "z value", "Pr(>|z|)")]
   
 
   return(list(lm.obj = blp.obj, 
@@ -270,8 +270,8 @@ initializer.for.splits <- function(Z, Z.clan, learners,
                    c("Estimate", "CI lower", "CI upper", "Std. Error", "z value", "Pr(>|z|)"), 
                    NULL))
   
-  blp <- array(NA_real_, dim = c(1, 6, num.splits),
-               dimnames = list("beta.2", 
+  blp <- array(NA_real_, dim = c(2, 6, num.splits),
+               dimnames = list(c("beta.1", "beta.2"), 
                                c("Estimate", "CI lower", "CI upper", "Std. Error", "z value", "Pr(>|z|)"),
                                NULL))
   
@@ -382,8 +382,8 @@ initialize.gen.ml <- function(generic.ml.across.learners.obj){
   clan.nam   <- rownames(generic.ml.across.learners.obj[[1]]$CLAN[[1]][,,1])
   learners   <- names(generic.ml.across.learners.obj)
   
-  blp.mat <- matrix(NA_real_, nrow = 1, ncol = 5, 
-                    dimnames = list("beta.2", 
+  blp.mat <- matrix(NA_real_, nrow = 2, ncol = 5, 
+                    dimnames = list(c("beta.1", "beta.2"), 
                                     c("Estimate", "CI lower", "CI upper", "p-value adjusted", "p-value raw")))
   
   gates.mat <- matrix(NA_real_, nrow = length(gates.nam), ncol = 5, 

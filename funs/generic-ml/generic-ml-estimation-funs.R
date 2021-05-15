@@ -365,34 +365,23 @@ VEIN <- function(generic.ml.across.learners.obj, best.learners.obj){
   
   for(learner in learners){
     
-    # GATES
-    gen.ml.ls$GATES[[learner]][,"Estimate"] <- 
-      apply(generic.ml.across.learners.obj[[learner]][["GATES"]][,"Estimate",], 1, function(z) Med(z)$Med)
-    gen.ml.ls$GATES[[learner]][,"CI lower"] <- 
-      apply(generic.ml.across.learners.obj[[learner]][["GATES"]][,"CI lower",], 1, function(z) Med(z)$upper.median)
-    gen.ml.ls$GATES[[learner]][,"CI upper"] <- 
-      apply(generic.ml.across.learners.obj[[learner]][["GATES"]][,"CI upper",], 1, function(z) Med(z)$lower.median)
-    pval <- 
-      apply(generic.ml.across.learners.obj[[learner]][["GATES"]][,"Pr(>|z|)",], 1, function(z) Med(z)$lower.median)
-    gen.ml.ls$GATES[[learner]][,"p-value raw"] <- pval
-    pval.adj <- 2 * pval
-    pval.adj[pval.adj > 1] <- 1 # p-values cannot exceed 1
-    gen.ml.ls$GATES[[learner]][,"p-value adjusted"] <- pval.adj
-    
-    
-    # BLP
-    gen.ml.ls$BLP[[learner]][,"Estimate"] <- 
-      Med(generic.ml.across.learners.obj[[learner]][["BLP"]][,"Estimate",])$Med
-    gen.ml.ls$BLP[[learner]][,"CI lower"] <- 
-      Med(generic.ml.across.learners.obj[[learner]][["BLP"]][,"CI lower",])$upper.median
-    gen.ml.ls$BLP[[learner]][,"CI upper"] <- 
-      Med(generic.ml.across.learners.obj[[learner]][["BLP"]][,"CI upper",])$lower.median
-    pval <- 
-      Med(generic.ml.across.learners.obj[[learner]][["BLP"]][,"Pr(>|z|)",])$lower.median
-    gen.ml.ls$BLP[[learner]][,"p-value raw"] <- pval
-    pval.adj <- 2 * pval
-    pval.adj[pval.adj > 1] <- 1 # p-values cannot exceed 1
-    gen.ml.ls$BLP[[learner]][,"p-value adjusted"] <- pval.adj
+    # BLP and GATES
+    for(type in c("BLP", "GATES")){
+      
+      gen.ml.ls[[type]][[learner]][,"Estimate"] <- 
+        apply(generic.ml.across.learners.obj[[learner]][[type]][,"Estimate",], 1, function(z) Med(z)$Med)
+      gen.ml.ls[[type]][[learner]][,"CI lower"] <- 
+        apply(generic.ml.across.learners.obj[[learner]][[type]][,"CI lower",], 1, function(z) Med(z)$upper.median)
+      gen.ml.ls[[type]][[learner]][,"CI upper"] <- 
+        apply(generic.ml.across.learners.obj[[learner]][[type]][,"CI upper",], 1, function(z) Med(z)$lower.median)
+      pval <- 
+        apply(generic.ml.across.learners.obj[[learner]][[type]][,"Pr(>|z|)",], 1, function(z) Med(z)$lower.median)
+      gen.ml.ls[[type]][[learner]][,"p-value raw"] <- pval
+      pval.adj <- 2 * pval
+      pval.adj[pval.adj > 1] <- 1 # p-values cannot exceed 1
+      gen.ml.ls[[type]][[learner]][,"p-value adjusted"] <- pval.adj
+      
+    } # FOR type
     
     
     # CLAN
