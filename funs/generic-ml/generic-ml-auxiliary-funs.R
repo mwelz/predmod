@@ -308,14 +308,26 @@ generic.ml.across.learners <- function(Z, D, Y,
                                             quantile.cutoffs = quantile.cutoffs)
   
   num.vars.in.Z.clan <- ifelse(is.null(Z.clan), ncol(Z), ncol(Z.clan))
+  N     <- length(Y)
+  N.set <- 1:N
   
+  # loop over the sample splits
   for(s in 1:num.splits){
+    
+    # perform sample splitting into main set and auxiliary set
+    M.set <- sort(sample(x = N.set, size = floor(proportion.in.main.set * N), replace = FALSE),
+                  decreasing = FALSE)
+    A.set <- setdiff(N.set, M.set)
+    
+    
+    # loop over the learners
     for(i in 1:length(learners)){
       
       generic.ml.obj <- 
         get.generic.ml.for.given.learner(Z = Z, D = D, Y = Y, 
                                          propensity.scores = propensity.scores, 
                                          learner = learners[i], 
+                                         M.set = M.set, A.set = A.set,
                                          Z.clan = Z.clan, 
                                          proportion.in.main.set = proportion.in.main.set, 
                                          quantile.cutoffs = quantile.cutoffs,
@@ -332,7 +344,7 @@ generic.ml.across.learners <- function(Z, D, Y,
     } # FOR learners
   } # FOR num.splits
   
-  return(generic.targets)
+  return(generic.targets) # TODO: also extract A.set, M.set, generic.ml.obj
   
 } # END FUN
 
@@ -343,7 +355,7 @@ get.best.learners <- function(generic.ml.across.learners.obj){
   
   # for each learner, take medians over the number of splits
   best.analysis <- sapply(learners, 
-                          function(learner) apply(gen.ml.different.learners[[learner]]$best, c(1,2), median))
+                          function(learner) apply(generic.ml.across.learners.obj[[learner]]$best, c(1,2), median))
   rownames(best.analysis) <- c("lambda", "lambda.bar")
   
   return(list(best.learner.for.CATE  = learners[which.max(best.analysis["lambda", ])],

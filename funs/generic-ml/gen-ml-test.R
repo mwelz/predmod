@@ -37,42 +37,30 @@ Y0 <- rbinom(num.obs, 1, pi0)
 Y1 <- rbinom(num.obs, 1, pi1)
 Y  <- ifelse(D == 1, Y1, Y0) # observed outcome
 
-#####################
 
-# require: D, Z, Y, the learners, significance level
+#######################
+
 # arguments: 
 quantile.cutoffs       = c(0.25, 0.5, 0.75) # for the GATES grouping of S (argument)
 proportion.in.main.set = 0.5 # argument
 Z.clan                 = NULL # argument. The matrix of variables that shall be considered in CLAN
-learners <- c('glm', 'tree', 'mlr3::lrn("ranger", num.trees = 50)')
+learners.genericML <- c('glm', 'tree', 'mlr3::lrn("ranger", num.trees = 50)')
+learner.propensity.score <- "glm"
 num.splits <- 4
 significance.level <- 0.05
 
+# TODO: The TODOs in genericML()
+genML <- genericML(Z = Z, D = D, Y = Y, 
+                   learner.propensity.score = learner.propensity.score, 
+                   learners.genericML = learners.genericML,
+                   num.splits = num.splits,
+                   Z.clan = Z.clan,
+                   quantile.cutoffs = quantile.cutoffs,
+                   proportion.in.main.set = proportion.in.main.set, 
+                   significance.level = significance.level)
 
-### step 1: compute propensity scores ----
-propensity.scores.obj <- propensity.score(Z = Z, D = D, learner = "glm")
-propensity.scores     <- propensity.scores.obj$propensity.scores
-
-### step 2: for each ML method, do the generic ML analysis ----
-
-gen.ml.different.learners <- 
-  generic.ml.across.learners(Z = Z, D = D, Y = Y, 
-                             propensity.scores = propensity.scores, 
-                             learners = learners, 
-                             num.splits = num.splits,
-                             Z.clan = Z.clan, 
-                             proportion.in.main.set = proportion.in.main.set, 
-                             quantile.cutoffs = quantile.cutoffs,
-                             significance.level = significance.level)
-
-
-# extract the best learners
-best.learners <- get.best.learners(gen.ml.different.learners)
-
-### step 3: perform VEIN analysis ---- 
-vein <- VEIN(gen.ml.different.learners, best.learners)
 
 # analyze
-vein$best.learners$GATES # difference is insignificant, so no hetero
-vein$best.learners$BLP  # beta2 is insignificant, so no hetero
-vein$best.learners$CLAN$z1 # there seems to be hetero along z1
+genML$VEIN$best.learners$GATES # difference is insignificant, so no hetero
+genML$VEIN$best.learners$BLP  # beta2 is insignificant, so no hetero
+genML$VEIN$best.learners$CLAN$z1 # there seems to be hetero along z1
