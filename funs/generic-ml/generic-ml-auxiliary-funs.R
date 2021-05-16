@@ -300,7 +300,9 @@ generic.ml.across.learners <- function(Z, D, Y,
                                        Z.clan = NULL, 
                                        proportion.in.main.set = 0.5, 
                                        quantile.cutoffs = c(0.25, 0.5, 0.75),
-                                       significance.level = 0.05){
+                                       significance.level = 0.05, 
+                                       store.learners = FALSE,
+                                       store.splits = FALSE){
   
   # initialize
   generic.targets <- initializer.for.splits(Z = Z, Z.clan = Z.clan, 
@@ -308,8 +310,11 @@ generic.ml.across.learners <- function(Z, D, Y,
                                             quantile.cutoffs = quantile.cutoffs)
   
   num.vars.in.Z.clan <- ifelse(is.null(Z.clan), ncol(Z), ncol(Z.clan))
+  genericML.by.split <- list()
   N     <- length(Y)
   N.set <- 1:N
+  
+  if(store.splits) splits.mat <- matrix(NA_character_, N, num.splits)
   
   # loop over the sample splits
   for(s in 1:num.splits){
@@ -318,6 +323,13 @@ generic.ml.across.learners <- function(Z, D, Y,
     M.set <- sort(sample(x = N.set, size = floor(proportion.in.main.set * N), replace = FALSE),
                   decreasing = FALSE)
     A.set <- setdiff(N.set, M.set)
+    
+    if(store.splits){
+      
+      splits.mat[M.set, s] <- "M"
+      splits.mat[A.set, s] <- "A"
+      
+    } # IF
     
     
     # loop over the learners
@@ -337,6 +349,12 @@ generic.ml.across.learners <- function(Z, D, Y,
       generic.targets[[i]]$GATES[,,s] <- generic.ml.obj$GATES$generic.targets
       generic.targets[[i]]$best[,,s]  <- c(generic.ml.obj$best$lambda, generic.ml.obj$best$lambda.bar)
       
+      if(store.learners){
+        
+        genericML.by.split[[learners[i]]][[s]] <- generic.ml.obj
+
+      }
+      
       for(j in 1:num.vars.in.Z.clan){
         generic.targets[[i]]$CLAN[[j]][,,s] <- generic.ml.obj$CLAN$generic.targets[[j]]
       }
@@ -344,7 +362,12 @@ generic.ml.across.learners <- function(Z, D, Y,
     } # FOR learners
   } # FOR num.splits
   
-  return(generic.targets) # TODO: also extract A.set, M.set, generic.ml.obj
+  if(!store.learners) genericML.by.split <- NULL
+  if(!store.splits)   splits.mat <- NULL
+  
+  return(list(generic.targets = generic.targets, 
+         genericML.by.split = genericML.by.split,
+         splits = splits.mat)) # TODO: also extract A.set, M.set, generic.ml.obj
   
 } # END FUN
 

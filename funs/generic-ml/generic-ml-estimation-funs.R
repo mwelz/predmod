@@ -411,19 +411,19 @@ VEIN <- function(generic.ml.across.learners.obj, best.learners.obj){
 #' @param Z a matrix or data frame of covariates
 #' @param D a binary vector of treatment status of length 
 #' @param Y a vector of responses of length
-#' @param learner.propensity.score the classification machine learner to be used. Either 'glm', 'random.forest', or 'tree'. Can alternatively be specified by using the mlr3 framework, for example 'mlr3::lrn("classif.ranger", num.trees = 500)'. Default is 'glm'.
-#' @param learner.genericML the regression machine learner to be used. Either 'glm', 'random.forest', or 'tree'. Can alternatively be specified by using the mlr3 framework, for example ml_g = mlr3::lrn("regr.ranger", num.trees = 500) for a regression forest, which is also the default. 
+#' @param learner.propensity.score the machine learner to be used for estimating the propensity scores. Either 'glm', 'random.forest', or 'tree'. Can alternatively be specified by using the mlr3 framework, for example 'mlr3::lrn("ranger", num.trees = 500)'. Default is 'glm'.
+#' @param learner.genericML the machine learner to be used for estinating the CATE. Either 'glm', 'random.forest', or 'tree'. Can alternatively be specified by using the mlr3 framework, for example 'mlr3::lrn("ranger", num.trees = 500)' for a random forest, which is also the default. 
 #' @param num.splits number of sample splits. Default is 100.
 #' @param Z.clan the matrix of variables that shall be considered in CLAN. If NULL (default), then Z.clan = Z.
 #' @param quantile.cutoffs cutoff points of quantiles that shall be used for GATES grouping.
 #' @param proportion.in.main.set proportion of samples that shall be in main set. Default is 0.5.
 #' @param significance.level significance level for VEIN. Default is 0.05.
+#' @param store.learners logical. If TRUE, all intermediate results of teh learners will be stored. Default is FALSE.
+#' @param store.splits logical. If TRUE, the splits will be stored. Default is FALSE.
 #'
 #' TODO: in 'get.geenric.ml.for.given.learner': intervals need to be [) instead of (]
-#' TODO: learner input for genML and prop score are inconsistent for mlr3 input (classif and regr shall not be mentioned!)
 #' TODO: instructions on how mlr3 input is supposed to work (needs to be a string!)
 #' TODO: comments on CLAN: If there are categorical variables, apply one-hot-encoding to Z.clan. The interpretation then becomes: Is there a factor that is overproportionally present in the least or most affected group?
-#' TODO: add option: if true, then each "get.generic.ml.for.given.learner" object gets stored. Same for the sample splits
 #' 
 #' @export
 genericML <- function(Z, D, Y, 
@@ -433,10 +433,14 @@ genericML <- function(Z, D, Y,
                       Z.clan = NULL,
                       quantile.cutoffs = c(0.25, 0.5, 0.75),
                       proportion.in.main.set = 0.5, 
-                      significance.level = 0.05){
+                      significance.level = 0.05,
+                      store.learners = FALSE,
+                      store.splits = FALSE){
   
   ### step 1: compute propensity scores ----
-  propensity.scores.obj <- propensity.score(Z = Z, D = D, learner = learner.propensity.score)
+  propensity.scores.obj <- propensity.score(Z = Z, D = D, 
+                                            learner = make.mlr3.string(learner.propensity.score, 
+                                                                       regr = FALSE))
   propensity.scores     <- propensity.scores.obj$propensity.scores
   
   ### step 2: for each ML method, do the generic ML analysis ----
@@ -449,16 +453,19 @@ genericML <- function(Z, D, Y,
                                Z.clan = Z.clan, 
                                proportion.in.main.set = proportion.in.main.set, 
                                quantile.cutoffs = quantile.cutoffs,
-                               significance.level = significance.level)
+                               significance.level = significance.level,
+                               store.learners = store.learners,
+                               store.splits = store.splits)
   
   # extract the best learners
-  best.learners <- get.best.learners(gen.ml.different.learners)
+  best.learners <- get.best.learners(gen.ml.different.learners$generic.targets)
   
   ### step 3: perform VEIN analysis ---- 
-  vein <- VEIN(gen.ml.different.learners, best.learners)
+  vein <- VEIN(gen.ml.different.learners$generic.targets, best.learners)
   
   return(list(VEIN = vein,
               best.learners = best.learners,
-              genericML.by.split = gen.ml.different.learners))
+              genericML.by.split = gen.ml.different.learners$genericML.by.split,
+              splits = gen.ml.different.learners$splits))
   
 } # FUN
