@@ -466,6 +466,11 @@ genericML <- function(Z, D, Y,
   return(list(VEIN = vein,
               best.learners = best.learners,
               genericML.by.split = gen.ml.different.learners$genericML.by.split,
-              splits = gen.ml.different.learners$splits))
+              splits = gen.ml.different.learners$splits, 
+              arguments = list(quantile.cutoffs = c(0.25, 0.5, 0.75),
+                               proportion.in.main.set = 0.5, 
+                               significance.level = 0.05,
+                               learners.genericML = learners.genericML,
+                               learner.propensity.score = learner.propensity.score)))
   
 } # FUN
