@@ -6,12 +6,12 @@ library(ggplot2)
 source(paste0(getwd(), "/funs/generic-ml/generic-ml-estimation-funs.R"))
 source(paste0(getwd(), "/funs/generic-ml/generic-ml-auxiliary-funs.R"))
 
-
-logistic <- function(x) 1 / ( 1 + exp(-x))
-
 set.seed(1)
 num.obs  <- 500
 num.vars <- 5
+
+# ate parameter
+theta <- -2
 
 # treatment assignment (assume RCT)
 D <- rbinom(num.obs, 1, 0.5) 
@@ -21,14 +21,20 @@ Z <- mvtnorm::rmvnorm(num.obs, mean = rep(0, num.vars), sigma = diag(num.vars))
 colnames(Z) <- paste0("z", 1:num.vars)
 
 # coefficients (including an intercept)
-theta <- c(0.2, 0.5, -0.3, 0.7, -0.1, 0.4)
+beta <- c(1, 2, -3, 0, 0, 2)
 
 # compute Pr(Y = 1 | X) for each individual (with noise)
-pi0 <- logistic(as.numeric(cbind(1, Z) %*% theta))
+#eps     <-  rnorm(n, mean = 0, sd = 0.5)
+y0.star <- as.numeric(cbind(1, Z) %*% beta) #+ eps
+y1.star <- theta + y0.star
 
-# relative constant risk reduction of 30%
-scaling <- 0.7
-pi1 <- pi0 * scaling 
+# experimental: use standardized logit link
+mu <- 0 # mean(y0.star)
+s <- 1 #sqrt(var(y0.star))
+pi0 <- plogis(y0.star, location = mu, scale = s)
+pi1 <- plogis(y1.star, location = mu, scale = s)
+
+# hte
 hte <- pi1 - pi0
 
 # true ATE
@@ -43,12 +49,12 @@ Y  <- ifelse(D == 1, Y1, Y0) # observed outcome
 #######################
 
 # arguments: 
-quantile.cutoffs         <- c(0.25, 0.5, 0.75) # for the GATES grouping of S (argument)
-proportion.in.main.set   <-  0.5 # argument
-Z.clan                   <-  NULL # argument. The matrix of variables that shall be considered in CLAN
-learners.genericML       <- "glm" # c('glm'), 'tree', 'mlr3::lrn("ranger", num.trees = 50)') plot below is weird if you uncomment!
+quantile.cutoffs         <- c(0.2, 0.4, 0.6, 0.8) # for the GATES grouping of S (argument)
+proportion.in.main.set   <- 0.5 # argument
+Z.clan                   <- NULL # argument. The matrix of variables that shall be considered in CLAN
+learners.genericML       <- c('glm', 'mlr3::lrn("ranger", num.trees = 100)')
 learner.propensity.score <- 'mlr3::lrn("glmnet", lambda = 0, alpha = 1)' # non-penalized logistic regression
-num.splits               <- 2
+num.splits               <- 100
 significance.level       <- 0.05
 store.splits             <- FALSE
 store.learners           <- FALSE
@@ -65,6 +71,8 @@ genML <- genericML(Z = Z, D = D, Y = Y,
                    store.splits = store.splits,
                    store.learners = store.learners)
 
+# save object
+save(genML, file = paste0(getwd(), "/funs/generic-ml/gen-ml-test.Rdata"))
 
 # analyze
 genML$VEIN$best.learners$GATES # difference is insignificant, so no hetero
@@ -75,6 +83,7 @@ genML$VEIN$best.learners$CLAN$z1 # there seems to be hetero along z1
 # since treatment effect is negative, G1 is the most affected group (most negative), and G.K the least affected group (least negative)
 
 # GATES
-genericML.plot(genML, type = "GATES") 
+#genericML.plot(genML, type = "GATES") # no hetero
+#genericML.plot(genML, type = "BLP")   # no hetero
 
-  
+#genericML.plot(genML, type = "CLAN", CLAN.variable = "z4")   # no hetero
