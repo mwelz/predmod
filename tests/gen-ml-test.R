@@ -72,18 +72,9 @@ genML <- genericML(Z = Z, D = D, Y = Y,
                    store.learners = store.learners)
 
 # save object
-save(genML, file = paste0(getwd(), "/funs/generic-ml/gen-ml-test.Rdata"))
+save(genML, hte, ate, Y, D, Z, file = paste0(getwd(), "/tests-ml/gen-ml-test.Rdata"))
 
 # analyze
 genML$VEIN$best.learners$GATES # difference is insignificant, so no hetero
 genML$VEIN$best.learners$BLP  # beta2 is insignificant, so no hetero
 genML$VEIN$best.learners$CLAN$z1 # there seems to be hetero along z1
-
-## plot
-# since treatment effect is negative, G1 is the most affected group (most negative), and G.K the least affected group (least negative)
-
-# GATES
-#genericML.plot(genML, type = "GATES") # no hetero
-#genericML.plot(genML, type = "BLP")   # no hetero
-
-#genericML.plot(genML, type = "CLAN", CLAN.variable = "z4")   # no hetero
