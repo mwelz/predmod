@@ -96,8 +96,10 @@ risk.model.stage2 <- function(lp, y, w, lambda, offset.lp = TRUE ){
 }
 
 
-risk.modeling <- function(X, w, y, alpha, offset.lp = TRUE){
+risk.modeling <- function(X, w, y, alpha, lifeyears, predictiontimeframe, offset.lp = TRUE){
   ## stage 1
+  lifeyears <- ifelse(lifeyears <=predictiontimeframe, lifeyears, predictiontimeframe)
+  y<- ifelse(lifeyears <=predictiontimeframe, y, 0)
   stage1 <- risk.model.stage1(X = X, y = y, alpha = alpha)
   
   ## stage 2
@@ -379,12 +381,15 @@ get.benefits.grf <- function(grf.model.obj,
 
 
 effect.modeling <- function(X, w, y, 
-                            alpha = alpha, 
+                            alpha = alpha,lifeyears, predictiontimeframe, 
                             interactions = NULL,
                             sig.level = 0.05, ...){
   
   ### 0. preparation ----
   # split the sample as suggested in Wasserman and Roeder (2009)
+  lifeyears <- ifelse(lifeyears <=predictiontimeframe, lifeyears, predictiontimeframe)
+  y<- ifelse(lifeyears <=predictiontimeframe, y, 0)
+  set.seed(25)
   n    <- nrow(X)
   p    <- ncol(X)
   set1 <- sample(1:n, floor(0.5 * n), replace = FALSE)
@@ -710,8 +715,9 @@ order.intervals <- function(intervals, quantile.nam){
 #' @return a rateratio object and an etsimate of the rate ratio
 #' 
 #' @export
-rate.ratio <- function(y, w, lifeyears, subgroup = NULL, ...){
-  
+rate.ratio <- function(y, w, lifeyears, predictiontimeframe, subgroup = NULL, ...){
+  lifeyears <- ifelse(lifeyears <=predictiontimeframe, lifeyears, predictiontimeframe)
+  y <- ifelse(lifeyears <=predictiontimeframe, y, 0)
   # input check
   if(!all(c(0, 1) %in% y)) warning("y is not a binary vector!")
   if(any(lifeyears < 0)) warning("Some life years are negative")
@@ -751,7 +757,7 @@ c.index <- function(y, risk.predictions){
 
 
 
-grf.modeling <- function(X, w, y, num.trees = 2000, ...){
+grf.modeling <- function(X, w, y,lifeyears, predictiontimeframe, num.trees = 2000, ...){
   # no relative risk modeling possible!
   # get causal forest (for predicted benefit)
   cf <- grf::causal_forest(X = X, Y = y, W = w, num.trees = num.trees, ...)

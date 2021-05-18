@@ -67,7 +67,7 @@ LY_intermediate <- (Base_LY + x  %*% LY_coeffs) * ifelse(y == 1, 0.9, 1)
 LY <- ifelse(LY_intermediate <=0, 0, LY_intermediate) 																																												  
 
 ### 1. risk modeling ----
-risk.model <- risk.modeling(X = x, w = w, y = y, alpha = 1, offset.lp = TRUE)
+risk.model <- risk.modeling(X = x, w = w, y = y, lifeyears=LY, predictiontimeframe = 4,alpha = 1, offset.lp = TRUE)
 
 # # make plots (currently commented out) 
 # pdf(file = paste0(getwd(), "/plots/const-rm-calibration-relative.pdf"))
@@ -86,12 +86,12 @@ risk.model <- risk.modeling(X = x, w = w, y = y, alpha = 1, offset.lp = TRUE)
 # subgroup.plot(risk.model, x[,1], relative = TRUE)
 # dev.off()
 
-risk.model$ate.hat # 0.164 (average of predicted abolute benefits)
-mean(risk.model$predicted.relative.benefit) # 0.68
+risk.model$ate.hat # -0.163997 (average of predicted abolute benefits)
+mean(risk.model$predicted.relative.benefit) #0.6802071
 risk.model$c.index.benefit #0.4555163
 
 ### 2. effect modeling ----
-effect.model <- effect.modeling(X = x, w = w, y = y, alpha = 1) 
+effect.model <- effect.modeling(X = x, w = w, y = y, lifeyears=LY, predictiontimeframe = 4,alpha = 1) 
 # 
 # # make plots (currently commented out)
 # calibration.plot(effect.model, relative = TRUE, title = "Effect Model, Calibration: Predicted Relative Benefit")
@@ -100,18 +100,18 @@ effect.model <- effect.modeling(X = x, w = w, y = y, alpha = 1)
 # subgroup.plot(effect.model, x[,1], relative = TRUE)
 # subgroup.plot(effect.model, x[,1], relative = FALSE)
 
-effect.model$ate.hat # 0.161 (average of predicted abolute benefits)
-mean(effect.model$predicted.relative.benefit) # 0.675
-effect.model$c.index.benefit #0.4676652
+effect.model$ate.hat # -0.1580124 (average of predicted abolute benefits)
+mean(effect.model$predicted.relative.benefit) #0.6806182
+effect.model$c.index.benefit #0.4688999
 
 ### 3. GRF ----
-grf.obj <- grf.modeling(X = x, y = y, w = w)
-grf.obj$ate.hat # -0.166
+grf.obj <- grf.modeling(X = x, y = y,lifeyears=LY, predictiontimeframe = 4, w = w)
+grf.obj$ate.hat # -0.1658862
 ate.ci.lo <- grf.obj$ate.hat - grf.obj$ate.hat.se * qt(0.975, df = n - p)
 ate.ci.up <- grf.obj$ate.hat + grf.obj$ate.hat.se * qt(0.975, df = n - p)
 (ate.ci.lo <= ate) & (ate <= ate.ci.up) # ATE is in 95% CI
 
-grf.obj$c.index.benefit # 0.4798283
+grf.obj$c.index.benefit # 0.4626514
 grf.calibration <- calibration.plot.grf(grf.obj)
 
 
@@ -133,20 +133,20 @@ grf.calibration <- calibration.plot.grf(grf.obj)
 ### 4.0 Rate-ratio ----
 
 ## overall Rate-Ratio
-overall.rateratio <- rate.ratio(y = y, w = w, lifeyears = LY)$rate.ratio # 0.6852685; close to 0.7. But, will  be more/less favourable depending on how lifeyears are affected
+overall.rateratio <- rate.ratio(y = y, w = w, lifeyears = LY, predictiontimeframe = 4)$rate.ratio # 0.7017329; close to 0.7. But, will  be more/less favourable depending on how lifeyears are affected
 
-## Example: those who die of lung cancer lose 25% of their remaining lifeyears instead of 0.9
-LY_intermediate2 <- (Base_LY + x  %*% LY_coeffs) * ifelse(y == 1, 0.75, 1) 
+## Example: those who die of lung cancer lose 35% of their remaining lifeyears instead of 0.9
+LY_intermediate2 <- (Base_LY + x  %*% LY_coeffs) * ifelse(y == 1, 0.65, 1) 
 LY2 <- ifelse(LY_intermediate2 <=0, 0, LY_intermediate2) # set LY of 0 or less to 0 LY
-overall.rateratio2 <- rate.ratio(y = y, w = w, lifeyears = LY2)$rate.ratio # 0.6646533 
+overall.rateratio2 <- rate.ratio(y = y, w = w, lifeyears = LY2, predictiontimeframe = 4)$rate.ratio #0.6834538
 
 
 ## Examples for rate-ratios for subgroups:
 # Rate-ratio for an example subgroup: x1 < 0 
-rate.ratio(y = y, w = w, lifeyears = LY, subgroup = x[,1] < 0)$rate.ratio # 0.6771719
+rate.ratio(y = y, w = w, lifeyears = LY, predictiontimeframe = 4, subgroup = x[,1] < 0)$rate.ratio # 0.6887162
 
 # Rate-ratio for an example subgroup: x1 >= 0 
-rate.ratio(y = y, w = w, lifeyears = LY, subgroup = x[,1] >= 0)$rate.ratio # 0.6862652
+rate.ratio(y = y, w = w, lifeyears = LY, predictiontimeframe = 4, subgroup = x[,1] >= 0)$rate.ratio #0.7031846
 
 
 ### 5.0 Cox regression ----
@@ -155,45 +155,14 @@ rate.ratio(y = y, w = w, lifeyears = LY, subgroup = x[,1] >= 0)$rate.ratio # 0.6
 plot(survival::survfit(survival::Surv(LY, y) ~ w))
 
 #risk
-two_year_cox_risk = cox.risk.modeling(X=x, w, y, lifeyears=LY, predictiontimeframe = 2, alpha, offset.lp = TRUE)
-two_year_cox_risk$ate.hat #0
-two_year_cox_risk$c.index.benefit #0.5
-mean(two_year_cox_risk$predicted.relative.benefit)#NaN
-
 four_year_cox_risk = cox.risk.modeling(X=x, w, y, lifeyears=LY, predictiontimeframe = 4, alpha, offset.lp = TRUE)
-four_year_cox_risk$ate.hat #-0.006247984
-four_year_cox_risk$c.index.benefit #0.4372186
-mean(four_year_cox_risk$predicted.relative.benefit)#1.099922
+four_year_cox_risk$ate.hat #-0.1187989
+four_year_cox_risk$c.index.benefit #0.6807961
+mean(four_year_cox_risk$predicted.relative.benefit)#0.7541138
 
-six_year_cox_risk = cox.risk.modeling(X=x, w, y, lifeyears=LY, predictiontimeframe = 6, alpha, offset.lp = TRUE)
-six_year_cox_risk$ate.hat #-0.1013502
-six_year_cox_risk$c.index.benefit #0.5183192
-mean(six_year_cox_risk$predicted.relative.benefit)#0.8848779
-
-
-eight_year_cox_risk = cox.risk.modeling(X=x, w, y, lifeyears=LY, predictiontimeframe = 8, alpha, offset.lp = TRUE)
-eight_year_cox_risk$ate.hat #-0.0008124408
-eight_year_cox_risk$c.index.benefit # 0.4974462
-mean(eight_year_cox_risk$predicted.relative.benefit)#0.9991255
 
 #cox effect
-two_year_cox_effect = cox.effect.modeling(X=x, w, y, lifeyears=LY, predictiontimeframe=2,alpha = 1)
-two_year_cox_effect$ate.hat #0
-two_year_cox_effect$c.index.benefit #0.5
-mean(two_year_cox_effect$predicted.relative.benefit)#NaN
-
 four_year_cox_effect =  cox.effect.modeling(X=x, w, y, lifeyears=LY, predictiontimeframe=4,alpha = 1)
-four_year_cox_effect$ate.hat # -0.0548291
-four_year_cox_effect$c.index.benefit #0.5371681
-mean(four_year_cox_effect$predicted.relative.benefit)#0.6023313
-
-six_year_cox_effect =  cox.effect.modeling(X=x, w, y, lifeyears=LY, predictiontimeframe=6,alpha = 1)
-six_year_cox_effect$ate.hat #-0.05720218
-six_year_cox_effect$c.index.benefit #0.4582583
-mean(six_year_cox_effect$predicted.relative.benefit)#0.9120426
-
-
-eight_year_cox_effect =  cox.effect.modeling(X=x, w, y, lifeyears=LY, predictiontimeframe=8,alpha = 1)
-eight_year_cox_effect$ate.hat #-0.001114145
-eight_year_cox_effect$c.index.benefit # 0.4751412
-mean(eight_year_cox_effect$predicted.relative.benefit)#0.9987149
+four_year_cox_effect$ate.hat #  -0.03299963
+four_year_cox_effect$c.index.benefit #0.4544172
+mean(four_year_cox_effect$predicted.relative.benefit)#0.6159583

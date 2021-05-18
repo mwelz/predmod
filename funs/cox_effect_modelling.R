@@ -5,8 +5,11 @@ cox.effect.modeling <- function(X, w, y, lifeyears, predictiontimeframe,
   
   ### 0. preparation ----
   # split the sample as suggested in Wasserman and Roeder (2009)
+  lifeyears <- ifelse(lifeyears <=predictiontimeframe, lifeyears, predictiontimeframe)
+  y <- ifelse(lifeyears <=predictiontimeframe, y, 0)
   n    <- nrow(X)
   p    <- ncol(X)
+  set.seed(25)
   set1 <- sample(1:n, floor(0.5 * n), replace = FALSE)
   set2 <- setdiff(1:n, set1)
   
@@ -33,8 +36,7 @@ cox.effect.modeling <- function(X, w, y, lifeyears, predictiontimeframe,
   X.star <- cbind(X, interaction.terms)
   glmsurvival.coxeffect.obj <-survival::Surv(lifeyears, y)
   colnames(glmsurvival.coxeffect.obj) <- c("time", "status")
-  #cox.models.stage1 <- glmnet::cv.glmnet(x, glmsurvival.coxeffect.obj, family = "cox", type.measure = "C", alpha = 1)
-  
+ 
   ### 1. stage 1: penalized regression on whole set  ----
   # whole set is x.star. We apply sample splitting as suggested in Wasserman and Roeder (2009)
   mod.pm <- glmnet::cv.glmnet(X.star[set1,], glmsurvival.coxeffect.obj[set1], family = "cox", type.measure = "C", alpha = 1)
@@ -57,6 +59,8 @@ cox.effect.modeling <- function(X, w, y, lifeyears, predictiontimeframe,
   X.star.red <- X.kept[, -which(kept.vars.nam %in% kept.vars.no.x.nam)]
   
   # fit both large and reduced model
+  #fit.1     <-  glmnet::glmnet(X.kept[set2,], glmsurvival.coxeffect.obj[set2], family = "cox", type.measure = "C")
+  #fit.0     <-  glmnet::glmnet(X.star.red[set2,], glmsurvival.coxeffect.obj[set2], family = "cox", type.measure = "C")
   fit.1     <- rms::cph(glmsurvival.coxeffect.obj[set2]~ X.kept[set2,])
   fit.0     <-  rms::cph(glmsurvival.coxeffect.obj[set2]~ X.star.red[set2,])# reduced model
   formula.0 <- paste0("surv ~ ", paste(colnames(X.star.red), collapse = " + "))
@@ -82,17 +86,20 @@ cox.effect.modeling <- function(X, w, y, lifeyears, predictiontimeframe,
   
   
   # risk with regular w
+  #final.model.fit <-glmnet::glmnet(X.final, glmsurvival.coxeffect.obj, family = "cox", type.measure = "C")
+  #lambda        <- min(final.model.fit$lambda)
+  #lp              <-predict(final.model.fit, s=lambda, X.final,type="link") #linear predictors
+  #basehaz  <- hdnom::glmnet_basesurv(lifeyears, y, lp , times.eval = predictiontimeframe, centered = FALSE)
   final.model.fit <- rms::cph(glmsurvival.coxeffect.obj~ X.final,y=TRUE,x=TRUE)
-  lp=final.model.fit$linear.predictors
+  lp=X.final %*% final.model.fit$coefficients
   basehazard <- survival::basehaz(final.model.fit,centered=FALSE)
   Hazard_t_index = match(1, round(basehazard$time,1) == predictiontimeframe, nomatch = NA)
-  lp2<- as.numeric(X.final  %*% final.model.fit$coefficients)
-  #TO CHECK: lp2 needs to be equal to lp; but there seems to be a mismatch
+  
   # 1) ordinary w
   probs  =  1-exp(-basehazard[Hazard_t_index,1])^exp(lp) 
+  #probs  =  1-exp(-basehaz$cumulative_base_hazard)^exp(lp)
+ # coefs.glm.cox     <- glmnet::coef.glmnet(final.model.fit, s = lambda)
 
-  
-  
   # get risk with flipped w
   kept.X <- colnames(X.final)[startsWith(colnames(X.final), "X")]
   kept.w <- sub(".*\\.", "", colnames(X.final)[startsWith(colnames(X.final), "w")])
@@ -104,6 +111,7 @@ cox.effect.modeling <- function(X, w, y, lifeyears, predictiontimeframe,
   
   lp.flipped.w     <- as.numeric(X.rev  %*% final.model.fit$coefficients)
   probs.flipped.w  <-  1-exp(-basehazard[Hazard_t_index,1])^exp(lp.flipped.w) 
+
 
   # get absolute predicted benefit
   pred.ben.abs.raw <- probs - probs.flipped.w

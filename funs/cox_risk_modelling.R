@@ -2,19 +2,22 @@ cox.risk.model.stage1 <- function(X, y,lifeyears, predictiontimeframe, alpha = 1
   
   # stage 1 doesn't use W!
   # in 
+
+  
   glmsurvival.coxstage1.obj <-survival::Surv(lifeyears, y)
   colnames(glmsurvival.coxstage1.obj) <- c("time", "status")
   cox.models.stage1 <- glmnet::cv.glmnet(x, glmsurvival.coxstage1.obj, family = "cox", type.measure = "C", alpha = 1)
   lambda        <- cox.models.stage1$lambda.min # best lambda (needs to be fixed in second stage)
   coefs.obj     <- glmnet::coef.glmnet(cox.models.stage1, s = "lambda.min")
-  kept.vars     <- (coefs.obj@i)+1 #cox has no cons
+  kept.vars     <- (coefs.obj@i)+1 #cox has no constant; ignore centering value
  # if(0 %in% kept.vars) kept.vars <- kept.vars[-which(kept.vars == 0)]
   coefs         <- coefs.obj@x
   X.star        <- cbind(x[,kept.vars])
-  lp            <- predict(cox.models.stage1, newx = X, s = "lambda.min") #as.numeric(X.star %*% coefs)
+  lp            <-predict(cox.models.stage1$glmnet.fit, s=lambda, X.star,type="link") #linear predictors
+  #lp            <- predict(cox.models.stage1, newx = X, s = "lambda.min") #as.numeric(X.star %*% coefs)
   stage1.basehaz <- hdnom::glmnet_basesurv(lifeyears, y, lp , times.eval = predictiontimeframe, centered = FALSE)
   #lp2            <- as.numeric(X.star %*% coefs) check for equality to predict(); provides the sme linear predictors
-  
+ 
   return(list(
    cox.models.stage1.cv = cox.models.stage1,
     lambda.min = lambda,
@@ -39,8 +42,9 @@ cox.risk.model.stage2  <- function(lp, y, lifeyears, w, predictiontimeframe, lam
   colnames(glmsurvival.coxstage2.obj) <- c("time", "status")
   # use same lambda as model 1!
   mod.stage2 <- glmnet::glmnet(X.stage2, glmsurvival.coxstage2.obj, family = "cox", type.measure = "C", lambda = lambda)
-  coefs         <- mod.stage2$beta
-  lp.stage2          <- as.numeric(X.stage2  %*% coefs)
+  coefs          <- mod.stage2$beta
+ # lp.stage2     <-predict(mod.stage2, s=lambda, X.stage2,type="link") #linear predictors
+  lp.stage2      <- as.numeric(X.stage2  %*% coefs)
   stage2.basehaz <- hdnom::glmnet_basesurv(lifeyears, y, lp.stage2  , predictiontimeframe, centered = FALSE)
   
   
@@ -71,6 +75,8 @@ cox.risk.model.stage2  <- function(lp, y, lifeyears, w, predictiontimeframe, lam
 
 cox.risk.modeling <- function(X, w, y, lifeyears, predictiontimeframe, alpha, offset.lp = TRUE){
   ## stage 1
+  lifeyears <- ifelse(lifeyears <=predictiontimeframe, lifeyears, predictiontimeframe)
+  y<- ifelse(lifeyears <=predictiontimeframe, y, 0)
   stage1 <- cox.risk.model.stage1(X = X, y = y, lifeyears = lifeyears, predictiontimeframe = predictiontimeframe, alpha = alpha)
 
   ## stage 2
