@@ -758,6 +758,8 @@ c.index <- function(y, risk.predictions){
 
 
 grf.modeling <- function(X, w, y,lifeyears, predictiontimeframe, num.trees = 2000, ...){
+  lifeyears <- ifelse(lifeyears <=predictiontimeframe, lifeyears, predictiontimeframe)
+  y<- ifelse(lifeyears <=predictiontimeframe, y, 0)
   # no relative risk modeling possible!
   # get causal forest (for predicted benefit)
   cf <- grf::causal_forest(X = X, Y = y, W = w, num.trees = num.trees, ...)
