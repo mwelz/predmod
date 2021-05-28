@@ -352,12 +352,15 @@ get.benefits.grf <- function(grf.model.obj,
 
 
 effect.modeling <- function(X, w, y, 
-                            alpha = alpha, 
+                            alpha = alpha,lifeyears, predictiontimeframe, 
                             interactions = NULL,
                             sig.level = 0.05, ...){
   
   ### 0. preparation ----
   # split the sample as suggested in Wasserman and Roeder (2009)
+  lifeyears <- ifelse(lifeyears <=predictiontimeframe, lifeyears, predictiontimeframe)
+  y<- ifelse(lifeyears <=predictiontimeframe, y, 0)
+  set.seed(25)
   n    <- nrow(X)
   p    <- ncol(X)
   set1 <- sample(1:n, floor(0.5 * n), replace = FALSE)
@@ -386,23 +389,16 @@ effect.modeling <- function(X, w, y,
   X.star <- cbind(X, interaction.terms)
   
   ### 1. stage 1: penalized regression on whole set  ----
-  # whole set is X.star. We apply sample splitting as suggested in Wasserman and Roeder (2009)
+  # whole set is x.star. We apply sample splitting as suggested in Wasserman and Roeder (2009)
   mod.pm <- glmnet::cv.glmnet(X.star[set1,], y[set1], family = "binomial", alpha = alpha)
   
   ### 2. stage 2: perform variable selection based on the "best" model ----
   coefs.obj     <- glmnet::coef.glmnet(mod.pm, s = "lambda.min")
   kept.vars     <- coefs.obj@i 
-  
-  # the intercept is not a variable, so discard from the variables 
   if(0 %in% kept.vars){
     kept.vars <- kept.vars[-which(kept.vars == 0)]
   }
-  
-  # regardless of the regularized regression's selection, _w_ stays in the active set
   kept.vars.nam <- colnames(X.star)[kept.vars]
-  if(!("w" %in% kept.vars.nam)){
-    kept.vars.nam <- c(kept.vars.nam, "w")
-  }
   
   ### 3. stage 3: perform chi-squared test on significance of interactions in the "best" model ----
   # big model
@@ -446,14 +442,13 @@ effect.modeling <- function(X, w, y,
   X.star <- cbind(X, w = ifelse(w == 1, 0, 1))
   interaction.terms.flipped <- sapply(kept.w, 
                                       function(j) ifelse(w == 1, 0, X.star[,j]))
-  X.rev.temp      <- cbind(X[,kept.X], interaction.terms.flipped)
-  X.rev           <- sapply(1:ncol(X.rev.temp), function(j) as.numeric(X.rev.temp[,j])) # must be numeric
+  X.rev <- cbind(X[,kept.X], interaction.terms.flipped)
   colnames(X.rev) <- colnames(X.final)
   probs.flipped.w <- unname(predict.glm(final.model, 
-                                        newdata = data.frame(X.rev),
+                                        newdata = as.data.frame(X.rev),
                                         type = "response"))
   
-  # get observed predicted benefit
+  # get absolute predicted benefit
   pred.ben.abs.raw <- probs - probs.flipped.w
   pred.ben.abs     <- ifelse(w == 1, pred.ben.abs.raw, -pred.ben.abs.raw)
   
@@ -462,7 +457,7 @@ effect.modeling <- function(X, w, y,
   pred.ben.rel     <- ifelse(w == 1, pred.ben.rel.raw, 1 / pred.ben.rel.raw)
   
   
-  ### 5. housekeeping: make sure the naming is consistent ----
+  ### 5. housekeeping: make sure the naming is consistent
   # update variable names
   colnames.final.temp <- colnames(X.final)
   colnames.final      <- rep(NA_character_, length(colnames.final.temp))
@@ -485,15 +480,54 @@ effect.modeling <- function(X, w, y,
   summry <- summary(final.model)$coefficients
   rownames(summry) <- names(coefficients)
   
-  ## 6. fit baseline risk  ----
+  ## 5. fit baseline risk  ----
   # no information on w allowed, so we cannot use the retained variables from the effect modeling
   baseline.mod <- risk.model.stage1(X = X, y = y, alpha = alpha)
-  basline.risk <- plogis(baseline.mod$lp)
+  basline.risk <- transform.to.probability(baseline.mod$lp)
+  
+  
+  
+  #Match cases based on observed benefit
+  Treatment.formula<- w~pred.ben.abs
+  matched <- MatchIt::matchit(Treatment.formula)
+  treated <- as.numeric(rownames(matched$match.matrix))
+  control <- as.numeric(matched$match.matrix[,1])
+  
+  #Remove unpaired observations
+  no.pairing <- which(is.na(matched$match.matrix))
+  treated <- treated[-no.pairing]
+  control <- control[-no.pairing]
+  
+  obs.ben <- y[control]-y[treated]
+  pred.ben.abs.paired = pred.ben.abs[control]-pred.ben.abs[treated]
+  c.index.benefit = unname(Hmisc::rcorr.cens(pred.ben.abs.paired, obs.ben)[1])
+  
   
   # calculate C index by using predicted risk (with regular w)
   c.index <- DescTools::Cstat(x = probs, resp = y)
   
-  ## 7. return ----
+  
+  
+  #Match cases based on observed benefit
+  Treatment.formula<- w~pred.ben.abs
+  matched <- MatchIt::matchit(Treatment.formula)
+  treated <- as.numeric(rownames(matched$match.matrix))
+  control <- as.numeric(matched$match.matrix[,1])
+  
+  #Remove unpaired observations
+  no.pairing <- which(is.na(matched$match.matrix))
+  treated <- treated[-no.pairing]
+  control <- control[-no.pairing]
+  
+  obs.ben <- y[control]-y[treated]
+  pred.ben.abs.paired = (pred.ben.abs[control]+pred.ben.abs[treated])/2 #Pairs are matched by predicted benefit; average over the pair
+  
+  # calculate C for benefit by using predicted risk (with regular w)
+  c.index.benefit = unname(Hmisc::rcorr.cens(pred.ben.abs.paired, obs.ben)[1])
+  c.index.youtcome <- unname(Hmisc::rcorr.cens(probs, y)[1])
+  
+  
+  ## 6. return ----
   return(list(
     inputs = list(X = X, w = w, y = y),
     baseline.model = baseline.mod,
@@ -513,10 +547,11 @@ effect.modeling <- function(X, w, y,
     predicted.relative.benefit = pred.ben.rel,
     predicted.relative.benefit.raw = pred.ben.rel.raw,
     ate.hat = mean(pred.ben.abs),
-    c.index = c.index
+    c.index.youtcome = c.index.youtcome,
+    c.index = c.index,
+    c.index.benefit =c.index.benefit
   ))
 }
-
 
 
 group.static <- function(x, group.bounds){

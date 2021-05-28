@@ -19,8 +19,10 @@ rm(list = ls()) ; cat("\014")
 
 # load the helper functions
 source(paste0(getwd(), "/funs/estimation-funs.R"))
-source(paste0(getwd(), "/funs/Poisson_risk_modelling.R")) 
-source(paste0(getwd(), "/funs/Poisson_effect_modelling.R")) 
+source(paste0(getwd(), "/funs/Poiss_test_estimation-funs.R")) 
+source(paste0(getwd(), "//funs/Poiss_treat_test_estimation-funs.R")) 
+source(paste0(getwd(), "/funs/cox_risk_modelling.R")) 
+source(paste0(getwd(), "//funs/cox_effect_modelling.R")) 
 # define the logistic function
 logistic <- function(x) 1 / (1 + exp(-x))
 
@@ -62,13 +64,10 @@ Base_LY   <- 5
 LY_coeffs <- c(0.5, -0.3, 0.7, -0.1, 0.4) #reversed signs of the coeffs for lung cancer as placeholder
 LY_intermediate <- (Base_LY + x  %*% LY_coeffs) * ifelse(y == 1, 0.9, 1) 
 # set LY of 0 or less to 0 LY
-LY <- ifelse(LY_intermediate <=0, 0, LY_intermediate) 		
-
-Observed_rate_reduction =  ((sum(y[w==0])/sum(LY[w==0])*1000))-((sum(y[w==1])/sum(LY[w==1])*1000))
-
+LY <- ifelse(LY_intermediate <=0, 0, LY_intermediate) 																																												  
 
 ### 1. risk modeling ----
-risk.model <- risk.modeling(X = x, w = w, y = y, alpha = 1, offset.lp = TRUE)
+risk.model <- risk.modeling(X = x, w = w, y = y, lifeyears=LY, predictiontimeframe = 4,alpha = 1, offset.lp = TRUE)
 
 # # make plots (currently commented out) 
 # pdf(file = paste0(getwd(), "/plots/const-rm-calibration-relative.pdf"))
@@ -87,12 +86,12 @@ risk.model <- risk.modeling(X = x, w = w, y = y, alpha = 1, offset.lp = TRUE)
 # subgroup.plot(risk.model, x[,1], relative = TRUE)
 # dev.off()
 
-risk.model$ate.hat # 0.164 (average of predicted abolute benefits)
-mean(risk.model$predicted.relative.benefit) # 0.68
-risk.model$c.index # 0.713
+risk.model$ate.hat # -0.163997 (average of predicted abolute benefits)
+mean(risk.model$predicted.relative.benefit) #0.6802071
+risk.model$c.index.benefit #0.4555163
 
 ### 2. effect modeling ----
-effect.model <- effect.modeling(X = x, w = w, y = y, alpha = 1) 
+effect.model <- effect.modeling(X = x, w = w, y = y, lifeyears=LY, predictiontimeframe = 4,alpha = 1) 
 # 
 # # make plots (currently commented out)
 # calibration.plot(effect.model, relative = TRUE, title = "Effect Model, Calibration: Predicted Relative Benefit")
@@ -101,18 +100,18 @@ effect.model <- effect.modeling(X = x, w = w, y = y, alpha = 1)
 # subgroup.plot(effect.model, x[,1], relative = TRUE)
 # subgroup.plot(effect.model, x[,1], relative = FALSE)
 
-effect.model$ate.hat # 0.161 (average of predicted abolute benefits)
-mean(effect.model$predicted.relative.benefit) # 0.675
-effect.model$c.index # 0.712
+effect.model$ate.hat # -0.1580124 (average of predicted abolute benefits)
+mean(effect.model$predicted.relative.benefit) #0.6806182
+effect.model$c.index.benefit #0.4688999
 
 ### 3. GRF ----
-grf.obj <- grf.modeling(X = x, y = y, w = w)
-grf.obj$ate.hat # -0.166
+grf.obj <- grf.modeling(X = x, y = y,lifeyears=LY, predictiontimeframe = 4, w = w)
+grf.obj$ate.hat # -0.1658862
 ate.ci.lo <- grf.obj$ate.hat - grf.obj$ate.hat.se * qt(0.975, df = n - p)
 ate.ci.up <- grf.obj$ate.hat + grf.obj$ate.hat.se * qt(0.975, df = n - p)
 (ate.ci.lo <= ate) & (ate <= ate.ci.up) # ATE is in 95% CI
 
-grf.obj$c.index # 0.679 # but this is just experimental!
+grf.obj$c.index.benefit # 0.4626514
 grf.calibration <- calibration.plot.grf(grf.obj)
 
 
@@ -134,40 +133,36 @@ grf.calibration <- calibration.plot.grf(grf.obj)
 ### 4.0 Rate-ratio ----
 
 ## overall Rate-Ratio
-overall.rateratio <- rate.ratio(y = y, w = w, lifeyears = LY)$rate.ratio # 0.6852685; close to 0.7. But, will  be more/less favourable depending on how lifeyears are affected
+overall.rateratio <- rate.ratio(y = y, w = w, lifeyears = LY, predictiontimeframe = 4)$rate.ratio # 0.7017329; close to 0.7. But, will  be more/less favourable depending on how lifeyears are affected
 
-## Example: those who die of lung cancer lose 25% of their remaining lifeyears instead of 0.9
-LY_intermediate2 <- (Base_LY + x  %*% LY_coeffs) * ifelse(y == 1, 0.75, 1) 
+## Example: those who die of lung cancer lose 35% of their remaining lifeyears instead of 0.9
+LY_intermediate2 <- (Base_LY + x  %*% LY_coeffs) * ifelse(y == 1, 0.65, 1) 
 LY2 <- ifelse(LY_intermediate2 <=0, 0, LY_intermediate2) # set LY of 0 or less to 0 LY
-overall.rateratio2 <- rate.ratio(y = y, w = w, lifeyears = LY2)$rate.ratio # 0.6646533 
+overall.rateratio2 <- rate.ratio(y = y, w = w, lifeyears = LY2, predictiontimeframe = 4)$rate.ratio #0.6834538
 
 
 ## Examples for rate-ratios for subgroups:
 # Rate-ratio for an example subgroup: x1 < 0 
-rate.ratio(y = y, w = w, lifeyears = LY, subgroup = x[,1] < 0)$rate.ratio # 0.6771719
+rate.ratio(y = y, w = w, lifeyears = LY, predictiontimeframe = 4, subgroup = x[,1] < 0)$rate.ratio # 0.6887162
 
 # Rate-ratio for an example subgroup: x1 >= 0 
-rate.ratio(y = y, w = w, lifeyears = LY, subgroup = x[,1] >= 0)$rate.ratio # 0.6862652
+rate.ratio(y = y, w = w, lifeyears = LY, predictiontimeframe = 4, subgroup = x[,1] >= 0)$rate.ratio #0.7031846
 
 
+### 5.0 Cox regression ----
+
+#NB: benefits are time dependent
+plot(survival::survfit(survival::Surv(LY, y) ~ w))
+
+#risk
+four_year_cox_risk = cox.risk.modeling(X=x, w, y, lifeyears=LY, predictiontimeframe = 4, alpha, offset.lp = TRUE)
+four_year_cox_risk$ate.hat #-0.1187989
+four_year_cox_risk$c.index.benefit #0.6807961
+mean(four_year_cox_risk$predicted.relative.benefit)#0.7541138
 
 
-### 1. risk modeling ---- poisson
-risk.model.poiss <- risk.modeling.poiss(X = x, w = w, y = y, ly = LY, alpha = 1, offset.lp = TRUE)
-
-risk.model.poiss$ate.hat # 0.1656584 (average of predicted abolute benefits)
-risk.model.poiss$rel.hat# 0.69529
-risk.model.poiss$ratereduction.1000ly #34.84742
-
-
-### 2. effect modeling ---- poisson
-effect.model.poiss <- effect.modeling.poiss(X = x, w = w, y = y, ly = LY, alpha=1,interactions = NULL, sig.level = 0.05)
-
-
-X = x
-w = w
-y = y
-ly = LY
-alpha=1
-interactions = NULL
-sig.level = 0.05
+#cox effect
+four_year_cox_effect =  cox.effect.modeling(X=x, w, y, lifeyears=LY, predictiontimeframe=4,alpha = 1)
+four_year_cox_effect$ate.hat #  -0.03299963
+four_year_cox_effect$c.index.benefit #0.4544172
+mean(four_year_cox_effect$predicted.relative.benefit)#0.6159583
