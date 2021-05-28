@@ -165,4 +165,5 @@ mean(four_year_cox_risk$predicted.relative.benefit)#0.7541138
 four_year_cox_effect =  cox.effect.modeling(X=x, w, y, lifeyears=LY, predictiontimeframe=4,alpha = 1)
 four_year_cox_effect$ate.hat #  -0.03299963
 four_year_cox_effect$c.index.benefit #0.4544172
+
 mean(four_year_cox_effect$predicted.relative.benefit)#0.6159583

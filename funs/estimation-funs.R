@@ -96,8 +96,10 @@ risk.model.stage2 <- function(lp, y, w, lambda, offset.lp = TRUE ){
 }
 
 
-risk.modeling <- function(X, w, y, alpha, offset.lp = TRUE){
+risk.modeling <- function(X, w, y, alpha, lifeyears, predictiontimeframe, offset.lp = TRUE){
   ## stage 1
+  lifeyears <- ifelse(lifeyears <=predictiontimeframe, lifeyears, predictiontimeframe)
+  y<- ifelse(lifeyears <=predictiontimeframe, y, 0)
   stage1 <- risk.model.stage1(X = X, y = y, alpha = alpha)
   
   ## stage 2
@@ -120,8 +122,31 @@ risk.modeling <- function(X, w, y, alpha, offset.lp = TRUE){
   coefs.stage2 <- as.matrix(glmnet::coef.glmnet(stage2$mod.stage2))
   colnames(coefs.stage2) <- colnames(coefs.stage1) <- "Estimated Coefficient"
   
-  # calculate C index by using predicted risk (with regular w)
-  c.index <- DescTools::Cstat(x = stage2$risk.pred.regular, resp = y)
+  #Match cases based on observed benefit
+  Treatment.formula<- w~pred.ben.abs
+  matched <- MatchIt::matchit(Treatment.formula)
+  treated <- as.numeric(rownames(matched$match.matrix))
+  control <- as.numeric(matched$match.matrix[,1])
+
+  #Remove unpaired observations
+  no.pairing <- which(is.na(matched$match.matrix))
+  treated <- treated[-no.pairing]
+  control <- control[-no.pairing]
+  
+  obs.ben <- y[control]-y[treated]
+  pred.ben.abs.paired = (pred.ben.abs[control]+pred.ben.abs[treated])/2 #Pairs are matched by predicted benefit; average over the pair
+ 
+  # calculate C for benefit by using predicted risk (with regular w)
+   c.index.benefit = unname(Hmisc::rcorr.cens(pred.ben.abs.paired, obs.ben)[1])
+   c.index.stage1.youtcome <- unname(Hmisc::rcorr.cens(stage1$lp, y)[1])
+
+  pred.ben.abs.paired = pred.ben.abs[control]-pred.ben.abs[treated]
+  c.index.benefit = unname(Hmisc::rcorr.cens(pred.ben.abs.paired, obs.ben)[1])
+  
+  # calculate C for benefit by using predicted risk (with regular w)
+  c.index.old <- unname(Hmisc::rcorr.cens(pred.ben.abs, y)[1])
+  c.index.youtcome <- unname(Hmisc::rcorr.cens(stage1$lp, y)[1])
+
   
   return(list(
     inputs = list(X = X, w = w, y = y),
@@ -138,7 +163,11 @@ risk.modeling <- function(X, w, y, alpha, offset.lp = TRUE){
     predicted.relative.benefit = pred.ben.rel,
     predicted.relative.benefit.raw = pred.ben.rel.raw,
     ate.hat = mean(pred.ben.abs),
-    c.index = c.index
+    c.index.old = c.index.old,
+    c.index.benefit = c.index.benefit,
+    c.index.stage1.youtcome = c.index.stage1.youtcome,
+    c.index.youtcome = c.index.youtcome
+
   ))
 }
 
@@ -484,6 +513,24 @@ effect.modeling <- function(X, w, y,
   # no information on w allowed, so we cannot use the retained variables from the effect modeling
   baseline.mod <- risk.model.stage1(X = X, y = y, alpha = alpha)
   basline.risk <- transform.to.probability(baseline.mod$lp)
+
+  
+  
+  #Match cases based on observed benefit
+  Treatment.formula<- w~pred.ben.abs
+  matched <- MatchIt::matchit(Treatment.formula)
+  treated <- as.numeric(rownames(matched$match.matrix))
+  control <- as.numeric(matched$match.matrix[,1])
+  
+  #Remove unpaired observations
+  no.pairing <- which(is.na(matched$match.matrix))
+  treated <- treated[-no.pairing]
+  control <- control[-no.pairing]
+  
+  obs.ben <- y[control]-y[treated]
+  pred.ben.abs.paired = pred.ben.abs[control]-pred.ben.abs[treated]
+  c.index.benefit = unname(Hmisc::rcorr.cens(pred.ben.abs.paired, obs.ben)[1])
+  
   
   
   
@@ -505,7 +552,7 @@ effect.modeling <- function(X, w, y,
   
   # calculate C index by using predicted risk (with regular w)
   c.index <- DescTools::Cstat(x = probs, resp = y)
-  
+
   
   
   #Match cases based on observed benefit
@@ -514,6 +561,7 @@ effect.modeling <- function(X, w, y,
   treated <- as.numeric(rownames(matched$match.matrix))
   control <- as.numeric(matched$match.matrix[,1])
   
+                                      
   #Remove unpaired observations
   no.pairing <- which(is.na(matched$match.matrix))
   treated <- treated[-no.pairing]
@@ -684,8 +732,9 @@ order.intervals <- function(intervals, quantile.nam){
 #' @return a rateratio object and an etsimate of the rate ratio
 #' 
 #' @export
-rate.ratio <- function(y, w, lifeyears, subgroup = NULL, ...){
-  
+rate.ratio <- function(y, w, lifeyears, predictiontimeframe, subgroup = NULL, ...){
+  lifeyears <- ifelse(lifeyears <=predictiontimeframe, lifeyears, predictiontimeframe)
+  y <- ifelse(lifeyears <=predictiontimeframe, y, 0)
   # input check
   if(!all(c(0, 1) %in% y)) warning("y is not a binary vector!")
   if(any(lifeyears < 0)) warning("Some life years are negative")
@@ -725,7 +774,9 @@ c.index <- function(y, risk.predictions){
 
 
 
-grf.modeling <- function(X, w, y, num.trees = 2000, ...){
+grf.modeling <- function(X, w, y,lifeyears, predictiontimeframe, num.trees = 2000, ...){
+  lifeyears <- ifelse(lifeyears <=predictiontimeframe, lifeyears, predictiontimeframe)
+  y<- ifelse(lifeyears <=predictiontimeframe, y, 0)
   # no relative risk modeling possible!
   # get causal forest (for predicted benefit)
   cf <- grf::causal_forest(X = X, Y = y, W = w, num.trees = num.trees, ...)
@@ -751,7 +802,39 @@ grf.modeling <- function(X, w, y, num.trees = 2000, ...){
   grf.model.obj$ate.hat.se            <- unname(ate.obj["std.err"])
   
   # TODO: experimental: C statistic (not sure if this is correct as we are using baseline risk)
-  grf.model.obj$c.index <- DescTools::Cstat(x = grf.model.obj$risk.baseline, resp = y)
+  grf.model.obj$c.index.youtcome <-  Hmisc::rcorr.cens(grf.model.obj$risk.baseline, y)[1]
+ 
+  
+  #Match cases based on observed benefit
+  Treatment.formula<- w~grf.model.obj$predicted.absolute.benefit
+  matched <- MatchIt::matchit(Treatment.formula)
+  treated <- as.numeric(rownames(matched$match.matrix))
+  control <- as.numeric(matched$match.matrix[,1])
+  
+  #Remove unpaired observations
+  no.pairing <- which(is.na(matched$match.matrix))
+  treated <- treated[-no.pairing]
+  control <- control[-no.pairing]
+  
+  obs.ben <- y[control]-y[treated]
+  pred.ben.abs.paired = (grf.model.obj$predicted.absolute.benefit[control]+grf.model.obj$predicted.absolute.benefit[treated])/2
+  grf.model.obj$c.index.benefit = unname(Hmisc::rcorr.cens(pred.ben.abs.paired, obs.ben)[1])
+  
+  
+  #Match cases based on observed benefit
+  Treatment.formula<- w~grf.model.obj$predicted.absolute.benefit
+  matched <- MatchIt::matchit(Treatment.formula)
+  treated <- as.numeric(rownames(matched$match.matrix))
+  control <- as.numeric(matched$match.matrix[,1])
+  
+  #Remove unpaired observations
+  no.pairing <- which(is.na(matched$match.matrix))
+  treated <- treated[-no.pairing]
+  control <- control[-no.pairing]
+  
+  obs.ben <- y[control]-y[treated]
+  pred.ben.abs.paired = grf.model.obj$predicted.absolute.benefit[control]-grf.model.obj$predicted.absolute.benefit[treated]
+  grf.model.obj$c.index.benefit = unname(Hmisc::rcorr.cens(pred.ben.abs.paired, obs.ben)[1])
   
   return(grf.model.obj)
 }
