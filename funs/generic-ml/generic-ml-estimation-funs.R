@@ -141,7 +141,7 @@ baseline.proxy.estimator <- function(Z, D, Y,
 #' @param D a binary vector of treatment status of length _n_
 #' @param Y a vector of responses of length _n_
 #' @param auxiliary.sample a numerical vector of indices of observations in the auxiliary sample. Length is shorter than _n_
-#' @param learner the classification machine learner to be used. Either 'glm', 'random.forest', or 'tree'. Can alternatively be specified by using the mlr3 framework, for example ml_g = mlr3::lrn("regr.ranger", num.trees = 500) for a regression forest, which is also the default. 
+#' @param learner the regression machine learner to be used. Either 'glm', 'random.forest', or 'tree'. Can alternatively be specified by using the mlr3 framework, for example ml_g = mlr3::lrn("regr.ranger", num.trees = 500) for a regression forest, which is also the default. 
 #' @param proxy.baseline.estimates A vector of length _n_ of proxy estimates of the baseline estimator E[Y | D=0, Z]. If NULL, these will be estimated separately.
 #' @return Estimates of the CATE, both for the auxiliary sample and all observations, and an 'mlr3' object of each employed model 
 #' 
@@ -258,3 +258,219 @@ CATE.proxy.estimator <- function(Z, D, Y,
               auxiliary.sample = auxiliary.sample))
   
 } # END FUN
+
+
+#' Performs generic ML for a given learning technique (with only one split of the data)
+#' 
+#' @param Z a matrix or data frame of covariates
+#' @param D a binary vector of treatment status of length 
+#' @param Y a vector of responses of length
+#' @param propensity.scores a vector of propensity scores
+#' @param learner The machine learner that shall be used
+#' @param M.set main set
+#' @param A.set auxiliary set
+#' @param quantile.cutoffs Cutoff points of quantiles that shall be used for GATES grouping
+#' 
+#' TODO: instructions on how mlr3 input is supposed to work (needs to be a string!)
+#' TODO: comments on CLAN: If there are categorical variables, apply one-hot-encoding to Z.clan. The interpretation then becomes: Is there a factor that is overproportionally present in the least or most affected group?
+#' 
+#' @export
+get.generic.ml.for.given.learner <- function(Z, D, Y, 
+                                             propensity.scores,
+                                             learner = 'mlr3::lrn("cv_glmnet", s = "lambda.min")',
+                                             M.set, A.set,
+                                             Z.clan = NULL, 
+                                             proportion.in.main.set = 0.5, 
+                                             quantile.cutoffs = c(0.25, 0.5, 0.75),
+                                             significance.level = 0.05){
+  
+  ### step 1: input checks ---- 
+  if(is.null(Z.clan)) Z.clan <- Z # if no input provided, set it equal to Z
+  
+  ### step 2a: learn proxy predictors by using the auxiliary set ----
+  
+  # get the proxy baseline estimator for the main sample
+  proxy.baseline.obj <- baseline.proxy.estimator(Z = Z, D = D, Y = Y, 
+                                                 auxiliary.sample = A.set, 
+                                                 learner = make.mlr3.string(learner, regr = TRUE))
+  proxy.baseline     <- proxy.baseline.obj$baseline.predictions.main.sample
+  
+  # get the proxy estimator of the CATE for the main sample
+  proxy.cate.obj <- 
+    CATE.proxy.estimator(Z = Z, D = D, Y = Y,
+                         auxiliary.sample = A.set, 
+                         learner = make.mlr3.string(learner, regr = TRUE),
+                         proxy.baseline.estimates = proxy.baseline.obj$baseline.predictions.full.sample)
+  proxy.cate <- proxy.cate.obj$CATE.predictions.main.sample
+  
+  
+  ### step 2b: estimate BLP parameters by OLS (TODO: HT transformation!) ----
+  blp.obj <- get.BLP.params.classic(D = D[M.set], Y = Y[M.set],
+                                    propensity.scores = propensity.scores[M.set],
+                                    proxy.baseline = proxy.baseline, 
+                                    proxy.cate = proxy.cate, 
+                                    significance.level = significance.level)
+  
+  
+  ### step 2c: estimate GATES parameters by OLS (TODO: HT transformation!) ----
+  # group the proxy estimators for the CATE in the main sample by quantiles. TODO: intervals need to be [) instead of (]
+  group.membership.main.sample <- quantile.group(proxy.cate, 
+                                                 cutoffs = quantile.cutoffs, 
+                                                 quantile.nam = TRUE) 
+  
+  gates.obj <- get.GATES.params.classic(D = D[M.set], Y = Y[M.set],
+                                        propensity.scores = propensity.scores[M.set],
+                                        group.membership.main.sample = group.membership.main.sample, 
+                                        proxy.baseline = proxy.baseline, proxy.cate = proxy.cate,
+                                        significance.level = significance.level)
+  
+  
+  ### step 2d: estimate CLAN parameters in the main sample
+  clan.obj <- get.CLAN.parameters(Z.clan.main.sample = Z.clan[M.set,], 
+                                  group.membership.main.sample = group.membership.main.sample)
+  
+  
+  ### step 2e: get parameters over which we maximize to find the "best" ML method ----
+  best.obj <- best.ml.method.parameters(BLP.obj = blp.obj, 
+                                        GATES.obj = gates.obj, 
+                                        proxy.cate.main.sample = proxy.cate,
+                                        group.membership.main.sample = group.membership.main.sample)
+  
+  ### organize output in a list ----
+  return(list(BLP = blp.obj, 
+              GATES = gates.obj, 
+              CLAN = clan.obj,
+              best = best.obj,
+              CATE.proxy = proxy.cate.obj,
+              baseline.proxy = proxy.baseline,
+              group.membership_M.set = group.membership.main.sample))
+  
+} # END FUN
+
+
+
+VEIN <- function(generic.ml.across.learners.obj, best.learners.obj){
+  
+  gen.ml.ls <- initialize.gen.ml(generic.ml.across.learners.obj)
+  learners  <- names(generic.ml.across.learners.obj)
+  
+  for(learner in learners){
+    
+    # BLP and GATES
+    for(type in c("BLP", "GATES")){
+      
+      gen.ml.ls[[type]][[learner]][,"Estimate"] <- 
+        apply(generic.ml.across.learners.obj[[learner]][[type]][,"Estimate",], 1, function(z) Med(z)$Med)
+      gen.ml.ls[[type]][[learner]][,"CI lower"] <- 
+        apply(generic.ml.across.learners.obj[[learner]][[type]][,"CI lower",], 1, function(z) Med(z)$upper.median)
+      gen.ml.ls[[type]][[learner]][,"CI upper"] <- 
+        apply(generic.ml.across.learners.obj[[learner]][[type]][,"CI upper",], 1, function(z) Med(z)$lower.median)
+      pval <- 
+        apply(generic.ml.across.learners.obj[[learner]][[type]][,"Pr(>|z|)",], 1, function(z) Med(z)$lower.median)
+      gen.ml.ls[[type]][[learner]][,"p-value raw"] <- pval
+      pval.adj <- 2 * pval
+      pval.adj[pval.adj > 1] <- 1 # p-values cannot exceed 1
+      gen.ml.ls[[type]][[learner]][,"p-value adjusted"] <- pval.adj
+      
+    } # FOR type
+    
+    
+    # CLAN
+    z.clan.nam <- names(generic.ml.across.learners.obj[[1]]$CLAN)
+    
+    for(z.clan in z.clan.nam){
+      
+      gen.ml.ls$CLAN[[learner]][[z.clan]][,"Estimate"] <- 
+        apply(generic.ml.across.learners.obj[[learner]][["CLAN"]][[z.clan]][,"Estimate",], 1, function(z) Med(z)$Med)
+      gen.ml.ls$CLAN[[learner]][[z.clan]][,"CI lower"] <- 
+        apply(generic.ml.across.learners.obj[[learner]][["CLAN"]][[z.clan]][,"CI lower",], 1, function(z) Med(z)$upper.median)
+      gen.ml.ls$CLAN[[learner]][[z.clan]][,"CI upper"] <- 
+        apply(generic.ml.across.learners.obj[[learner]][["CLAN"]][[z.clan]][,"CI upper",], 1, function(z) Med(z)$upper.median)
+      pval <- 
+        apply(generic.ml.across.learners.obj[[learner]][["CLAN"]][[z.clan]][,"Pr(>|z|)",], 1, function(z) Med(z)$lower.median)
+      gen.ml.ls$CLAN[[learner]][[z.clan]][,"p-value raw"] <- pval
+      pval.adj <- 2 * pval
+      pval.adj[pval.adj > 1] <- 1 # p-values cannot exceed 1
+      gen.ml.ls$CLAN[[learner]][[z.clan]][,"p-value adjusted"] <- pval.adj
+      
+    } # FOR Z.clan
+    
+  } # FOR learners
+  
+
+  return(list(best.learners = list(BLP = gen.ml.ls$BLP[[best.learners.obj$best.learner.for.CATE]],
+                                   GATES = gen.ml.ls$GATES[[best.learners.obj$best.learner.for.GATES]],
+                                   CLAN = gen.ml.ls$CLAN[[best.learners.obj$best.learner.for.GATES]]),
+              all.learners = gen.ml.ls))
+  
+} # END FUN
+
+
+#' Performs generic ML 
+#' 
+#' @param Z a matrix or data frame of covariates
+#' @param D a binary vector of treatment status of length 
+#' @param Y a vector of responses of length
+#' @param learner.propensity.score the machine learner to be used for estimating the propensity scores. Either 'glm', 'random.forest', or 'tree'. Can alternatively be specified by using the mlr3 framework, for example 'mlr3::lrn("ranger", num.trees = 500)'. Default is 'glm'.
+#' @param learner.genericML the machine learner to be used for estinating the CATE. Either 'glm', 'random.forest', or 'tree'. Can alternatively be specified by using the mlr3 framework, for example 'mlr3::lrn("ranger", num.trees = 500)' for a random forest, which is also the default. 
+#' @param num.splits number of sample splits. Default is 100.
+#' @param Z.clan the matrix of variables that shall be considered in CLAN. If NULL (default), then Z.clan = Z.
+#' @param quantile.cutoffs cutoff points of quantiles that shall be used for GATES grouping.
+#' @param proportion.in.main.set proportion of samples that shall be in main set. Default is 0.5.
+#' @param significance.level significance level for VEIN. Default is 0.05.
+#' @param store.learners logical. If TRUE, all intermediate results of teh learners will be stored. Default is FALSE.
+#' @param store.splits logical. If TRUE, the splits will be stored. Default is FALSE.
+#'
+#' TODO: in 'get.geenric.ml.for.given.learner': intervals need to be [) instead of (]
+#' TODO: instructions on how mlr3 input is supposed to work (needs to be a string!)
+#' TODO: comments on CLAN: If there are categorical variables, apply one-hot-encoding to Z.clan. The interpretation then becomes: Is there a factor that is overproportionally present in the least or most affected group?
+#' 
+#' @export
+genericML <- function(Z, D, Y, 
+                      learner.propensity.score = "glm", 
+                      learners.genericML,
+                      num.splits = 100,
+                      Z.clan = NULL,
+                      quantile.cutoffs = c(0.25, 0.5, 0.75),
+                      proportion.in.main.set = 0.5, 
+                      significance.level = 0.05,
+                      store.learners = FALSE,
+                      store.splits = FALSE){
+  
+  ### step 1: compute propensity scores ----
+  propensity.scores.obj <- propensity.score(Z = Z, D = D, 
+                                            learner = make.mlr3.string(learner.propensity.score, 
+                                                                       regr = FALSE))
+  propensity.scores     <- propensity.scores.obj$propensity.scores
+  
+  ### step 2: for each ML method, do the generic ML analysis ----
+  
+  gen.ml.different.learners <- 
+    generic.ml.across.learners(Z = Z, D = D, Y = Y, 
+                               propensity.scores = propensity.scores, 
+                               learners = learners.genericML, 
+                               num.splits = num.splits,
+                               Z.clan = Z.clan, 
+                               proportion.in.main.set = proportion.in.main.set, 
+                               quantile.cutoffs = quantile.cutoffs,
+                               significance.level = significance.level,
+                               store.learners = store.learners,
+                               store.splits = store.splits)
+  
+  # extract the best learners
+  best.learners <- get.best.learners(gen.ml.different.learners$generic.targets)
+  
+  ### step 3: perform VEIN analysis ---- 
+  vein <- VEIN(gen.ml.different.learners$generic.targets, best.learners)
+  
+  return(list(VEIN = vein,
+              best.learners = best.learners,
+              genericML.by.split = gen.ml.different.learners$genericML.by.split,
+              splits = gen.ml.different.learners$splits, 
+              arguments = list(quantile.cutoffs = c(0.25, 0.5, 0.75),
+                               proportion.in.main.set = 0.5, 
+                               significance.level = 0.05,
+                               learners.genericML = learners.genericML,
+                               learner.propensity.score = learner.propensity.score)))
+  
+} # FUN

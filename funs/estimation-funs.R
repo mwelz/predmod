@@ -532,9 +532,6 @@ effect.modeling <- function(X, w, y,
   c.index.benefit = unname(Hmisc::rcorr.cens(pred.ben.abs.paired, obs.ben)[1])
   
   
-  # calculate C index by using predicted risk (with regular w)
-  c.index <- DescTools::Cstat(x = probs, resp = y)
-
   
   
   #Match cases based on observed benefit
@@ -549,13 +546,35 @@ effect.modeling <- function(X, w, y,
   control <- control[-no.pairing]
   
   obs.ben <- y[control]-y[treated]
+  pred.ben.abs.paired = pred.ben.abs[control]-pred.ben.abs[treated]
+  c.index.benefit = unname(Hmisc::rcorr.cens(pred.ben.abs.paired, obs.ben)[1])
+  
+  
+  # calculate C index by using predicted risk (with regular w)
+  c.index <- DescTools::Cstat(x = probs, resp = y)
+
+  
+  
+  #Match cases based on observed benefit
+  Treatment.formula<- w~pred.ben.abs
+  matched <- MatchIt::matchit(Treatment.formula)
+  treated <- as.numeric(rownames(matched$match.matrix))
+  control <- as.numeric(matched$match.matrix[,1])
+  
+                                      
+  #Remove unpaired observations
+  no.pairing <- which(is.na(matched$match.matrix))
+  treated <- treated[-no.pairing]
+  control <- control[-no.pairing]
+  
+  obs.ben <- y[control]-y[treated]
   pred.ben.abs.paired = (pred.ben.abs[control]+pred.ben.abs[treated])/2 #Pairs are matched by predicted benefit; average over the pair
   
   # calculate C for benefit by using predicted risk (with regular w)
   c.index.benefit = unname(Hmisc::rcorr.cens(pred.ben.abs.paired, obs.ben)[1])
   c.index.youtcome <- unname(Hmisc::rcorr.cens(probs, y)[1])
-
-
+  
+  
   ## 6. return ----
   return(list(
     inputs = list(X = X, w = w, y = y),
@@ -581,8 +600,6 @@ effect.modeling <- function(X, w, y,
     c.index.benefit =c.index.benefit
   ))
 }
-
-
 
 
 group.static <- function(x, group.bounds){
