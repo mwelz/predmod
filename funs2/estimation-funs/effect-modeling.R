@@ -1,0 +1,261 @@
+rm(list = ls()) ; cat("\014")
+
+#' get the matrix "w * X[, interactions]"
+#' 
+#' @param X design matrix
+#' @param w vector of binary treatment assignments
+#' @param interacted.variables array of strings of the variables in X that shall be interacted with w. If equal to "all", all variables in X are interacted with _w_.
+#' 
+#' @export
+get.interaction.terms.matrix <- function(X, w, interacted.variables){
+  
+  # error handling
+  if(!is.character(interacted.variables)){
+    stop("interacted.variables needs to be a vector of varable names of X.")
+  }
+  
+  if("w" %in% interacted.variables) stop("w cannot be interacted with itself!")
+  
+  # add interaction variables
+  interaction.terms.matrix <- sapply(which(colnames(X) %in% interacted.variables),
+                                     function(j) ifelse(w == 1, X[,j], 0))
+  
+  colnames(interaction.terms.matrix) <- paste0("w.", interacted.variables)
+  
+  return(interaction.terms.matrix)
+  
+} # FUN
+
+
+get.lambdapath <- function(y, x){
+  
+  # taken from https://stackoverflow.com/questions/23686067/default-lambda-sequence-in-glmnet-for-cross-validation
+  
+  n <- length(y)
+  p <- ncol(x)
+  
+  ## Standardize variables: (need to use n instead of (n-1) as denominator)
+  mysd <- function(z) sqrt(sum((z-mean(z))^2)/length(z))
+  sx <- scale(x, scale = apply(x, 2, mysd))
+  sx <- as.matrix(sx, ncol = n, nrow = p)
+  
+  ## Calculate lambda path (first get lambda_max):
+  lambda_max <- max(abs(colSums(sx*y)))/n
+  epsilon <- 0.0001
+  K <- 100
+  lambdapath <- round(exp(seq(log(lambda_max), log(lambda_max*epsilon), 
+                              length.out = K)), digits = 10)
+  return(lambdapath)
+} # FUN
+
+
+
+#' helper function that recovers the index of the variables that shall always be retained
+#' 
+#' @param retained.variables A string array of variable names in Z that shall always be retained (also works on interaction variables). If NULL, then no restriction applies. Note that treatment assignment w will always be retained by the function.
+#' @export
+get.Z.index.of.retained.variables <- function(retained.variables, X, Z){
+  
+  Z.names <- colnames(Z)
+  
+  if(!any(retained.variables %in% Z.names)){
+    stop("This variable/interaction effect does not exist in X")
+  } 
+  
+  if(is.null(retained.variables)) return(1) # w will always be retained
+  
+  # w will always be retained, which is at index 1
+  return(which(Z.names %in% c("w", retained.variables)))
+  
+} # FUN
+  
+
+#' Performs model selection based on post-selection hypothesis tests. Function follows the strategy of Wasserman and Roeder (2009, Annals of Statistics):
+#' 
+#' step 0.1: create matrix Z = (w, X, interaction.terms). 
+#' 
+#' step 0.2: partition the observations in three roughly equally-sized sets sets: D1, D2, D3.
+#' 
+#' step 1.1: use D1 to perform variable selection by penalized logistic regression for given value of lambda. Let Z_lambda be the design matrix associated with the retained variables.
+#' 
+#' step 1.2: use the retained variables from 1.1 to calculate the logistic least squares estimator beta_lambda on D1.
+#' 
+#' step 1.3 calculate the empirical cross-entropy loss on D2, by using beta_lambda
+#' 
+#' step 2: repeat steps 1.1 to 1.3 for many lambdas. Let beta_lambdahat be the logistic least squares estimator that corresponds to the retained variables of the model with the lambda that minimizes the loss. Calculate this least squares estimator on D3.
+#' 
+#'  step 3: perform standard hypothesis tests to decide which of the retained variables in step 2 make it to the final model. Note that the critical value needs to be adjusted; see  Wasserman and Roeder (2009, Annals of Statistics) for details
+#' 
+#' @param X design matrix, can also be a data frame
+#' @param y vector of binary responses. 
+#' @param w vector of binary treatment assignments
+#' @param interacted.variables string array of variables in _X_ that shall be interacted with treatment _w_
+#' @param alpha the alpha as in 'glmnet'. Default is 1, which corresponds to the Lasso
+#' @param retained.variables string array of variable names in Z that shall always be retained (i.e. also interaction terms can be considered). If NULL (default), then no restriction applies. Note that treatment assignment w will always be retained by the function.
+#' @param significance.level for the hypothesis tests. Default is 0.05
+#' 
+#' @export
+model.selection <- function(X, y, w,
+                            interacted.variables,
+                            alpha = 1,
+                            retained.variables = NULL,
+                            significance.level = 0.05){
+  
+  ## prepare the design matrix Z 
+  n    <- nrow(X)
+  p    <- ncol(X)
+  
+  if(is.null(colnames(X))) colnames(X) <- paste0("X", 1:p)
+  
+  # get design matrix for the modeling
+  if(is.null(interacted.variables)){
+    Z <- data.frame(w = w, X)
+  } else{
+    Z <- data.frame(w = w, X,
+                    get.interaction.terms.matrix(X = X, 
+                                                 w = w, 
+                                                 interacted.variables = interacted.variables))
+  } # IF
+  
+  # get Z index of forcefully retained variables
+  retained.variables.Z.idx <- get.Z.index.of.retained.variables(retained.variables = retained.variables, 
+                                                                X = X, Z = Z)
+  
+  # randomly split data into three roughly equally sized samples
+  set1 <- sample(1:n, floor(n / 3), replace = FALSE)
+  set2 <- sample(setdiff(1:n, set1), floor(n / 3), replace = FALSE)
+  set3 <- setdiff(1:n, c(set1, set2))
+  
+  # prepare cross-validation: loop over the lambdas of the glmnet path
+  lambdapath <- get.lambdapath(x = Z[set1,], y = y[set1])
+  
+  suite <- lapply(1:length(lambdapath), function(...) list(retained.variables = NA, lasso.estimates = NA))
+  loss  <- rep(NA_real_, length(lambdapath))
+  
+  for(i in 1:length(lambdapath)){
+    
+    # penalized logistic regression on first set
+    mod <- glmnet::glmnet(Z[set1,], y[set1], 
+                          family = "binomial", 
+                          alpha = alpha,
+                          lambda = lambdapath[i])
+    
+    # obtain retained variables (excluding intercept)
+    kept.vars     <- glmnet::coef.glmnet(mod)@i 
+    if(0 %in% kept.vars){
+      kept.vars <- kept.vars[-which(kept.vars == 0)]
+    } # IF
+    
+    # make sure that all variables that are forced to be retained will be retained
+    kept.vars <- unique(sort(c(kept.vars, retained.variables.Z.idx), decreasing = FALSE))
+    
+    # add to suite
+    suite[[i]]$retained.variables <- kept.vars
+    suite[[i]]$lasso.estimates    <- c(as.numeric(mod$a0), as.numeric(mod$beta))
+    
+    #  calculate logistic least squares estimator with retained variables on first set
+    mod <- glm(y~., family =  binomial(link = "logit"), data = data.frame(y = y[set1], Z[set1, kept.vars]))
+    
+    # predict Pr(Y=1) on second set
+    p.hat <- predict.glm(mod, newdata = Z[set2, kept.vars], type = "response")
+    
+    # cross-validation: evaluate the loss (cross-entropy here) on the second set
+    crossentropy <- rep(NA_real_, length(set2))
+    crossentropy[y[set2] == 1] <- -log(p.hat[y[set2] == 1])
+    crossentropy[y[set2] == 0] <- -log(1 - p.hat[y[set2] == 0])
+    loss[i] <- mean(crossentropy)
+    
+  } # FOR
+  
+  # find the lambda that minimizes the empirical loss and its associated model
+  lambda.min <- lambdapath[which.min(loss)]
+  S.hat      <- suite[[which.min(loss)]]$retained.variables
+  Z.lambda.min <- Z[, S.hat]
+  
+  # on third set: use S.hat to calculate logistic least squares estimator with Z.lambda.min
+  mod <- glm(y~., family =  binomial(link = "logit"), 
+             data = data.frame(y = y[set3], Z.lambda.min[set3,]))
+  
+  # on third set: hypothesis testing
+  coeffs <- summary(mod)$coefficients
+  coeffs <- cbind(coeffs, rep(NA_real_, length(S.hat) + 1))
+  colnames(coeffs) <- c("Estimate", "Std. Error", "z value", "critical value", "retain?")
+  critval <- qnorm(significance.level / 2 * length(S.hat), lower.tail = FALSE)
+  coeffs[, "critical value"] <- critval
+  coeffs[, "retain?"] <- 1 * (abs(coeffs[, "z value"]) > critval)
+  
+  # final model
+  D.hat   <- which(coeffs[-1, "retain?"] == 1)
+  
+  # make sure that all variables that are forced to be retained will be retained
+  D.hat <- unique(sort(c(D.hat, retained.variables.Z.idx), decreasing = FALSE))
+  
+  # get the regularized estimates at the minimizing lambda
+  regularized.estimates_lambda.min <- suite[[which.min(loss)]]$lasso.estimates
+  names(regularized.estimates_lambda.min) <- c("(Intercept)", colnames(Z))
+  
+  # organize output
+  model.selection <- list(selected.variables = colnames(Z)[D.hat],
+                          design.matrix_selected.variables = Z[, D.hat],
+                          formula.final.model = paste0("y ~ ", paste(colnames(Z)[D.hat], collapse = " + ")),
+                          final.model.object = mod,
+                          lambda.min = lambda.min,
+                          significance.tests_lambda.min = coeffs,
+                          regularized.estimates_lambda.min = regularized.estimates_lambda.min,
+                          S.hat = S.hat)
+  partitioning.membership <- list(set1 = sort(set1, decreasing = FALSE),
+                                  set2 = sort(set2, decreasing = FALSE),
+                                  set3 = sort(set3, decreasing = FALSE))
+  
+  return(list(final.model = model.selection, 
+              partitioning.membership = partitioning.membership))
+} # FUN
+
+  
+  
+
+### 0.1. Data generation ---- 10,000 persons, 5 covariates
+set.seed(2)
+n <- 1000
+p <- 5
+
+# treatment assignment, 50% treatment, 50% control.
+w <- rbinom(n, 1, 0.5) 
+
+# covariates for outcome variable (y)
+X <- mvtnorm::rmvnorm(n, mean = rep(0, p), sigma = diag(p))
+colnames(X) <- paste0("nam", 1:p)
+
+# coefficients (including an intercept)
+theta <- c(0.2, 0.5, -0.3, 0.7, -0.1, 0.4)
+
+# compute Pr(Y = 1 | X) for each individual (with noise)
+eps <-  rnorm(n, mean = 0, sd = 0.5)
+pi0 <- plogis(as.numeric(cbind(1,X) %*% theta) + eps)
+
+#assume a true relative constant risk reduction of 30%
+scaling <- 0.7
+pi1 <- pi0 * scaling 
+
+# create binary outcomes
+y0 <- rbinom(n, 1, pi0)
+y1 <- rbinom(n, 1, pi1)
+y  <- ifelse(w == 1, y1, y0) # observed outcome
+
+
+
+#####################################
+
+# TODO: incorporate lifeyears and predictiontimeframe as arguments
+alpha = 1
+sig.level = 0.05
+interacted.variables = colnames(X) # can also be NULL for no interaction
+retained.variables = colnames(X) # A string array of variable names in Z that shall always be retained (also works on interaction variables). If NULL, then no restriction applies. Note that treatment assignment w will always be retained by the function.
+significance.level = 0.05
+
+
+foo = model.selection(X = X, y = y, w = w, interacted.variables = interacted.variables, 
+                      alpha = alpha, retained.variables = retained.variables, 
+                      significance.level = significance.level)
+
+
