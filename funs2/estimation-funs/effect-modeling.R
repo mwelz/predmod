@@ -1,4 +1,11 @@
-rm(list = ls()) ; cat("\014")
+# TODO: incorporate lifeyears and predictiontimeframe as arguments
+# TODO: make baseline risk return a probability (i.e. "response") instead of:
+# baseline.mod <- risk.model.stage1(X = X, y = y, alpha = alpha)
+# basline.risk <- transform.to.probability(baseline.mod$lp) 
+# TODO: add return for baseline.model
+# TODO: maybe function for the C benefits?
+
+
 
 #' get the matrix "w * X[, interactions]"
 #' 
@@ -70,7 +77,7 @@ get.Z.index.of.retained.variables <- function(retained.variables, X, Z){
 } # FUN
   
 
-#' Performs model selection based on post-selection hypothesis tests. Function follows the strategy of Wasserman and Roeder (2009, Annals of Statistics):
+#' Performs variable selection based on post-selection hypothesis tests. Function follows the strategy of Wasserman and Roeder (2009, Annals of Statistics):
 #' 
 #' step 0.1: create matrix Z = (w, X, interaction.terms). 
 #' 
@@ -95,11 +102,11 @@ get.Z.index.of.retained.variables <- function(retained.variables, X, Z){
 #' @param significance.level for the hypothesis tests. Default is 0.05
 #' 
 #' @export
-model.selection <- function(X, y, w,
-                            interacted.variables,
-                            alpha = 1,
-                            retained.variables = NULL,
-                            significance.level = 0.05){
+variable.selection <- function(X, y, w,
+                               interacted.variables,
+                               alpha = 1,
+                               retained.variables = NULL,
+                               significance.level = 0.05){
   
   ## prepare the design matrix Z 
   n    <- nrow(X)
@@ -211,51 +218,166 @@ model.selection <- function(X, y, w,
               partitioning.membership = partitioning.membership))
 } # FUN
 
+
+
+#' helper function that calculates the predicted benefits
+#' 
+#' @param X covariates
+#' @param y binary outcomes
+#' @param w binary treatment assignment
+#' @param final.model final model after post-selection inference
+#' @param Z covariates corresponding to the final model
+#' 
+#' @export
+effect.model.predicted.benefits <- function(X, y, w, final.model, Z){
+  
+  # get risk with regular w (response is a probability)
+  response <- unname(predict.glm(final.model,
+                                 newdata = as.data.frame(Z), 
+                                 type = "response"))
+  
+  # get risk with flipped w
+  kept.interactions <- sub(".*\\.", "", colnames(Z)[startsWith(colnames(Z), "w.")])
+  kept.X            <- colnames(Z)[!startsWith(colnames(Z), "w.")]
+  kept.X            <- kept.X[-which(kept.X == "w")] # w doesn't belong to X
+  interaction.terms.flipped <- sapply(kept.interactions, 
+                                      function(j) ifelse(w == 1, 0, X[,j]))
+  w.flipped   <- ifelse(w == 1, 0, 1)
+  
+  if(length(kept.interactions) == 0){
+    Z_w.flipped <- data.frame(w = w.flipped, X[,kept.X])
+  } else{
+    Z_w.flipped <- data.frame(w = w.flipped, X[,kept.X], interaction.terms.flipped)
+  } # IF
+  colnames(Z_w.flipped) <- colnames(Z)
+  
+  response_w.flipped <- unname(predict.glm(final.model, 
+                                           newdata = as.data.frame(Z_w.flipped),
+                                           type = "response"))
+  
+  # get absolute predicted benefit
+  pred.ben.abs.raw <- response - response_w.flipped
+  pred.ben.abs     <- ifelse(w == 1, pred.ben.abs.raw, -pred.ben.abs.raw)
+  
+  # get relative predicted benefit
+  pred.ben.rel.raw <- response / response_w.flipped
+  pred.ben.rel     <- ifelse(w == 1, pred.ben.rel.raw, 1 / pred.ben.rel.raw)
+  
+  # return
+  return(list(pred.ben.abs.raw = pred.ben.abs.raw, 
+              pred.ben.abs = pred.ben.abs,
+              pred.ben.rel.raw = pred.ben.rel.raw,
+              pred.ben.rel = pred.ben.rel,
+              risk.regular.w = response,
+              risk.flipped.w = response_w.flipped))
+  
+} # FUN
+
+
+#' Performs effect modeling. Final effect model is done via variable selection based on post-selection hypothesis tests. Function follows the strategy of Wasserman and Roeder (2009, Annals of Statistics):
+#' 
+#' step 0.1: create matrix Z = (w, X, interaction.terms). 
+#' 
+#' step 0.2: partition the observations in three roughly equally-sized sets sets: D1, D2, D3.
+#' 
+#' step 1.1: use D1 to perform variable selection by penalized logistic regression for given value of lambda. Let Z_lambda be the design matrix associated with the retained variables.
+#' 
+#' step 1.2: use the retained variables from 1.1 to calculate the logistic least squares estimator beta_lambda on D1.
+#' 
+#' step 1.3 calculate the empirical cross-entropy loss on D2, by using beta_lambda
+#' 
+#' step 2: repeat steps 1.1 to 1.3 for many lambdas. Let beta_lambdahat be the logistic least squares estimator that corresponds to the retained variables of the model with the lambda that minimizes the loss. Calculate this least squares estimator on D3.
+#' 
+#'  step 3: perform standard hypothesis tests to decide which of the retained variables in step 2 make it to the final model. Note that the critical value needs to be adjusted; see  Wasserman and Roeder (2009, Annals of Statistics) for details
+#' 
+#' @param X design matrix, can also be a data frame
+#' @param y vector of binary responses. 
+#' @param w vector of binary treatment assignments
+#' @param interacted.variables string array of variables in _X_ that shall be interacted with treatment _w_
+#' @param alpha the alpha as in 'glmnet'. Default is 1, which corresponds to the Lasso
+#' @param retained.variables string array of variable names in Z that shall always be retained (i.e. also interaction terms can be considered). If NULL (default), then no restriction applies. Note that treatment assignment w will always be retained by the function.
+#' @param significance.level for the hypothesis tests. Default is 0.05
+#' 
+#' @export
+effect.modeling <- function(X, y, w,
+                            interacted.variables,
+                            alpha = 1,
+                            retained.variables = NULL,
+                            significance.level = 0.05){
+  
+  ### 1. fit baseline risk  ----
+  # no information on w allowed, so we cannot use the retained variables from the effect modeling
+  #baseline.mod  <- risk.model.stage1(X = X, y = y, alpha = alpha)
+  #baseline.risk <- plogis(baseline.mod$lp) TODO: uncomment later
   
   
-
-### 0.1. Data generation ---- 10,000 persons, 5 covariates
-set.seed(2)
-n <- 1000
-p <- 5
-
-# treatment assignment, 50% treatment, 50% control.
-w <- rbinom(n, 1, 0.5) 
-
-# covariates for outcome variable (y)
-X <- mvtnorm::rmvnorm(n, mean = rep(0, p), sigma = diag(p))
-colnames(X) <- paste0("nam", 1:p)
-
-# coefficients (including an intercept)
-theta <- c(0.2, 0.5, -0.3, 0.7, -0.1, 0.4)
-
-# compute Pr(Y = 1 | X) for each individual (with noise)
-eps <-  rnorm(n, mean = 0, sd = 0.5)
-pi0 <- plogis(as.numeric(cbind(1,X) %*% theta) + eps)
-
-#assume a true relative constant risk reduction of 30%
-scaling <- 0.7
-pi1 <- pi0 * scaling 
-
-# create binary outcomes
-y0 <- rbinom(n, 1, pi0)
-y1 <- rbinom(n, 1, pi1)
-y  <- ifelse(w == 1, y1, y0) # observed outcome
-
-
-
-#####################################
-
-# TODO: incorporate lifeyears and predictiontimeframe as arguments
-alpha = 1
-sig.level = 0.05
-interacted.variables = colnames(X) # can also be NULL for no interaction
-retained.variables = colnames(X) # A string array of variable names in Z that shall always be retained (also works on interaction variables). If NULL, then no restriction applies. Note that treatment assignment w will always be retained by the function.
-significance.level = 0.05
-
-
-foo = model.selection(X = X, y = y, w = w, interacted.variables = interacted.variables, 
-                      alpha = alpha, retained.variables = retained.variables, 
-                      significance.level = significance.level)
-
-
+  ### 2. perform variable selection ----
+  # We use the strategy in Wasserman and Roeder (2009; Annals of Statistics)
+  vs.obj <- variable.selection(X = X, y = y, w = w, 
+                               interacted.variables = interacted.variables, 
+                               alpha = alpha, 
+                               retained.variables = retained.variables, 
+                               significance.level = significance.level)
+  
+  # get design matrix associated with the final model
+  Z     <- vs.obj$final.model$design.matrix_selected.variables
+  
+  ### 3. fit the final effect model and use it for risk estimates ----
+  # fit the final model, this time on full sample (no penalty required, selection already took place!)
+  final.model        <- glm(y ~., data = data.frame(y, Z), 
+                            family =  binomial(link = "logit"))
+  predicted.benefits <- effect.model.predicted.benefits(X = X, y = y, w = w, 
+                                                        final.model = final.model, Z = Z)
+  
+  # coefficients
+  coefficients <- summary(final.model)$coefficients
+  
+  
+  ### 4. calculate the C statistics ----
+  
+  # match cases based on observed benefit
+  matched <- MatchIt::matchit(w ~ predicted.benefits$pred.ben.abs)
+  match.treated <- as.numeric(rownames(matched$match.matrix))
+  match.control <- as.numeric(matched$match.matrix[,1])
+  
+  # remove unpaired observations
+  no.pairing <- which(is.na(match.control))
+  if(length(no.pairing) > 0){
+    match.treated <- match.treated[-no.pairing]
+    match.control <- match.control[-no.pairing]
+  }
+  
+  
+  # observed benefit & C index for benefit
+  obs.ben             <- y[match.control] - y[match.treated]
+  pred.ben.abs.paired <- (predicted.benefits$pred.ben.abs[match.control] +
+                            predicted.benefits$pred.ben.abs[match.treated]) / 2
+  c.index.benefit     <- unname(Hmisc::rcorr.cens(pred.ben.abs.paired, obs.ben)[1])
+  
+  # C index
+  c.index.outcome <- unname(Hmisc::rcorr.cens(predicted.benefits$risk.regular.w, y)[1])
+  
+  
+  ### 5. return ----
+  
+  return(list(
+    inputs = list(X = X, w = w, y = y),
+    baseline.model = "uncomment above!",
+    effect.model = list(formula = vs.obj$final.model$formula.final.model, 
+                        selected.data = Z,
+                        glm.obj = final.model,
+                        coefficients = coefficients[,1],
+                        summary = coefficients,
+                        model.building = vs.obj),
+    risk.regular.w = predicted.benefits$risk.regular.w,
+    risk.flipped.w = predicted.benefits$risk.flipped.w,
+    risk.baseline = "uncomment above!",
+    predicted.absolute.benefit = predicted.benefits$pred.ben.abs,
+    predicted.absolute.benefit.raw = predicted.benefits$pred.ben.abs.raw,
+    predicted.relative.benefit = predicted.benefits$pred.ben.rel,
+    predicted.relative.benefit.raw = predicted.benefits$pred.ben.rel.raw,
+    ate.hat = mean(predicted.benefits$pred.ben.abs),
+    c.index.outcome = c.index.outcome,
+    c.index.benefit = c.index.benefit
+  ))
+} # FUN
