@@ -2,6 +2,37 @@ source(paste0(getwd(), "/funs2/helper-funs/benefits.R"))
 library(ggplot2)
 
 
+group.static <- function(x, group.bounds){
+  # helper function
+  # if single value supplied: group is all obs with that particular value. 
+  # if intervals are supplied: all obs within these bounds (closed set) are a group. Hence, intervals need to be non-overlapping. TODO: add option of having half-closed intervals. 
+  # Note that rows that are all FALSE can be produced.
+  
+  group.mat <- matrix(NA, length(x), length(group.bounds))
+  group.nam <- rep(NA_character_, length(group.bounds))
+  
+  for(i in 1:length(group.bounds)){
+    bounds <- group.bounds[[i]]
+    
+    if(length(bounds) == 1){
+      
+      # case 1: a single value is supplied
+      group.nam[i]   <- as.character(bounds)
+      group.mat[, i] <- x == bounds
+      
+    } else if(length(bounds) == 2){
+      
+      # case 2: an interval is supplied
+      group.nam[i]   <- paste0("[", bounds[1], ",", bounds[2], "]")
+      group.mat[, i] <- (bounds[1] <= x) & (x <= bounds[2])
+      
+    } else stop("Incorrect input. Each element of 'group.bounds' needs to be a scalar or a 2-vector")
+  }
+  colnames(group.mat) <- group.nam
+  return(group.mat)
+} # FUN
+
+
 order.intervals <- function(intervals, quantile.nam){
   # helper function to order intervals
   if(quantile.nam){
@@ -103,9 +134,81 @@ calibration.plot <- function( pred.model.obj,
 } # FUN
 
 
+#' makes a calibration plot for a GRF model
+#' 
+#' @param grf.model.obj GRF model oobject as returned by grf.modeling()
+#' @param cutoffs the cutoff points of quantiles that shall be used for GATES grouping. Default is `c(0.25, 0.5, 0.75)`, which corresponds to the quartiles.
+#' @param significance.level significance level for the confidence intervals. Default is 0.05
+#' @param title optional title of the plot
+#' @param xlim limits of x-axis
+#' @param ylim limits of y-xcis
+#' @param flip.sign.of.absolute.benefit logical. Shall the sign of the benefits be flipped?
+#' 
+#' @export
+calibration.plot.grf <- function(grf.model.obj,
+                                 cutoffs = c(0.25, 0.5, 0.75), 
+                                 significance.level = 0.05,
+                                 title = NULL,
+                                 xlim = NULL,
+                                 ylim = NULL,
+                                 flip.sign.of.absolute.benefit = FALSE){
+  
+  # get observed and predicted benefit by quantile group
+  benefits <- get.benefits.grf(grf.model.obj, 
+                               cutoffs = cutoffs, 
+                               significance.level = significance.level)
+  
+  # make sure risk quantile is in correct order
+  risk.quantile <- factor(benefits$absolute.observed.benefit$quantile)
+  lv <- levels(risk.quantile)
+  lv <- lv[order.intervals(lv, quantile.nam = TRUE)]
+  risk.quantile <- factor(risk.quantile, levels = lv)
+  
+  
+  # retrieve data
+  if(!flip.sign.of.absolute.benefit){
+    
+    df <- data.frame(pb.means = benefits$absolute.predicted.benefit$estimate,
+                     ob.means = benefits$absolute.observed.benefit$estimate,
+                     ob.means.ci.lo = benefits$absolute.observed.benefit$ci.lower,
+                     ob.means.ci.up = benefits$absolute.observed.benefit$ci.upper,
+                     risk.quantile = risk.quantile)
+    
+  } else{
+    
+    df <- data.frame(pb.means = -benefits$absolute.predicted.benefit$estimate,
+                     ob.means = -benefits$absolute.observed.benefit$estimate,
+                     ob.means.ci.lo = -benefits$absolute.observed.benefit$ci.lower,
+                     ob.means.ci.up = -benefits$absolute.observed.benefit$ci.upper,
+                     risk.quantile = risk.quantile)
+    
+  }
+  
+  
+  if(is.null(title)) title <- "Calibration plot of absolute benefit"
+  
+  ggplot(mapping = aes(x = pb.means,
+                       y = ob.means, color = risk.quantile), data = df) +
+    geom_point() +
+    geom_errorbar(mapping = aes(ymin = ob.means.ci.lo,
+                                ymax = ob.means.ci.up)) +
+    geom_hline(yintercept = 0, linetype = 2) +
+    geom_vline(xintercept = 0, linetype = 2) +
+    geom_abline(intercept = 0, slope = 1) +
+    coord_cartesian(xlim = xlim, ylim = ylim) +
+    labs(x = "Predicted absolute benefit",
+         y = "Observed absolute benefit") +
+    theme_light() +
+    ggtitle(title) +
+    theme(legend.position = "bottom") 
+  
+} # FUN
+
+
+
 #' make a subgroup plot of a variable x
 #' 
-#' @param pred.model.obj prediction model object, as returned by risk.modeling() or effect.modeling()
+#' @param pred.model.obj prediction model object, as returned by risk.modeling(), effect.modeling(), or grf.modeling()
 #' @param x a vector that shall be visualized
 #' 
 #' TODO: fill up arguments

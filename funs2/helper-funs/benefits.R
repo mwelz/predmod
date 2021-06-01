@@ -233,11 +233,11 @@ get.benefits.grf <- function(grf.model.obj,
   # calculates the observed and predicted absolute benefits along the associated confidence intervals for the GRF (relative effects cannot be computed)
   
   # extract outcome and treatment status
-  y <- grf.model.obj$inputs$y
+  y <- grf.model.obj$inputs$y.prediction.timeframe
   w <- grf.model.obj$inputs$w
   
   # group observations by their quantile of predicted baseline risk
-  quantile.groups <- quantile.group(grf.model.obj$risk.baseline, cutoffs)
+  quantile.groups <- quantile.group(grf.model.obj$risk$risk.baseline, cutoffs)
   
   ## calculate observed benefit and predicted benefit for each quantile group
   # initialize
