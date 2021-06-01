@@ -1,5 +1,5 @@
 # load for baseline risk
-source(paste0(getwd(), "/funs2/linear-models/risk-modeling.R"))
+source(paste0(getwd(), "/funs/linear-models/risk-modeling.R"))
 
 
 #' get the matrix "w * X[, interactions]"
@@ -118,6 +118,9 @@ variable.selection <- function(X, y, w,
                                                  w = w, 
                                                  interacted.variables = interacted.variables))
   } # IF
+  
+  # must be a matrix
+  Z <- as.matrix(Z)
   
   # get Z index of forcefully retained variables
   retained.variables.Z.idx <- get.Z.index.of.retained.variables(retained.variables = retained.variables, 
@@ -348,8 +351,8 @@ effect.modeling <- function(X, y, w,
   
   ### 4. calculate the C statistics ----
   
-  # match cases based on observed benefit
-  matched <- MatchIt::matchit(w ~ predicted.benefits$pred.ben.abs)
+  # match cases based on observed benefit TODO: fix the data thing everywhere!
+  matched <- MatchIt::matchit(w ~ pb, data = data.frame(w=w, pb=predicted.benefits$pred.ben.abs))
   match.treated <- as.numeric(rownames(matched$match.matrix))
   match.control <- as.numeric(matched$match.matrix[,1])
   

@@ -1,8 +1,8 @@
 rm(list = ls()) ; cat("\014")
 
 # load functions
-source(paste0(getwd(), "/funs2/grf/grf-funs.R"))
-source(paste0(getwd(), "/funs2/plotmakers/plotmakers.R"))
+source(paste0(getwd(), "/funs/grf/grf-funs.R"))
+source(paste0(getwd(), "/funs/plotmakers/plotmakers.R"))
 
 
 # make data

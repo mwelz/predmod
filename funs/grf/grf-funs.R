@@ -35,7 +35,7 @@ grf.modeling <- function(X, y, w,
   
   # C statistics
   # match cases based on observed benefit
-  matched <- MatchIt::matchit(w ~ predicted.absolute.benefit)
+  matched <- MatchIt::matchit(w ~ pb, data = data.frame(w=w, pb=predicted.absolute.benefit))
   match.treated <- as.numeric(rownames(matched$match.matrix))
   match.control <- as.numeric(matched$match.matrix[,1])
   

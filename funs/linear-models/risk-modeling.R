@@ -15,7 +15,7 @@ baseline.risk <- function(X, y, alpha = 1){
   kept.vars     <- coefs.obj@i
   if(0 %in% kept.vars) kept.vars <- kept.vars[-which(kept.vars == 0)] # intercept is not a variable
   coefs         <- coefs.obj@x
-  names(coefs)  <- c("(Intercept)", colnames(X))
+  names(coefs)  <- c("(Intercept)", colnames(X)[kept.vars])
   X.retained    <- cbind(intercept = 1, X[,kept.vars])
   lp            <- as.numeric(X.retained %*% coefs) # linear predictor
   
@@ -141,7 +141,7 @@ risk.modeling <- function(X, y, w, alpha = 1,
   
   
   # match cases based on observed benefit
-  matched <- MatchIt::matchit(w ~ pred.ben.abs)
+  matched <- MatchIt::matchit(w ~ pb, data = data.frame(w=w, pb=pred.ben.abs))
   match.treated <- as.numeric(rownames(matched$match.matrix))
   match.control <- as.numeric(matched$match.matrix[,1])
   
