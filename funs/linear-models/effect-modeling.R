@@ -241,7 +241,7 @@ effect.model.predicted.benefits <- function(X, y, w, final.model, Z){
                                  type = "response"))
   
   # get risk with flipped w
-  kept.interactions <- sub(".*\\.", "", colnames(Z)[startsWith(colnames(Z), "w.")])
+  kept.interactions <- substr(colnames(Z)[startsWith(colnames(Z), "w.")], start = 3, stop = 1e6)
   kept.X            <- colnames(Z)[!startsWith(colnames(Z), "w.")]
   kept.X            <- kept.X[-which(kept.X == "w")] # w doesn't belong to X
   interaction.terms.flipped <- sapply(kept.interactions, 
