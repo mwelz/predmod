@@ -1,7 +1,3 @@
-# TODO: incorporate lifeyears and predictiontimeframe as arguments
-# TODO: make output nicer everywhere
-
-
 #' baseline risk prediction via penalized logistic regression (treatment assignment is not used)
 #' 
 #' @param X matrix of data frame of covariates
@@ -100,13 +96,23 @@ risk.model.stage2 <- function(linear.predictor, y, w, lambda,
 #' @param y a binary response vector
 #' @param w a binary treatment assignment vector
 #' @param alpha the alpha as in glmnet. Default is 1 (= Lasso)
+#' @param lifeyears vector of life years. Default is NULL.
+#' @param prediction.timeframe vector of the prediction time frame. Default is NULL.
 #' @param offset.linear.predictor handling an offset. If TRUE (default), then _linear.predictor_ is used as offset. If FALSE, no offset is used. If a numeric vector is supplied, this vector is then used as offset.
 #' 
 #' @export
-risk.modeling <- function(X, y, w, alpha = 1, offset.linear.predictor = TRUE){
+risk.modeling <- function(X, y, w, alpha = 1, 
+                          lifeyears = NULL,
+                          prediction.timeframe = NULL,
+                          offset.linear.predictor = TRUE){
   
-  # lifeyears <- ifelse(lifeyears <=predictiontimeframe, lifeyears, predictiontimeframe) TODO!
-  # y<- ifelse(lifeyears <=predictiontimeframe, y, 0)
+  # truncate y if necessary
+  y.orig    <- y
+  
+  if(!is.null(lifeyears) & !is.null(prediction.timeframe)){
+    lifeyears <- ifelse(lifeyears <= prediction.timeframe, lifeyears, prediction.timeframe) 
+    y         <- ifelse(lifeyears <= prediction.timeframe, y, 0)
+  } # IF
   
   # make X a matrix
   X <- as.matrix(X)
@@ -160,23 +166,26 @@ risk.modeling <- function(X, y, w, alpha = 1, offset.linear.predictor = TRUE){
   
   # return
   return(list(
-    inputs = list(X = X, w = w, y = y),
-    mod.stage1 = stage1$glmnet.obj,
-    mod.stage2 = stage2$mod.stage2,
-    coefficients.stage1 = coefs.stage1,
-    coefficients.stage2 = coefs.stage2,
-    linear.predictor = stage1$linear.predictor,
-    risk.baseline = stage1$response,
-    risk.regular.w = stage2$risk.regular.w,
-    risk.flipped.w = stage2$risk.flipped.w,
-    predicted.absolute.benefit = pred.ben.abs,
-    predicted.absolute.benefit.raw = pred.ben.abs.raw,
-    predicted.relative.benefit = pred.ben.rel,
-    predicted.relative.benefit.raw = pred.ben.rel.raw,
-    ate.hat = mean(pred.ben.abs),
-    c.index.benefit = c.index.benefit,
-    c.index.outcome.stage1 = c.index.outcome.stage1,
-    c.index.outcome.stage2 = c.index.outcome.stage2
+    inputs = list(X = X, w = w, y = y.orig, 
+                  lifeyears = lifeyears, 
+                  prediction.timeframe = prediction.timeframe, 
+                  y.prediction.timeframe = y),
+    models = list(model.stage1 = stage1$glmnet.obj,
+                  model.stage2 = stage2$mod.stage2,
+                  coefficients.stage1 = coefs.stage1,
+                  coefficients.stage2 = coefs.stage2),
+    average.treatment.effect = mean(pred.ben.abs),
+    risk = list(risk.regular.w = stage2$risk.regular.w,
+                risk.flipped.w = stage2$risk.flipped.w,
+                risk.baseline = stage1$response),
+    benefits = list(predicted.absolute.benefit = pred.ben.abs,
+                    predicted.relative.benefit = pred.ben.rel,
+                    predicted.absolute.benefit.raw = pred.ben.abs.raw,
+                    predicted.relative.benefit.raw = pred.ben.rel.raw),
+    C.statistics = list(c.index.outcome.stage1 = c.index.outcome.stage1,
+                        c.index.outcome.stage2 = c.index.outcome.stage2,
+                        c.index.benefit = c.index.benefit),
+    linear.predictor = stage1$linear.predictor
   ))
 } # FUN
 

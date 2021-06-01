@@ -35,12 +35,13 @@ y  <- ifelse(w == 1, y1, y0) # observed outcome
 # test the risk model
 alpha <- 1
 offset.linear.predictor <- TRUE
+prediction.timeframe = NULL
+lifeyears = NULL
 
 RM <- risk.modeling(X = X, y = y, w = w, alpha = alpha, 
-                    offset.linear.predictor = offset.linear.predictor)
+                    offset.linear.predictor = offset.linear.predictor, 
+                    lifeyears = lifeyears, prediction.timeframe = prediction.timeframe)
 
-RM$coefficients.stage2
-RM$ate.hat
-
-# TODO: incorporate lifeyears and predictiontimeframe as arguments
-# TODO: make output nicer everywhere
+RM$models$coefficients.stage2
+RM$average.treatment.effect
+RM$C.statistics

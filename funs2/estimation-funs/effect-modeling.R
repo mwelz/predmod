@@ -1,10 +1,5 @@
-# TODO: incorporate lifeyears and predictiontimeframe as arguments
-# TODO: make baseline risk return a probability (i.e. "response") instead of:
-# baseline.mod <- risk.model.stage1(X = X, y = y, alpha = alpha)
-# basline.risk <- transform.to.probability(baseline.mod$lp) 
-# TODO: add return for baseline.model
-# TODO: maybe function for the C benefits?
-
+# load for baseline risk
+source(paste0(getwd(), "/funs2/estimation-funs/risk-modeling.R"))
 
 
 #' get the matrix "w * X[, interactions]"
@@ -65,12 +60,12 @@ get.Z.index.of.retained.variables <- function(retained.variables, X, Z){
   
   Z.names <- colnames(Z)
   
+  if(is.null(retained.variables)) return(1) # w will always be retained
+  
   if(!any(retained.variables %in% Z.names)){
     stop("This variable/interaction effect does not exist in X")
   } 
-  
-  if(is.null(retained.variables)) return(1) # w will always be retained
-  
+
   # w will always be retained, which is at index 1
   return(which(Z.names %in% c("w", retained.variables)))
   
@@ -161,10 +156,14 @@ variable.selection <- function(X, y, w,
     suite[[i]]$lasso.estimates    <- c(as.numeric(mod$a0), as.numeric(mod$beta))
     
     #  calculate logistic least squares estimator with retained variables on first set
-    mod <- glm(y~., family =  binomial(link = "logit"), data = data.frame(y = y[set1], Z[set1, kept.vars]))
+    df <- data.frame(y = y[set1], Z[set1, kept.vars])
+    colnames(df) <- c("y", colnames(Z)[kept.vars])
+    mod <- glm(y~., family =  binomial(link = "logit"), data = df)
     
     # predict Pr(Y=1) on second set
-    p.hat <- predict.glm(mod, newdata = Z[set2, kept.vars], type = "response")
+    df <- data.frame(Z[set2, kept.vars])
+    colnames(df) <- colnames(Z)[kept.vars]
+    p.hat <- predict.glm(mod, newdata = df, type = "response")
     
     # cross-validation: evaluate the loss (cross-entropy here) on the second set
     crossentropy <- rep(NA_real_, length(set2))
@@ -180,8 +179,10 @@ variable.selection <- function(X, y, w,
   Z.lambda.min <- Z[, S.hat]
   
   # on third set: use S.hat to calculate logistic least squares estimator with Z.lambda.min
+  df <- data.frame(y = y[set3], Z.lambda.min[set3,])
+  colnames(df) <- c("y", colnames(Z.lambda.min))
   mod <- glm(y~., family =  binomial(link = "logit"), 
-             data = data.frame(y = y[set3], Z.lambda.min[set3,]))
+             data = df)
   
   # on third set: hypothesis testing
   coeffs <- summary(mod)$coefficients
@@ -295,6 +296,8 @@ effect.model.predicted.benefits <- function(X, y, w, final.model, Z){
 #' @param w vector of binary treatment assignments
 #' @param interacted.variables string array of variables in _X_ that shall be interacted with treatment _w_
 #' @param alpha the alpha as in 'glmnet'. Default is 1, which corresponds to the Lasso
+#' @param lifeyears vector of life years. Default is NULL.
+#' @param prediction.timeframe vector of the prediction time frame. Default is NULL.
 #' @param retained.variables string array of variable names in Z that shall always be retained (i.e. also interaction terms can be considered). If NULL (default), then no restriction applies. Note that treatment assignment w will always be retained by the function.
 #' @param significance.level for the hypothesis tests. Default is 0.05
 #' 
@@ -302,13 +305,23 @@ effect.model.predicted.benefits <- function(X, y, w, final.model, Z){
 effect.modeling <- function(X, y, w,
                             interacted.variables,
                             alpha = 1,
+                            lifeyears = NULL, 
+                            prediction.timeframe = NULL,
                             retained.variables = NULL,
                             significance.level = 0.05){
   
+  # truncate y if necessary
+  y.orig    <- y
+  
+  if(!is.null(lifeyears) & !is.null(prediction.timeframe)){
+    lifeyears <- ifelse(lifeyears <= prediction.timeframe, lifeyears, prediction.timeframe) 
+    y         <- ifelse(lifeyears <= prediction.timeframe, y, 0)
+  } # IF
+  
   ### 1. fit baseline risk  ----
   # no information on w allowed, so we cannot use the retained variables from the effect modeling
-  #baseline.mod  <- risk.model.stage1(X = X, y = y, alpha = alpha)
-  #baseline.risk <- plogis(baseline.mod$lp) TODO: uncomment later
+  baseline.mod  <- baseline.risk(X = X, y = y, alpha = 1)
+  baseline.risk <- baseline.mod$response 
   
   
   ### 2. perform variable selection ----
@@ -359,25 +372,27 @@ effect.modeling <- function(X, y, w,
   
   
   ### 5. return ----
-  
   return(list(
-    inputs = list(X = X, w = w, y = y),
-    baseline.model = "uncomment above!",
+    inputs = list(X = X, w = w, y = y.orig, 
+                  lifeyears = lifeyears, 
+                  prediction.timeframe = prediction.timeframe, 
+                  y.prediction.timeframe = y),
+    average.treatment.effect = mean(predicted.benefits$pred.ben.abs),
+    baseline.model = baseline.mod,
     effect.model = list(formula = vs.obj$final.model$formula.final.model, 
                         selected.data = Z,
                         glm.obj = final.model,
                         coefficients = coefficients[,1],
                         summary = coefficients,
                         model.building = vs.obj),
-    risk.regular.w = predicted.benefits$risk.regular.w,
-    risk.flipped.w = predicted.benefits$risk.flipped.w,
-    risk.baseline = "uncomment above!",
-    predicted.absolute.benefit = predicted.benefits$pred.ben.abs,
-    predicted.absolute.benefit.raw = predicted.benefits$pred.ben.abs.raw,
-    predicted.relative.benefit = predicted.benefits$pred.ben.rel,
-    predicted.relative.benefit.raw = predicted.benefits$pred.ben.rel.raw,
-    ate.hat = mean(predicted.benefits$pred.ben.abs),
-    c.index.outcome = c.index.outcome,
-    c.index.benefit = c.index.benefit
+    risk = list(risk.regular.w = predicted.benefits$risk.regular.w,
+                risk.flipped.w = predicted.benefits$risk.flipped.w,
+                risk.baseline  = baseline.risk),
+    benefits = list(predicted.absolute.benefit = predicted.benefits$pred.ben.abs,
+                    predicted.relative.benefit = predicted.benefits$pred.ben.rel,
+                    predicted.absolute.benefit.raw = predicted.benefits$pred.ben.abs.raw,
+                    predicted.relative.benefit.raw = predicted.benefits$pred.ben.rel.raw),
+    C.statistics = list(c.index.outcome = c.index.outcome,
+                        c.index.benefit = c.index.benefit)
   ))
 } # FUN
