@@ -1,6 +1,4 @@
-# required for the function "quantile.group"
-source(paste0(getwd(), "/funs/estimation-funs.R"))
-
+library(ggplot2)
 
 #' Estimates the BLP parameters based on the main sample M. 
 #' 
@@ -41,7 +39,7 @@ get.BLP.params.classic <- function(D, Y, propensity.scores,
   beta2.inference[2, "t value"] <- 
     (coefficients["beta.2", "Estimate"] - 1) / coefficients["beta.2", "Std. Error"]  
   beta2.inference[2, "Pr(>|t|)"] <- 
-    2 * pt(beta2.inference[2, "t value"], df = blp.obj$df.residual, lower.tail = FALSE)
+    2 * pt(abs(beta2.inference[2, "t value"]), df = blp.obj$df.residual, lower.tail = FALSE)
   
   # generic targets
   generic.targets <- coefficients[c("beta.1", "beta.2"), ]
@@ -50,8 +48,8 @@ get.BLP.params.classic <- function(D, Y, propensity.scores,
   ci.lo <- generic.targets[,"Estimate"] - qnorm(1-significance.level/2) * generic.targets[,"Std. Error"]
   ci.up <- generic.targets[,"Estimate"] + qnorm(1-significance.level/2) * generic.targets[,"Std. Error"]
   generic.targets <- cbind(generic.targets, ci.lo, ci.up)
-  colnames(generic.targets) <- c("Estimate", "Std. Error", "z value", "Pr(>|z|)", "CI lower", "CI upper")
-  generic.targets <- generic.targets[,c("Estimate", "CI lower", "CI upper", 
+  colnames(generic.targets) <- c("Estimate", "Std. Error", "z value", "Pr(>|z|)", "CB lower", "CB upper")
+  generic.targets <- generic.targets[,c("Estimate", "CB lower", "CB upper", 
                                         "Std. Error", "z value", "Pr(>|z|)")]
   
 
@@ -113,8 +111,8 @@ get.GATES.params.classic <- function(D, Y,
   ci.lo <- coefficients.temp[,"Estimate"] - qnorm(1-significance.level/2) * coefficients.temp[,"Std. Error"]
   ci.up <- coefficients.temp[,"Estimate"] + qnorm(1-significance.level/2) * coefficients.temp[,"Std. Error"]
   coefficients.temp <- cbind(coefficients.temp, ci.lo, ci.up)
-  colnames(coefficients.temp) <- c("Estimate", "Std. Error", "z value", "Pr(>|z|)", "CI lower", "CI upper")
-  coefficients.temp <- coefficients.temp[,c("Estimate", "CI lower", "CI upper", 
+  colnames(coefficients.temp) <- c("Estimate", "Std. Error", "z value", "Pr(>|z|)", "CB lower", "CB upper")
+  coefficients.temp <- coefficients.temp[,c("Estimate", "CB lower", "CB upper", 
                                             "Std. Error", "z value", "Pr(>|z|)")]
   
   # prepare generic target parameters for the difference
@@ -188,7 +186,7 @@ get.CLAN.parameters <- function(Z.clan.main.sample,
     pval        <- 2 * pnorm(abs(diff.ttest), lower.tail = FALSE)
     out.mat[3,] <- c(diff, ci.lo, ci.up, diff.se, diff.ttest, pval)
     
-    colnames(out.mat)     <- c("Estimate", "CI lower", "CI upper", "Std. Error", "z value", "Pr(>|z|)")
+    colnames(out.mat)     <- c("Estimate", "CB lower", "CB upper", "Std. Error", "z value", "Pr(>|z|)")
     rownames(out.mat)     <- c("delta.1", "delta.K", "delta.K-delta.1")
     generic.targets[[j]]  <- out.mat
     clan.coefficients[,j] <- out.mat[,1] 
@@ -261,18 +259,18 @@ initializer.for.splits <- function(Z, Z.clan, learners,
   
   clan <- array(NA_real_, dim = c(3, 6, num.splits), 
                 dimnames = list(c("delta.1", "delta.K", "delta.K-delta.1"), 
-                                c("Estimate", "CI lower", "CI upper", "Std. Error", "z value", "Pr(>|z|)"),
+                                c("Estimate", "CB lower", "CB upper", "Std. Error", "z value", "Pr(>|z|)"),
                                 NULL))
   
   gates <- array(NA_real_, dim = c(length(quantile.cutoffs)+2, 6, num.splits),
                  dimnames = list(
                    c(paste0("gamma.", 1:(length(quantile.cutoffs)+1)), "gamma.K-gamma.1"),
-                   c("Estimate", "CI lower", "CI upper", "Std. Error", "z value", "Pr(>|z|)"), 
+                   c("Estimate", "CB lower", "CB upper", "Std. Error", "z value", "Pr(>|z|)"), 
                    NULL))
   
   blp <- array(NA_real_, dim = c(2, 6, num.splits),
                dimnames = list(c("beta.1", "beta.2"), 
-                               c("Estimate", "CI lower", "CI upper", "Std. Error", "z value", "Pr(>|z|)"),
+                               c("Estimate", "CB lower", "CB upper", "Std. Error", "z value", "Pr(>|z|)"),
                                NULL))
   
   best <- array(NA_real_, dim = c(1, 2, num.splits), 
@@ -382,7 +380,8 @@ get.best.learners <- function(generic.ml.across.learners.obj){
   rownames(best.analysis) <- c("lambda", "lambda.bar")
   
   return(list(best.learner.for.CATE  = learners[which.max(best.analysis["lambda", ])],
-              best.learner.for.GATES = learners[which.max(best.analysis["lambda.bar", ])]))
+              best.learner.for.GATES = learners[which.max(best.analysis["lambda.bar", ])],
+              lambda.overview = t(best.analysis)))
   
 } # END FUN
 
@@ -397,8 +396,11 @@ Med <- function(x){
   F.x <- ecdf.x(x)
   
   # get lower median and upper median
-  lower <- min(x[F.x >= 0.5])
-  upper <- max(x[(1 - F.x) >= 0.5])
+  lower       <- min(x[F.x >= 0.5])
+  upper.array <- x[(1 - F.x) >= 0.5]
+  upper       <- ifelse(length(upper.array) == 0, 
+                        lower,
+                        max(upper.array)) # account for case where upper.array is empty
   
   return(list(lower.median = lower, 
               upper.median = upper, 
@@ -419,15 +421,15 @@ initialize.gen.ml <- function(generic.ml.across.learners.obj){
   
   blp.mat <- matrix(NA_real_, nrow = 2, ncol = 5, 
                     dimnames = list(c("beta.1", "beta.2"), 
-                                    c("Estimate", "CI lower", "CI upper", "p-value adjusted", "p-value raw")))
+                                    c("Estimate", "CB lower", "CB upper", "p-value adjusted", "p-value raw")))
   
   gates.mat <- matrix(NA_real_, nrow = length(gates.nam), ncol = 5, 
                       dimnames = list(gates.nam, 
-                                      c("Estimate", "CI lower", "CI upper", "p-value adjusted", "p-value raw")))
+                                      c("Estimate", "CB lower", "CB upper", "p-value adjusted", "p-value raw")))
   
   clan.mat <- matrix(NA_real_, nrow = length(clan.nam), ncol = 5, 
                      dimnames = list(clan.nam, 
-                                     c("Estimate", "CI lower", "CI upper", "p-value adjusted", "p-value raw")))
+                                     c("Estimate", "CB lower", "CB upper", "p-value adjusted", "p-value raw")))
   
   
   gates.ls <- lapply(learners, function(...) gates.mat)
@@ -505,13 +507,13 @@ genericML.plot <- function(genericML.obj,
   
   if(is.null(limits) & type != "BLP"){
     
-    limits <- c(min(c(data[, "CI lower"], data.blp["beta.1", "CI lower"])),
-                max(c(data[, "CI upper"], data.blp["beta.1", "CI upper"])))
+    limits <- c(min(c(data[, "CB lower"], data.blp["beta.1", "CB lower"])),
+                max(c(data[, "CB upper"], data.blp["beta.1", "CB upper"])))
     
   } else if(is.null(limits) & type == "BLP"){
     
-    limits <- c(min(data[, "CI lower"]),
-                max(data[, "CI upper"]))
+    limits <- c(min(data[, "CB lower"]),
+                max(data[, "CB upper"]))
     
   } # IF
   
@@ -525,8 +527,8 @@ genericML.plot <- function(genericML.obj,
     
     K  <- nrow(data) - 1
     df <- data.frame(point.estimate = data[, "Estimate"],
-                     ci.lower = data[, "CI lower"],
-                     ci.upper = data[, "CI upper"],
+                     ci.lower = data[, "CB lower"],
+                     ci.upper = data[, "CB upper"],
                      group = c(paste0("G", 1:K), paste0("G", K, "-G1")))
     
     p <- ggplot(mapping = aes(x = group,
@@ -536,10 +538,10 @@ genericML.plot <- function(genericML.obj,
       geom_hline(aes(yintercept = data.blp["beta.1", "Estimate"],
                      color = "ATE"),
                  linetype = "dashed") +
-      geom_hline(aes(yintercept = data.blp["beta.1", "CI lower"],
+      geom_hline(aes(yintercept = data.blp["beta.1", "CB lower"],
                      color = paste0(100*confidence.level, "% CB (ATE)")),
                  linetype = "dashed")  +
-      geom_hline(yintercept = data.blp["beta.1", "CI upper"],
+      geom_hline(yintercept = data.blp["beta.1", "CB upper"],
                  linetype = "dashed", color = "red") +
       geom_point(aes(color = paste0(type, " with ",  100*confidence.level, "% CB")), size = 3) +
       geom_errorbar(mapping = aes(ymin = ci.lower,
@@ -561,8 +563,8 @@ genericML.plot <- function(genericML.obj,
     
     ## 1.2 make plot for BLP ----
     df <- data.frame(point.estimate = data[, "Estimate"],
-                     ci.lower = data[, "CI lower"],
-                     ci.upper = data[, "CI upper"],
+                     ci.lower = data[, "CB lower"],
+                     ci.upper = data[, "CB upper"],
                      group = c("beta.1 (ATE)", "beta.2 (HTE)"))
     
     p <- ggplot(mapping = aes(x = group,
@@ -581,4 +583,43 @@ genericML.plot <- function(genericML.obj,
     return(p)
     
   } # IF
+} # FUN
+
+
+#' Partition a vector x into groups based on its quantiles
+#' 
+#' @param x the vector to be partitioned
+#' @param cutoffs the quantile cutoffs for the partition. Default are the quartiles.
+#' @param quantile.nam logical. Shall the cutoff values be included?
+quantile.group <- function(x,
+                           cutoffs = c(0.25, 0.5, 0.75),
+                           quantile.nam = TRUE){
+  # cutoffs are the quantile cutoffs (like c(0.25, 0.5, 0.75))
+  q         <- quantile(x, cutoffs)
+  q         <- c(-Inf, q, Inf)
+  groups    <- as.character(cut(x, breaks = q, include.lowest = TRUE, right = FALSE, dig.lab = 3))
+  group.nam <- unique(groups)
+  group.nam <- group.nam[order(
+    as.numeric(substr(sub("\\,.*", "", group.nam), 2, stop = 1e8L)), 
+    decreasing = FALSE)] # ensure the order is correct
+  group.mat <- matrix(NA, length(x), length(group.nam))
+  nam       <- rep(NA, length(group.nam))
+  
+  for(j in 1:length(group.nam)){
+    if(j == 1){
+      nam[j] <- paste0("<", 100*cutoffs[j], "% quantile")
+    } else if (j == length(group.nam)){
+      nam[j] <- paste0(">=", 100*cutoffs[j-1], "% quantile")
+    } else{
+      nam[j] <- paste0("[", 100*cutoffs[j-1], ",", 100*cutoffs[j], ")% quantile")
+    }
+    group.mat[,j] <- groups == group.nam[j]
+  }
+  
+  if(quantile.nam){
+    colnames(group.mat) <- nam
+  } else{
+    colnames(group.mat) <- group.nam
+  }
+  return(group.mat)
 } # FUN
