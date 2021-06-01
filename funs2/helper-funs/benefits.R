@@ -163,15 +163,15 @@ get.benefits <- function(pred.model.obj,
                          significance.level = 0.05){
   
   # extract outcome and treatment status
-  y <- pred.model.obj$inputs$y
+  y <- pred.model.obj$inputs$y.prediction.timeframe
   w <- pred.model.obj$inputs$w
   
   # group observations by their quantile of predicted baseline risk
-  quantile.groups <- quantile.group(pred.model.obj$risk.baseline, cutoffs)
+  quantile.groups <- quantile.group(pred.model.obj$risk$risk.baseline, cutoffs)
   
   # get predicted benefit (relative and absolute)
-  rel.pred.ben <- pred.model.obj$predicted.relative.benefit
-  abs.pred.ben <- pred.model.obj$predicted.absolute.benefit
+  rel.pred.ben <- pred.model.obj$benefits$predicted.relative.benefit
+  abs.pred.ben <- pred.model.obj$benefits$predicted.absolute.benefit
   
   ## calculate observed benefit and predicted benefit for each quantile group
   # initialize

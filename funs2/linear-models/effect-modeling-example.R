@@ -1,7 +1,9 @@
 rm(list = ls()) ; cat("\014")
 
 # load functions
-source(paste0(getwd(), "/funs2/estimation-funs/effect-modeling.R"))
+source(paste0(getwd(), "/funs2/linear-models/effect-modeling.R"))
+source(paste0(getwd(), "/funs2/plotmakers/plotmakers.R"))
+
 
 ### 0. Data generation ---- 
 set.seed(2)
@@ -45,6 +47,9 @@ em <- effect.modeling(X = X, y = y, w = w,
                        prediction.timeframe = prediction.timeframe,
                        retained.variables = retained.variables, 
                        significance.level = significance.level)
+
+calibration.plot(em)
+subgroup.plot(em, X[,1])
 
 em$effect.model$summary
 em$average.treatment.effect

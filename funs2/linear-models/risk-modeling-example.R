@@ -1,7 +1,9 @@
 rm(list = ls()) ; cat("\014")
 
 # load functions
-source(paste0(getwd(), "/funs2/estimation-funs/risk-modeling.R"))
+source(paste0(getwd(), "/funs2/linear-models/risk-modeling.R"))
+source(paste0(getwd(), "/funs2/plotmakers/plotmakers.R"))
+
 
 # make data
 set.seed(2)
@@ -41,6 +43,9 @@ lifeyears = NULL
 RM <- risk.modeling(X = X, y = y, w = w, alpha = alpha, 
                     offset.linear.predictor = offset.linear.predictor, 
                     lifeyears = lifeyears, prediction.timeframe = prediction.timeframe)
+
+calibration.plot(RM)
+subgroup.plot(RM, X[,1])
 
 RM$models$coefficients.stage2
 RM$average.treatment.effect

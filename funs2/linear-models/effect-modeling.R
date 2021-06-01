@@ -1,5 +1,5 @@
 # load for baseline risk
-source(paste0(getwd(), "/funs2/estimation-funs/risk-modeling.R"))
+source(paste0(getwd(), "/funs2/linear-models/risk-modeling.R"))
 
 
 #' get the matrix "w * X[, interactions]"
