@@ -98,7 +98,8 @@ risk.model.stage2 <- function(linear.predictor, y, w, z, lambda,
   # return
   return(list(mod.stage2 = mod.stage2,
               risk.regular.w = risk.regular.w,
-              risk.flipped.w = risk.flipped.w))
+              risk.flipped.w = risk.flipped.w,
+              z = z))
 } # FUN
 
 
@@ -202,7 +203,7 @@ risk.modeling <- function(X, y, w, alpha = 1,
                         c.index.outcome.stage2 = c.index.outcome.stage2,
                         c.index.benefit = c.index.benefit),
     linear.predictor = stage1$linear.predictor,
-    z = z
+    z = model.stage2$z
   ))
 } # FUN
 
