@@ -36,12 +36,13 @@ y  <- ifelse(w == 1, y1, y0) # observed outcome
 
 # test the risk model
 alpha <- 1
-offset.linear.predictor <- TRUE
+intercept.stage.2 <- FALSE
+z <- "linear.predictor"
 prediction.timeframe = NULL
 lifeyears = NULL
 
 RM <- risk.modeling(X = X, y = y, w = w, alpha = alpha, 
-                    offset.linear.predictor = offset.linear.predictor, 
+                    intercept.stage.2 = intercept.stage.2, z = z, 
                     lifeyears = lifeyears, prediction.timeframe = prediction.timeframe)
 
 calibration.plot(RM)

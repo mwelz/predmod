@@ -30,58 +30,70 @@ baseline.risk <- function(X, y, alpha = 1){
 } # FUN
 
 
-#' perform risk modeling: second stage (penalized logistic regression)
+#' perform risk modeling: second stage (penalized logistic regression):
+#' y = g(\beta_0 +\beta_1 * w + \beta_2 w * z + z + \varepsilon)
 #' 
 #' @param linear.predictor a vector of linear predictions
 #' @param y a binary response vector
 #' @param w a binary treatment assignment vector
+#' @param z the `z` in the model, which is used as product with w and as an offset. Default is `linear.predictor`.
 #' @param lambda the lambda for the penalty term
-#' @param offset.linear.predictor handling an offset. If TRUE (default), then _linear.predictor_ is used as offset. If FALSE, no offset is used. If a numeric vector is supplied, this vector is then used as offset.
+#' @param intercept logical. Shall an intercept be included? Default is `FALSE`
 #' 
 #' @export 
-risk.model.stage2 <- function(linear.predictor, y, w, lambda, 
-                              offset.linear.predictor = TRUE){
+risk.model.stage2 <- function(linear.predictor, y, w, z, lambda, 
+                              intercept = FALSE){
   
   # check input for offset.linear.predictor
-  if(is.logical(offset.linear.predictor)){
+  if(any(is.character(z))){
     
-    if(offset.linear.predictor){
-      offset <- linear.predictor
+    if(z == "linear.predictor"){
+      z <- linear.predictor
     } else{
-      offset <- rep(0.0, length(linear.predictor))
+      stop("z needs to be numeric or equal to 'linear predictor'!")
     } # IF
-    
-  } else{
-    
-    offset <- offset.linear.predictor
-    
   } # IF
   
+  
   # prepare X for second stage
-  X.stage2 <- cbind(w = w, wlp = w * linear.predictor)
+  X.stage2 <- cbind(w = w, w.z = w * z)
   
   # stage 2 modeling
   mod.stage2 <- glmnet::glmnet(X.stage2, y, 
                                family = "binomial",
                                lambda = lambda,
-                               intercept = TRUE,
-                               offset = offset) 
+                               intercept = intercept,
+                               offset = z) 
   
   # get the estimated coefficients
   coefs.obj     <- glmnet::coef.glmnet(mod.stage2)
   kept.vars     <- coefs.obj@i
   if(0 %in% kept.vars) kept.vars <- kept.vars[-which(kept.vars == 0)] # intercept is not a variable
   coefs         <- coefs.obj@x
-  X.retained    <- cbind(intercept = 1, X.stage2[,kept.vars])
+  
+  # prepare design matrix with retained variables
+  if(intercept){
+    X.retained  <- cbind(intercept = 1, X.stage2[,kept.vars])
+  } else{
+    X.retained  <- X.stage2[,kept.vars]
+  } # IF
   
   # get the responses with the regular w
-  risk.regular.w <- plogis(as.numeric(X.retained %*% coefs) + as.numeric(offset))
+  risk.regular.w <- plogis(as.numeric(X.retained %*% coefs) + as.numeric(z))
   
   # get the responses with flipped w
   w.rev           <- ifelse(w == 1, 0, 1)
-  X.stage2.rev    <- cbind(w = w.rev, wlp = w.rev * linear.predictor)
-  X.retained.rev  <- cbind(intercept = 1, X.stage2.rev[,kept.vars])
-  risk.flipped.w  <- plogis(as.numeric(X.retained.rev %*% coefs) + as.numeric(offset))
+  X.stage2.rev    <- cbind(w = w.rev, w.z = w.rev * z)
+  
+  # prepare design matrix with flipped w
+  if(intercept){
+    X.retained.rev  <- cbind(intercept = 1, X.stage2.rev[,kept.vars])
+  } else{
+    X.retained.rev  <- X.stage2.rev[,kept.vars]
+  } # IF
+  
+  # calculate risk with flipped w
+  risk.flipped.w  <- plogis(as.numeric(X.retained.rev %*% coefs) + as.numeric(z))
   
   # return
   return(list(mod.stage2 = mod.stage2,
@@ -98,13 +110,16 @@ risk.model.stage2 <- function(linear.predictor, y, w, lambda,
 #' @param alpha the alpha as in glmnet. Default is 1 (= Lasso)
 #' @param lifeyears vector of life years. Default is NULL.
 #' @param prediction.timeframe vector of the prediction time frame. Default is NULL.
-#' @param offset.linear.predictor handling an offset. If TRUE (default), then _linear.predictor_ is used as offset. If FALSE, no offset is used. If a numeric vector is supplied, this vector is then used as offset.
+#' @param z the `z` in the 2nd stage, which is used as product with w and as an offset. Default is `linear.predictor`.
+#' @param lambda the lambda for the penalty term
+#' @param intercept.stage.2 logical. Shall an intercept in stage 2 be included? Default is `FALSE`
 #' 
 #' @export
 risk.modeling <- function(X, y, w, alpha = 1, 
                           lifeyears = NULL,
                           prediction.timeframe = NULL,
-                          offset.linear.predictor = TRUE){
+                          intercept.stage.2 = FALSE,
+                          z = "linear.predictor"){
   
   # truncate y if necessary
   y.orig    <- y
@@ -124,7 +139,8 @@ risk.modeling <- function(X, y, w, alpha = 1,
   stage2 <- risk.model.stage2(linear.predictor = stage1$linear.predictor,
                               y = y, w = w,
                               lambda = stage1$lambda.min, 
-                              offset.linear.predictor = offset.linear.predictor)
+                              intercept = intercept.stage.2,
+                              z = z)
   
   # absolute predicted benefit
   pred.ben.abs.raw <- stage2$risk.regular.w - stage2$risk.flipped.w
@@ -185,7 +201,8 @@ risk.modeling <- function(X, y, w, alpha = 1,
     C.statistics = list(c.index.outcome.stage1 = c.index.outcome.stage1,
                         c.index.outcome.stage2 = c.index.outcome.stage2,
                         c.index.benefit = c.index.benefit),
-    linear.predictor = stage1$linear.predictor
+    linear.predictor = stage1$linear.predictor,
+    z = z
   ))
 } # FUN
 
