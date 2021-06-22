@@ -203,7 +203,7 @@ risk.modeling <- function(X, y, w, alpha = 1,
                         c.index.outcome.stage2 = c.index.outcome.stage2,
                         c.index.benefit = c.index.benefit),
     linear.predictor = stage1$linear.predictor,
-    z = model.stage2$z
+    z = stage2$z
   ))
 } # FUN
 
