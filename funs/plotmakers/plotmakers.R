@@ -282,3 +282,88 @@ subgroup.plot <- function(pred.model.obj, x,
     scale_fill_discrete(name = leg.tit) +
     theme(legend.position = "bottom")
 } # FUN
+
+
+#' makes a calibration plot for a prediction model while accounting for imputation uncertainty
+#' 
+#' @param pred.model.objs_imputed prediction model object, as returned by risk.modeling() or effect.modeling() TODO: use name of imputation functions
+#' @param cutoffs the cutoff points of quantiles that shall be used for GATES grouping. Default is `c(0.25, 0.5, 0.75)`, which corresponds to the quartiles.
+#' @param relative logical. If `TRUE`, then relative benefits will be plotted. Default is `FALSE`
+#' @param significance.level significance level for the confidence intervals. Default is 0.05
+#' @param title optional title of the plot
+#' @param xlim limits of x-axis
+#' @param ylim limits of y-xcis
+#' @param flip.sign.of.absolute.benefit logical. Shall the sign of the benefits be flipped?
+#' 
+#' @export
+calibration.plot_imputation.accounter <- function(pred.model.objs_imputed,
+                                                  cutoffs = c(0.25, 0.5, 0.75), 
+                                                  relative = FALSE,
+                                                  significance.level = 0.05,
+                                                  title = NULL,
+                                                  xlim = NULL,
+                                                  ylim = NULL,
+                                                  flip.sign.of.absolute.benefit = FALSE){
+  
+  # get observed and predicted benefit by quantile group
+  benefits <- get.benefits_imputation.accounter(pred.model.objs_imputed, 
+                                                cutoffs = cutoffs, 
+                                                significance.level = significance.level)
+  
+  # make sure risk quantile is in correct order
+  risk.quantile <- factor(benefits$absolute.observed.benefit$quantile)
+  lv <- levels(risk.quantile)
+  lv <- lv[order.intervals(lv, quantile.nam = TRUE)]
+  risk.quantile <- factor(risk.quantile, levels = lv)
+  
+  # adjust for relative and absolute benefit
+  if(relative){
+    
+    df <- data.frame(pb.means = benefits$relative.predicted.benefit$estimate,
+                     ob.means = benefits$relative.observed.benefit$estimate,
+                     ob.means.ci.lo = benefits$relative.observed.benefit$ci.lower,
+                     ob.means.ci.up = benefits$relative.observed.benefit$ci.upper,
+                     risk.quantile = risk.quantile)
+  } else{
+    
+    if(!flip.sign.of.absolute.benefit){
+      
+      df <- data.frame(pb.means = benefits$absolute.predicted.benefit$estimate,
+                       ob.means = benefits$absolute.observed.benefit$estimate,
+                       ob.means.ci.lo = benefits$absolute.observed.benefit$ci.lower,
+                       ob.means.ci.up = benefits$absolute.observed.benefit$ci.upper,
+                       risk.quantile = risk.quantile)
+      
+    } else{
+      
+      df <- data.frame(pb.means = -benefits$absolute.predicted.benefit$estimate,
+                       ob.means = -benefits$absolute.observed.benefit$estimate,
+                       ob.means.ci.lo = -benefits$absolute.observed.benefit$ci.lower,
+                       ob.means.ci.up = -benefits$absolute.observed.benefit$ci.upper,
+                       risk.quantile = risk.quantile)
+      
+    }
+  } # IF
+  
+  
+  if(is.null(title)){
+    title <- paste0("Calibration plot of ", 
+                    ifelse(relative, "relative ", "absolute "), "benefit")
+  } # IF
+  
+  ggplot(mapping = aes(x = pb.means,
+                       y = ob.means, color = risk.quantile), data = df) +
+    geom_point() +
+    geom_errorbar(mapping = aes(ymin = ob.means.ci.lo,
+                                ymax = ob.means.ci.up)) +
+    geom_hline(yintercept = 0, linetype = 2) +
+    geom_vline(xintercept = 0, linetype = 2) +
+    geom_abline(intercept = 0, slope = 1) +
+    coord_cartesian(xlim = xlim, ylim = ylim) +
+    labs(x = ifelse(relative, "Predicted relative benefit", "Predicted absolute benefit"),
+         y = ifelse(relative, "Observed relative benefit", "Observed absolute benefit")) +
+    theme_light() +
+    ggtitle(title) +
+    theme(legend.position = "bottom") 
+  
+} # FUN

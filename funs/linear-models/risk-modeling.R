@@ -1,3 +1,6 @@
+# load imputation accounters
+source(paste0(getwd(), "/funs/imputation/imputation.R"))
+
 #' baseline risk prediction via penalized logistic regression (treatment assignment is not used)
 #' 
 #' @param X matrix of data frame of covariates
@@ -207,3 +210,77 @@ risk.modeling <- function(X, y, w, alpha = 1,
   ))
 } # FUN
 
+
+#' TODO: write documentation
+#'
+#'
+risk.modeling_imputation.accounter <- function(predictive.model.imputed){
+  
+  # initialize
+  pred.model.imp.adj <- list()
+  m <- length(predictive.model.imputed)
+  
+  # stage 1 coefficients
+  pred.model.imp.adj$models$coefficients.stage1 <- 
+    imputation.accounter_location(lapply(1:m, function(i) predictive.model.imputed[[i]]$models$coefficients.stage1))
+  
+  # stage 2 coefficients
+  pred.model.imp.adj$models$coefficients.stage2 <- 
+    imputation.accounter_location(lapply(1:m, function(i) predictive.model.imputed[[i]]$models$coefficients.stage2))
+  
+  # ATE
+  pred.model.imp.adj$average.treatment.effect <- 
+    imputation.accounter_location(lapply(1:m, function(i) predictive.model.imputed[[i]]$average.treatment.effect))
+  
+  # risk regular w
+  pred.model.imp.adj$risk$risk.regular.w <- 
+    imputation.accounter_location(lapply(1:m, function(i) predictive.model.imputed[[i]]$risk$risk.regular.w))
+  
+  # risk flipped w
+  pred.model.imp.adj$risk$risk.flipped.w <- 
+    imputation.accounter_location(lapply(1:m, function(i) predictive.model.imputed[[i]]$risk$risk.flipped.w))
+  
+  # risk baseline
+  pred.model.imp.adj$risk$risk.baseline <- 
+    imputation.accounter_location(lapply(1:m, function(i) predictive.model.imputed[[i]]$risk$risk.baseline))
+  
+  # predicted absolute benefit
+  pred.model.imp.adj$benefits$predicted.absolute.benefit <- 
+    imputation.accounter_location(lapply(1:m, function(i) predictive.model.imputed[[i]]$benefits$predicted.absolute.benefit))
+  
+  # predicted relative benefit
+  pred.model.imp.adj$benefits$predicted.relative.benefit <- 
+    imputation.accounter_location(lapply(1:m, function(i) predictive.model.imputed[[i]]$benefits$predicted.relative.benefit))
+  
+  # predicted absolute benefit raw
+  pred.model.imp.adj$benefits$predicted.absolute.benefit.raw <- 
+    imputation.accounter_location(lapply(1:m, function(i) predictive.model.imputed[[i]]$benefits$predicted.absolute.benefit.raw))
+  
+  # predicted relative benefit raw
+  pred.model.imp.adj$benefits$predicted.relative.benefit.raw <- 
+    imputation.accounter_location(lapply(1:m, function(i) predictive.model.imputed[[i]]$benefits$predicted.relative.benefit.raw))
+  
+  # C stat stage 1
+  pred.model.imp.adj$C.statistics$c.index.outcome.stage1 <- 
+    imputation.accounter_location(lapply(1:m, function(i) predictive.model.imputed[[i]]$C.statistics$c.index.outcome.stage1))
+  
+  # C stat stage 2
+  pred.model.imp.adj$C.statistics$c.index.outcome.stage2 <- 
+    imputation.accounter_location(lapply(1:m, function(i) predictive.model.imputed[[i]]$C.statistics$c.index.outcome.stage2))
+  
+  # C index benefit
+  pred.model.imp.adj$C.statistics$c.index.benefit <- 
+    imputation.accounter_location(lapply(1:m, function(i) predictive.model.imputed[[i]]$C.statistics$c.index.benefit))
+  
+  # LP
+  pred.model.imp.adj$linear.predictor <- 
+    imputation.accounter_location(lapply(1:m, function(i) predictive.model.imputed[[i]]$linear.predictor))
+  
+  # z
+  pred.model.imp.adj$z <- 
+    imputation.accounter_location(lapply(1:m, function(i) predictive.model.imputed[[i]]$z))
+  
+  # return
+  return(pred.model.imp.adj)
+  
+} # FUN

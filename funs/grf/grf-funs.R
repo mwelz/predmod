@@ -1,3 +1,6 @@
+# load imputation accounters
+source(paste0(getwd(), "/funs/imputation/imputation.R"))
+
 #' applies GRF modeling. Note that risk modeling is not possible here
 #' 
 #' @param X design matrix, can also be a data frame

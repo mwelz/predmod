@@ -275,3 +275,149 @@ get.benefits.grf <- function(grf.model.obj,
               quantile.cutoff.points = cutoffs,
               group.membership = quantile.groups))
 }
+
+
+## helper function to get imputation-accounted absolute benefits
+##
+## @param x a 3-dimensional array as used in the function get.benefits_imputation.accounted()
+## @param group.names the names of the quantile groups
+## @param significance.level the significance level. Defaults to 5%
+## @param relative. Logical. If TRUE, the quantity 'x' is a relative statistic. If FALSE, it is an absolute statistic.
+##
+## @return
+benefits.imputed <- function(x, group.names, significance.level = 0.05, relative){
+  
+  # initialize
+  x[,"stderr",] <- x[,"stderr",]^2
+  colnames(x)   <- c("estimate", "ci.lower", "ci.upper", "var")
+  
+  # get imputation-adjusted location and scale estimate
+  T.hat <- rowMeans(x[,c("estimate"),])
+  W.hat <- rowMeans(x[,c("var"),])
+  B.hat <- rowSums((x[,c("estimate"),] - T.hat)^2) / (m-1)
+  V.hat <- W.hat + (m+1) / m * B.hat
+  
+  # quantile of the standard normal distribution
+  z <- qnorm(1 - significance.level/2)
+  
+  # imputation-accounted standard deviation
+  stderr <- sqrt(V.hat)
+  
+  # compute returned data frame depending on type of statistic
+  if(relative){
+    
+    out <- data.frame(quantile = group.names, 
+                      estimate = T.hat,
+                      ci.lower = T.hat * exp(-z * stderr),
+                      ci.upper = T.hat * exp(z * stderr),
+                      stderr   = stderr)
+    
+  } else{
+    
+    out <- data.frame(quantile = group.names, 
+                      estimate = T.hat,
+                      ci.lower = T.hat - z * stderr,
+                      ci.upper = T.hat + z * stderr,
+                      stderr   = stderr)
+    
+  } # IF
+  
+  rownames(out) <- NULL
+  return(out)
+} # FUN
+
+
+
+#' Calculates imputation-uncertainty-accounted group-level benefits from a prediction model, and the associated confidence intervals.
+#' The returned benefits are the observed and predicted relative and absolute benefits as well as the odds ratio
+#' 
+#' @param pred.model.object prediction model object
+#' @param cutoffs the quantile cutoff points. Default is c(0.25, 0.5, 0.75), which yields the quartiles.
+#' @param significance.level the significance level. Default is 0.05.
+#' 
+#' @export
+get.benefits_imputation.accounter <- function(pred.model.objs_imputed, 
+                                              cutoffs = c(0.25, 0.5, 0.75),
+                                              significance.level = 0.05){
+  
+  # initialize 
+  m                         <- length(pred.model.objs_imputed)
+  group.names               <- gsub(" .*$", "", colnames(quantile.group(seq(0, 1, by = 0.001), cutoffs = cutoffs)))
+  rel.obs.ben.arr           <- array(NA_real_, dim = c(length(group.names), 4, m))
+  colnames(rel.obs.ben.arr) <- c("estimate", "ci.lower", "ci.upper", "stderr")
+  rownames(rel.obs.ben.arr) <- paste0("group.", 1:length(group.names))
+  abs.obs.ben.arr           <- rel.obs.ben.arr
+  abs.pred.ben.arr          <- rel.obs.ben.arr
+  rel.pred.ben.arr          <- rel.obs.ben.arr
+  or.arr                    <- rel.obs.ben.arr
+  
+  ## loop over the imputed datasets and account for the imputation uncertainty
+  for(j in 1:m){
+    
+    # get j-th imputed model
+    pred.model.obj <- pred.model.objs_imputed[[j]]
+    
+    # extract outcome and treatment status
+    y <- pred.model.obj$inputs$y.prediction.timeframe
+    w <- pred.model.obj$inputs$w
+    
+    # group observations by their quantile of predicted baseline risk
+    quantile.groups <- quantile.group(pred.model.obj$risk$risk.baseline, cutoffs)
+    
+    # get predicted benefit (relative and absolute)
+    rel.pred.ben <- pred.model.obj$benefits$predicted.relative.benefit
+    abs.pred.ben <- pred.model.obj$benefits$predicted.absolute.benefit
+    
+    ## calculate observed benefit and predicted benefit for each quantile group
+    for(i in 1:ncol(quantile.groups)){
+      group <- quantile.groups[,i]
+      
+      # absolute observed benefit
+      abs.obs.ben.arr[i,,j] <- 
+        absolute.observed.benefit(y[group], w[group], significance.level = significance.level)
+      
+      # absolute predicted benefit
+      abs.pred.ben.arr[i,,j] <- 
+        predicted.benefit.inference(abs.pred.ben[group], significance.level = significance.level)
+      
+      # relative observed benefit
+      rel.obs.ben.arr[i,,j] <- 
+        relative.observed.benefit(y[group], w[group], significance.level = significance.level)
+      
+      # relative predicted benefit
+      rel.pred.ben.arr[i,,j] <- 
+        predicted.benefit.inference(rel.pred.ben[group], significance.level = significance.level)
+      
+      # odds ratio
+      or.arr[i,,j] <- 
+        odds.ratio(y[group], w[group], significance.level = significance.level)
+      
+    } # FOR i 
+    
+  } # FOR imputed sets (j)
+  
+  
+  # return imputation-accounted benefits
+  return(list(absolute.observed.benefit  = benefits.imputed(x = abs.obs.ben.arr,
+                                                            group.names = group.names, 
+                                                            significance.level = significance.level,
+                                                            relative = FALSE),
+              absolute.predicted.benefit = benefits.imputed(x = abs.pred.ben.arr,
+                                                            group.names = group.names, 
+                                                            significance.level = significance.level,
+                                                            relative = FALSE),
+              relative.observed.benefit  = benefits.imputed(x = rel.obs.ben.arr,
+                                                            group.names = group.names, 
+                                                            significance.level = significance.level,
+                                                            relative = TRUE),
+              relative.predicted.benefit = benefits.imputed(x = rel.pred.ben.arr,
+                                                            group.names = group.names, 
+                                                            significance.level = significance.level,
+                                                            relative = TRUE),
+              odds.ratio                 = benefits.imputed(x = or.arr,
+                                                            group.names = group.names, 
+                                                            significance.level = significance.level,
+                                                            relative = TRUE),
+              significance.level         = significance.level,
+              quantile.cutoff.points     = cutoffs))
+} # FUN
