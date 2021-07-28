@@ -54,28 +54,38 @@ imputed.datasets <- multiple.imputation(X = X, y = y, w = w, m = m, k = 5)
 predictive.model.imputed        <- rep(list(NA_real_), m)
 names(predictive.model.imputed) <- paste0("imputed.model_", 1:m)
 
+alpha = 1
+lifeyears = NULL 
+prediction.timeframe = NULL
+retained.variables = NULL
+significance.level = 0.05
+X = imputed.datasets[[1]]$X
+
+interacted.variables = colnames(X)
+y = imputed.datasets[[1]]$y
+w = imputed.datasets[[1]]$w
+
 for(i in 1:m){
   
-  # fill in data in list
-  alpha <- 1
-  prediction.timeframe = NULL
-  lifeyears = NULL
-  
   predictive.model.imputed[[i]] <- 
-    risk.modeling(X = imputed.datasets[[i]]$X, 
+    effect.modeling(X = imputed.datasets[[i]]$X, 
                   y = imputed.datasets[[i]]$y,
                   w = imputed.datasets[[i]]$w,
-                  alpha = alpha) # TODO: effect modeling doesn't really work here for some reason!
+                  interacted.variables = colnames(X)) # TODO: effect modeling doesn't really work here for some reason!
   
 } # FOR m
 
 
+
 ### 4. account for imputation uncertainty ----
-rm.imp <- risk.modeling_imputation.accounter(predictive.model.imputed)
+em.imp <- effect.modeling_imputation.accounter(predictive.model.imputed)
+
+em.imp$effect.model
 
 cutoffs = c(0.25, 0.5, 0.75)
 significance.level = 0.05
-rm.ben <- get.benefits_imputation.accounter(predictive.model.imputed, cutoffs, significance.level)
+em.ben <- get.benefits_imputation.accounter(predictive.model.imputed, cutoffs, significance.level)
 
 library(ggplot2)
 calibration.plot_imputation.accounter(predictive.model.imputed)
+calibration.plot(predictive.model.imputed$imputed.model_1)

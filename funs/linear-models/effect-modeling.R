@@ -418,10 +418,41 @@ effect.modeling_imputation.accounter <- function(predictive.model.imputed){
     imputation.accounter_location(lapply(1:m, function(i) predictive.model.imputed[[i]]$average.treatment.effect))
   
   # baseline model
-  pred.model.imp.adj$baseline.model <- "TODO"
+  pred.model.imp.adj$baseline.model <- imputation.accounter_location(
+    lapply(1:m, function(i){
+      
+      # get names of all variables (pre-selection)
+      nam.all.variables <<- c("(Intercept)", colnames(predictive.model.imputed[[i]]$inputs$X))
+      
+      # initialize long array with zeros for unselected variables
+      selected.variables.long <<- rep(0.0, length(nam.all.variables))
+      names(selected.variables.long) <<- nam.all.variables
+      
+      # assign values to long array
+      selected.variables.short <<- predictive.model.imputed[[i]]$baseline.model$coefficients
+      selected.variables.long[names(selected.variables.short)] <<- selected.variables.short
+      selected.variables.long
+      
+    }))
   
   # effect model
-  pred.model.imp.adj$effect.model <- "TODO"
+  pred.model.imp.adj$effect.model <- imputation.accounter_location(
+    lapply(1:m, function(i){
+      
+      # get names of all variables (pre-selection)
+      nam.all.variables <<- 
+        names(predictive.model.imputed[[i]]$effect.model$model.building$final.model$regularized.estimates_lambda.min)
+      
+      # initialize long array with zeros for unselected variables
+      selected.variables.long <<- rep(0.0, length(nam.all.variables))
+      names(selected.variables.long) <<- nam.all.variables
+      
+      # assign values to long array
+      selected.variables.short <<- predictive.model.imputed[[i]]$effect.model$coefficients
+      selected.variables.long[names(selected.variables.short)] <<- selected.variables.short
+      selected.variables.long
+      
+    }))
   
   # risk regular w
   pred.model.imp.adj$risk$risk.regular.w <- 
