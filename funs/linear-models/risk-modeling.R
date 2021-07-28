@@ -221,8 +221,21 @@ risk.modeling_imputation.accounter <- function(predictive.model.imputed){
   m <- length(predictive.model.imputed)
   
   # stage 1 coefficients
-  pred.model.imp.adj$models$coefficients.stage1 <- 
-    imputation.accounter_location(lapply(1:m, function(i) predictive.model.imputed[[i]]$models$coefficients.stage1))
+  pred.model.imp.adj$models$coefficients.stage1 <- imputation.accounter_location(
+    lapply(1:m, function(i){
+      
+      # get names of all variables (pre-selection)
+      nam.all.variables <<- c("(Intercept)", colnames(predictive.model.imputed[[i]]$inputs$X))
+      
+      # initialize long array with zeros for unselected variables
+      selected.variables.long <<- rep(0.0, length(nam.all.variables))
+      names(selected.variables.long) <<- nam.all.variables
+      
+      # assign values to long array
+      selected.variables.short <<- predictive.model.imputed[[i]]$models$coefficients.stage1
+      selected.variables.long[names(selected.variables.short)] <<- selected.variables.short
+      selected.variables.long
+    }))
   
   # stage 2 coefficients
   pred.model.imp.adj$models$coefficients.stage2 <- 
