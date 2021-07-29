@@ -331,7 +331,7 @@ benefits.imputed <- function(x, group.names, significance.level = 0.05, relative
 #' Calculates imputation-uncertainty-accounted group-level benefits from a prediction model, and the associated confidence intervals.
 #' The returned benefits are the observed and predicted relative and absolute benefits as well as the odds ratio
 #' 
-#' @param pred.model.object prediction model object
+#' @param pred.model.objs_imputed list of prediction model objects
 #' @param cutoffs the quantile cutoff points. Default is c(0.25, 0.5, 0.75), which yields the quartiles.
 #' @param significance.level the significance level. Default is 0.05.
 #' 
@@ -418,6 +418,74 @@ get.benefits_imputation.accounter <- function(pred.model.objs_imputed,
                                                             group.names = group.names, 
                                                             significance.level = significance.level,
                                                             relative = TRUE),
+              significance.level         = significance.level,
+              quantile.cutoff.points     = cutoffs))
+} # FUN
+
+
+
+#' Calculates imputation-uncertainty-accounted group-level benefits from a GRF model, and the associated confidence intervals.
+#' The returned benefits are the observed and predicted absolute benefits as well as the odds ratio
+#' 
+#' @param grf.model.obj_imputed list of GRF model objects
+#' @param cutoffs the quantile cutoff points. Default is c(0.25, 0.5, 0.75), which yields the quartiles.
+#' @param significance.level the significance level. Default is 0.05.
+#' 
+#' @export
+get.benefits.grf_imputation.accounter <- function(grf.model.obj_imputed, 
+                                                  cutoffs = c(0.25, 0.5, 0.75),
+                                                  significance.level = 0.05){
+  
+  # initialize 
+  m                         <- length(grf.model.obj_imputed)
+  group.names               <- gsub(" .*$", "", colnames(quantile.group(seq(0, 1, by = 0.001), cutoffs = cutoffs)))
+  abs.obs.ben.arr           <- array(NA_real_, dim = c(length(group.names), 4, m))
+  colnames(abs.obs.ben.arr) <- c("estimate", "ci.lower", "ci.upper", "stderr")
+  rownames(abs.obs.ben.arr) <- paste0("group.", 1:length(group.names))
+  abs.pred.ben.arr          <- abs.obs.ben.arr
+
+  ## loop over the imputed datasets and account for the imputation uncertainty
+  for(j in 1:m){
+    
+    # get j-th imputed model
+    grf.model.obj <- grf.model.obj_imputed[[j]]
+    
+    # extract outcome and treatment status
+    y <- grf.model.obj$inputs$y.prediction.timeframe
+    w <- grf.model.obj$inputs$w
+    
+    # group observations by their quantile of predicted baseline risk
+    quantile.groups <- quantile.group(grf.model.obj$risk$risk.baseline, cutoffs)
+    
+    # get predicted benefit (absolute)
+    abs.pred.ben <- grf.model.obj$benefits$predicted.absolute.benefit
+    
+    ## calculate observed benefit and predicted benefit for each quantile group
+    for(i in 1:ncol(quantile.groups)){
+      group <- quantile.groups[,i]
+      
+      # absolute observed benefit
+      abs.obs.ben.arr[i,,j] <- 
+        absolute.observed.benefit(y[group], w[group], significance.level = significance.level)
+      
+      # absolute predicted benefit
+      abs.pred.ben.arr[i,,j] <- 
+        predicted.benefit.inference(abs.pred.ben[group], significance.level = significance.level)
+      
+    } # FOR i 
+    
+  } # FOR imputed sets (j)
+  
+  
+  # return imputation-accounted benefits
+  return(list(absolute.observed.benefit  = benefits.imputed(x = abs.obs.ben.arr,
+                                                            group.names = group.names, 
+                                                            significance.level = significance.level,
+                                                            relative = FALSE),
+              absolute.predicted.benefit = benefits.imputed(x = abs.pred.ben.arr,
+                                                            group.names = group.names, 
+                                                            significance.level = significance.level,
+                                                            relative = FALSE),
               significance.level         = significance.level,
               quantile.cutoff.points     = cutoffs))
 } # FUN
