@@ -30,6 +30,9 @@ grf.modeling <- function(X, y, w,
   # causal forest's individual treatment effect estimates are predicted absolute benefit
   predicted.absolute.benefit <- as.numeric(cf$predictions)
   
+  # variance estimates 
+  predicted.absolute.benefit_variance <- predict(cf, estimate.variance = TRUE)$variance.estimates
+  
   # baseline risk
   risk.baseline <- as.numeric(cf$Y.hat)
   
@@ -67,7 +70,65 @@ grf.modeling <- function(X, y, w,
               average.treatment.effect = list(estimate = unname(ate.obj["estimate"]),
                                               stderr = unname(ate.obj["std.err"])),
               risk = list(risk.baseline = risk.baseline),
-              benefits = list(predicted.absolute.benefit = predicted.absolute.benefit),
+              benefits = list(predicted.absolute.benefit = predicted.absolute.benefit,
+                              predicted.absolute.benefit_variance = predicted.absolute.benefit_variance),
               C.statistics = list(c.index.outcome = c.index.outcome,
                                   c.index.benefit = c.index.benefit)))
+} # FUN
+
+
+## helper function for imputation uncertainty in GRF estimates of the absolute benefits
+## @param grf.ate.objects = lapply(1:m, function(i) grf.model.imputed[[i]]$benefits)
+imputation.accounter_grf.benefits <- function(grf.benefits){
+  
+  # location estimates
+  T.hat <- rowMeans(sapply(1:m, function(i) grf.benefits[[i]]$predicted.absolute.benefit))
+  
+  # within-imputation variance estimates
+  W.hat <- rowMeans(sapply(1:m, function(i) grf.benefits[[i]]$predicted.absolute.benefit_variance))
+  
+  # between-imputation variance estimates
+  B.hat <- rowMeans(sapply(1:m, function(i) grf.benefits[[i]]$predicted.absolute.benefit - T.hat)^2) / (m-1)
+  
+  return(list(predicted.absolute.benefit = T.hat,
+              predicted.absolute.benefit_variance = W.hat + (m+1)/m * B.hat))
+  
+} # FUN
+
+
+#' TODO: write documentation
+#'
+#'
+grf.modeling_imputation.accounter <- function(grf.model.imputed){
+  
+  # initialize
+  grf.model.imp.adj <- list()
+  m <- length(grf.model.imputed)
+  
+  # ATE
+  grf.model.imp.adj$average.treatment.effect <- 
+    imputation.accounter_scalar.location.stderr(lapply(1:m, function(i) grf.model.imputed[[i]]$average.treatment.effect))
+  
+  # risk
+  grf.model.imp.adj$risk$risk.baseline <- 
+    imputation.accounter_location(lapply(1:m, function(i) grf.model.imputed[[i]]$risk$risk.baseline))
+  
+  # benefits
+  benefits.ls <- imputation.accounter_grf.benefits(lapply(1:m, function(i) grf.model.imputed[[i]]$benefits))
+  
+  grf.model.imp.adj$benefits$predicted.absolute.benefit <- 
+    benefits.ls$predicted.absolute.benefit
+  
+  grf.model.imp.adj$benefits$predicted.absolute.benefit_variance <- 
+    benefits.ls$predicted.absolute.benefit_variance
+  
+  # C statistics
+  grf.model.imp.adj$C.statistics$c.index.outcome <-
+    imputation.accounter_location(lapply(1:m, function(i) grf.model.imputed[[i]]$C.statistics$c.index.outcome))
+  
+  grf.model.imp.adj$C.statistics$c.index.benefit <- 
+    imputation.accounter_location(lapply(1:m, function(i) grf.model.imputed[[i]]$C.statistics$c.index.benefit))
+  
+  return(grf.model.imp.adj)
+  
 } # FUN
