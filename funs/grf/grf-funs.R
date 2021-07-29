@@ -56,10 +56,14 @@ grf.modeling <- function(X, y, w,
   obs.ben             <- y[match.control] - y[match.treated]
   pred.ben.abs.paired <- (predicted.absolute.benefit[match.control] +
                             predicted.absolute.benefit[match.treated]) / 2
-  c.index.benefit     <- unname(Hmisc::rcorr.cens(pred.ben.abs.paired, obs.ben)[1])
+  c.index.benefit.arr <- Hmisc::rcorr.cens(pred.ben.abs.paired, obs.ben)
+  c.index.benefit     <- list(estimate = unname(c.index.benefit.arr["C Index"]),
+                              stderr   = unname(c.index.benefit.arr["S.D."]))
   
   # C index
-  c.index.outcome <- unname(Hmisc::rcorr.cens(risk.baseline, y)[1])
+  c.index.outcome.arr <- Hmisc::rcorr.cens(risk.baseline, y)
+  c.index.outcome     <- list(estimate = unname(c.index.outcome.arr["C Index"]),
+                              stderr   = unname(c.index.outcome.arr["S.D."]))
   
   # return
   return(list(inputs = list(X = X, w = w, y = y.orig, 
@@ -124,10 +128,10 @@ grf.modeling_imputation.accounter <- function(grf.model.imputed){
   
   # C statistics
   grf.model.imp.adj$C.statistics$c.index.outcome <-
-    imputation.accounter_location(lapply(1:m, function(i) grf.model.imputed[[i]]$C.statistics$c.index.outcome))
+    imputation.accounter_scalar.location.stderr(lapply(1:m, function(i) grf.model.imputed[[i]]$C.statistics$c.index.outcome))
   
   grf.model.imp.adj$C.statistics$c.index.benefit <- 
-    imputation.accounter_location(lapply(1:m, function(i) grf.model.imputed[[i]]$C.statistics$c.index.benefit))
+    imputation.accounter_scalar.location.stderr(lapply(1:m, function(i) grf.model.imputed[[i]]$C.statistics$c.index.benefit))
   
   return(grf.model.imp.adj)
   

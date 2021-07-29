@@ -371,10 +371,14 @@ effect.modeling <- function(X, y, w,
   obs.ben             <- y[match.control] - y[match.treated]
   pred.ben.abs.paired <- (predicted.benefits$pred.ben.abs[match.control] +
                             predicted.benefits$pred.ben.abs[match.treated]) / 2
-  c.index.benefit     <- unname(Hmisc::rcorr.cens(pred.ben.abs.paired, obs.ben)[1])
+  c.index.benefit.arr <- Hmisc::rcorr.cens(pred.ben.abs.paired, obs.ben)
+  c.index.benefit     <- list(estimate = unname(c.index.benefit.arr["C Index"]),
+                              stderr   = unname(c.index.benefit.arr["S.D."]))
   
   # C index
-  c.index.outcome <- unname(Hmisc::rcorr.cens(predicted.benefits$risk.regular.w, y)[1])
+  c.index.outcome.arr <- Hmisc::rcorr.cens(predicted.benefits$risk.regular.w, y)
+  c.index.outcome     <- list(estimate = unname(c.index.outcome.arr["C Index"]),
+                              stderr   = unname(c.index.outcome.arr["S.D."]))
   
   
   ### 5. return ----
@@ -484,11 +488,11 @@ effect.modeling_imputation.accounter <- function(predictive.model.imputed){
   
   # C index outcome
   pred.model.imp.adj$C.statistics$c.index.outcome <- 
-    imputation.accounter_location(lapply(1:m, function(i) predictive.model.imputed[[i]]$C.statistics$c.index.outcome))
+    imputation.accounter_scalar.location.stderr(lapply(1:m, function(i) predictive.model.imputed[[i]]$C.statistics$c.index.outcome))
   
   # C index benefit
   pred.model.imp.adj$C.statistics$c.index.benefit <- 
-    imputation.accounter_location(lapply(1:m, function(i) predictive.model.imputed[[i]]$C.statistics$c.index.benefit))
+    imputation.accounter_scalar.location.stderr(lapply(1:m, function(i) predictive.model.imputed[[i]]$C.statistics$c.index.benefit))
   
   # return
   return(pred.model.imp.adj)

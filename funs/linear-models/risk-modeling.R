@@ -177,11 +177,18 @@ risk.modeling <- function(X, y, w, alpha = 1,
   obs.ben             <- y[match.control] - y[match.treated]
   pred.ben.abs.paired <- (pred.ben.abs[match.control] +
                             pred.ben.abs[match.treated]) / 2
-  c.index.benefit     <- unname(Hmisc::rcorr.cens(pred.ben.abs.paired, obs.ben)[1])
+  c.index.benefit.arr <- Hmisc::rcorr.cens(pred.ben.abs.paired, obs.ben)
+  c.index.benefit     <- list(estimate = unname(c.index.benefit.arr["C Index"]),
+                              stderr   = unname(c.index.benefit.arr["S.D."]))
   
   # C index
-  c.index.outcome.stage1 <- unname(Hmisc::rcorr.cens(stage1$response, y)[1])
-  c.index.outcome.stage2 <- unname(Hmisc::rcorr.cens(stage2$risk.regular.w, y)[1])
+  c.index.outcome.stage1.arr <- Hmisc::rcorr.cens(stage1$response, y)
+  c.index.outcome.stage1     <- list(estimate = unname(c.index.outcome.stage1.arr["C Index"]),
+                                     stderr   = unname(c.index.outcome.stage1.arr["S.D."]))
+  
+  c.index.outcome.stage2.arr <- Hmisc::rcorr.cens(stage2$risk.regular.w, y)
+  c.index.outcome.stage2     <- list(estimate = unname(c.index.outcome.stage2.arr["C Index"]),
+                                     stderr   = unname(c.index.outcome.stage2.arr["S.D."]))
   
   
   # return
@@ -275,15 +282,15 @@ risk.modeling_imputation.accounter <- function(predictive.model.imputed){
   
   # C stat stage 1
   pred.model.imp.adj$C.statistics$c.index.outcome.stage1 <- 
-    imputation.accounter_location(lapply(1:m, function(i) predictive.model.imputed[[i]]$C.statistics$c.index.outcome.stage1))
+    imputation.accounter_scalar.location.stderr(lapply(1:m, function(i) predictive.model.imputed[[i]]$C.statistics$c.index.outcome.stage1))
   
   # C stat stage 2
   pred.model.imp.adj$C.statistics$c.index.outcome.stage2 <- 
-    imputation.accounter_location(lapply(1:m, function(i) predictive.model.imputed[[i]]$C.statistics$c.index.outcome.stage2))
+    imputation.accounter_scalar.location.stderr(lapply(1:m, function(i) predictive.model.imputed[[i]]$C.statistics$c.index.outcome.stage2))
   
   # C index benefit
   pred.model.imp.adj$C.statistics$c.index.benefit <- 
-    imputation.accounter_location(lapply(1:m, function(i) predictive.model.imputed[[i]]$C.statistics$c.index.benefit))
+    imputation.accounter_scalar.location.stderr(lapply(1:m, function(i) predictive.model.imputed[[i]]$C.statistics$c.index.benefit))
   
   # LP
   pred.model.imp.adj$linear.predictor <- 
