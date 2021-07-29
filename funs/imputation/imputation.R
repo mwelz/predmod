@@ -33,6 +33,27 @@ imputation.accounter_location <- function(x){
 } # FUN
 
 
+## helper function for imputation uncertainty scalar estimates with standard errors
+## @param x = lapply(1:m, function(i) model.imputed[[i]]$<list of point estimate and standard error>)
+imputation.accounter_scalar.location.stderr <- function(x){
+  
+  m <- length(x)
+  
+  # mean location estimate
+  T.hat <- mean(sapply(1:m, function(i) x[[i]]$estimate))
+  
+  # average within-imputation variance
+  W.hat <- mean(sapply(1:m, function(i) x[[i]]$stderr^2))
+  
+  # average between-imputation variance
+  B.hat <- sum(sapply(1:m, function(i) x[[i]]$estimate - T.hat)^2) / (m-1)
+  
+  return(
+    list(estimate = T.hat, 
+         stderr = sqrt(W.hat + (m+1)/m * B.hat))) # pooled variance
+} # FUN
+
+
 #' impute datasets via kNN imputation
 #' 
 #' @param X matrix of covariates
