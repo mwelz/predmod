@@ -4,6 +4,9 @@ source(paste0(getwd(), "/funs/linear-models/risk-modeling.R"))
 # load imputation accounters
 source(paste0(getwd(), "/funs/imputation/imputation.R"))
 
+# for C index calculations
+source(paste0(getwd(),  "/funs/c-statistics/c-statistics"))
+
 
 #' get the matrix "w * X[, interactions]"
 #' 
@@ -351,37 +354,7 @@ effect.modeling <- function(X, y, w,
   # coefficients
   coefficients <- summary(final.model)$coefficients
   
-  
-  ### 4. calculate the C statistics ----
-  
-  # match cases based on observed benefit TODO: fix the data thing everywhere!
-  matched <- MatchIt::matchit(w ~ pb, data = data.frame(w=w, pb=predicted.benefits$pred.ben.abs))
-  match.treated <- as.numeric(rownames(matched$match.matrix))
-  match.control <- as.numeric(matched$match.matrix[,1])
-  
-  # remove unpaired observations
-  no.pairing <- which(is.na(match.control))
-  if(length(no.pairing) > 0){
-    match.treated <- match.treated[-no.pairing]
-    match.control <- match.control[-no.pairing]
-  }
-  
-  
-  # observed benefit & C index for benefit
-  obs.ben             <- y[match.control] - y[match.treated]
-  pred.ben.abs.paired <- (predicted.benefits$pred.ben.abs[match.control] +
-                            predicted.benefits$pred.ben.abs[match.treated]) / 2
-  c.index.benefit.arr <- Hmisc::rcorr.cens(pred.ben.abs.paired, obs.ben)
-  c.index.benefit     <- list(estimate = unname(c.index.benefit.arr["C Index"]),
-                              stderr   = unname(c.index.benefit.arr["S.D."]))
-  
-  # C index
-  c.index.outcome.arr <- Hmisc::rcorr.cens(predicted.benefits$risk.regular.w, y)
-  c.index.outcome     <- list(estimate = unname(c.index.outcome.arr["C Index"]),
-                              stderr   = unname(c.index.outcome.arr["S.D."]))
-  
-  
-  ### 5. return ----
+  ### 4. return ----
   return(list(
     inputs = list(X = X, w = w, y = y.orig, 
                   lifeyears = lifeyears, 
@@ -402,8 +375,10 @@ effect.modeling <- function(X, y, w,
                     predicted.relative.benefit = predicted.benefits$pred.ben.rel,
                     predicted.absolute.benefit.raw = predicted.benefits$pred.ben.abs.raw,
                     predicted.relative.benefit.raw = predicted.benefits$pred.ben.rel.raw),
-    C.statistics = list(c.index.outcome = c.index.outcome,
-                        c.index.benefit = c.index.benefit)
+    C.statistics = list(c.index.outcome = C.index.outcome(y = y, 
+                                                          risk.prediction = predicted.benefits$risk.regular.w),
+                        c.index.benefit = C.index.benefit(y = y, w = w, 
+                                                          predicted.benefit = predicted.benefits$pred.ben.abs))
   ))
 } # FUN
 

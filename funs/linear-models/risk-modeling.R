@@ -1,6 +1,10 @@
 # load imputation accounters
 source(paste0(getwd(), "/funs/imputation/imputation.R"))
 
+# for C index calculations
+source(paste0(getwd(),  "/funs/c-statistics/c-statistics"))
+
+
 #' baseline risk prediction via penalized logistic regression (treatment assignment is not used)
 #' 
 #' @param X matrix of data frame of covariates
@@ -162,38 +166,6 @@ risk.modeling <- function(X, y, w, alpha = 1,
   coefs.stage2 <- as.matrix(glmnet::coef.glmnet(stage2$mod.stage2))
   colnames(coefs.stage2) <- colnames(coefs.stage1) <- "Estimated Coefficient"
   
-  
-  # match cases based on observed benefit
-  matched <- MatchIt::matchit(w ~ pb, data = data.frame(w=w, pb=pred.ben.abs))
-  match.treated <- as.numeric(rownames(matched$match.matrix))
-  match.control <- as.numeric(matched$match.matrix[,1])
-  
-  # remove unpaired observations
-  no.pairing <- which(is.na(match.control))
-  if(length(no.pairing) > 0){
-    match.treated <- match.treated[-no.pairing]
-    match.control <- match.control[-no.pairing]
-  }
-  
-  
-  # calculate C for benefit by using predicted risk (with regular w)
-  obs.ben             <- y[match.control] - y[match.treated]
-  pred.ben.abs.paired <- (pred.ben.abs[match.control] +
-                            pred.ben.abs[match.treated]) / 2
-  c.index.benefit.arr <- Hmisc::rcorr.cens(pred.ben.abs.paired, obs.ben)
-  c.index.benefit     <- list(estimate = unname(c.index.benefit.arr["C Index"]),
-                              stderr   = unname(c.index.benefit.arr["S.D."]))
-  
-  # C index
-  c.index.outcome.stage1.arr <- Hmisc::rcorr.cens(stage1$response, y)
-  c.index.outcome.stage1     <- list(estimate = unname(c.index.outcome.stage1.arr["C Index"]),
-                                     stderr   = unname(c.index.outcome.stage1.arr["S.D."]))
-  
-  c.index.outcome.stage2.arr <- Hmisc::rcorr.cens(stage2$risk.regular.w, y)
-  c.index.outcome.stage2     <- list(estimate = unname(c.index.outcome.stage2.arr["C Index"]),
-                                     stderr   = unname(c.index.outcome.stage2.arr["S.D."]))
-  
-  
   # return
   return(list(
     inputs = list(X = X, w = w, y = y.orig, 
@@ -212,9 +184,9 @@ risk.modeling <- function(X, y, w, alpha = 1,
                     predicted.relative.benefit = pred.ben.rel,
                     predicted.absolute.benefit.raw = pred.ben.abs.raw,
                     predicted.relative.benefit.raw = pred.ben.rel.raw),
-    C.statistics = list(c.index.outcome.stage1 = c.index.outcome.stage1,
-                        c.index.outcome.stage2 = c.index.outcome.stage2,
-                        c.index.benefit = c.index.benefit),
+    C.statistics = list(c.index.outcome.stage1 = C.index.outcome(y = y, risk.prediction = stage1$response),
+                        c.index.outcome.stage2 = C.index.outcome(y = y, risk.prediction = stage2$risk.regular.w),
+                        c.index.benefit = C.index.benefit(y = y, w = w, predicted.benefit = pred.ben.abs)),
     linear.predictor = stage1$linear.predictor,
     z = stage2$z
   ))

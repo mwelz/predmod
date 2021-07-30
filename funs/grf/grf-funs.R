@@ -1,6 +1,10 @@
 # load imputation accounters
 source(paste0(getwd(), "/funs/imputation/imputation.R"))
 
+# for C index calculations
+source(paste0(getwd(),  "/funs/c-statistics/c-statistics"))
+
+
 #' applies GRF modeling. Note that risk modeling is not possible here
 #' 
 #' @param X design matrix, can also be a data frame
@@ -39,32 +43,6 @@ grf.modeling <- function(X, y, w,
   # ATE
   ate.obj <- grf::average_treatment_effect(cf)
   
-  # C statistics
-  # match cases based on observed benefit
-  matched <- MatchIt::matchit(w ~ pb, data = data.frame(w=w, pb=predicted.absolute.benefit))
-  match.treated <- as.numeric(rownames(matched$match.matrix))
-  match.control <- as.numeric(matched$match.matrix[,1])
-  
-  # remove unpaired observations
-  no.pairing <- which(is.na(match.control))
-  if(length(no.pairing) > 0){
-    match.treated <- match.treated[-no.pairing]
-    match.control <- match.control[-no.pairing]
-  }
-  
-  # observed benefit & C index for benefit
-  obs.ben             <- y[match.control] - y[match.treated]
-  pred.ben.abs.paired <- (predicted.absolute.benefit[match.control] +
-                            predicted.absolute.benefit[match.treated]) / 2
-  c.index.benefit.arr <- Hmisc::rcorr.cens(pred.ben.abs.paired, obs.ben)
-  c.index.benefit     <- list(estimate = unname(c.index.benefit.arr["C Index"]),
-                              stderr   = unname(c.index.benefit.arr["S.D."]))
-  
-  # C index
-  c.index.outcome.arr <- Hmisc::rcorr.cens(risk.baseline, y)
-  c.index.outcome     <- list(estimate = unname(c.index.outcome.arr["C Index"]),
-                              stderr   = unname(c.index.outcome.arr["S.D."]))
-  
   # return
   return(list(inputs = list(X = X, w = w, y = y.orig, 
                             lifeyears = lifeyears, 
@@ -76,8 +54,9 @@ grf.modeling <- function(X, y, w,
               risk = list(risk.baseline = risk.baseline),
               benefits = list(predicted.absolute.benefit = predicted.absolute.benefit,
                               predicted.absolute.benefit_variance = predicted.absolute.benefit_variance),
-              C.statistics = list(c.index.outcome = c.index.outcome,
-                                  c.index.benefit = c.index.benefit)))
+              C.statistics = list(c.index.outcome = C.index.outcome(y = y, risk.prediction = risk.baseline),
+                                  c.index.benefit = C.index.benefit(y = y, w = w, 
+                                                                    predicted.benefit = predicted.absolute.benefit))))
 } # FUN
 
 

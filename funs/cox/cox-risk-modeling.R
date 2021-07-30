@@ -1,4 +1,4 @@
-source(paste0(getwd(),  "/funs/c-index/c-index.R")) # for C index calculations
+source(paste0(getwd(),  "/funs/c-statistics/c-statistics")) # for C index calculations
 
 #' baseline risk prediction via penalized Cox regression (treatment assignment is not used)
 #' 
