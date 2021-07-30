@@ -2,7 +2,7 @@
 source(paste0(getwd(), "/funs/imputation/imputation.R"))
 
 # for C index calculations
-source(paste0(getwd(),  "/funs/c-statistics/c-statistics"))
+source(paste0(getwd(),  "/funs/c-statistics/c-statistics.R"))
 
 
 #' baseline risk prediction via penalized logistic regression (treatment assignment is not used)

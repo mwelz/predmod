@@ -5,7 +5,7 @@ source(paste0(getwd(), "/funs/linear-models/risk-modeling.R"))
 source(paste0(getwd(), "/funs/imputation/imputation.R"))
 
 # for C index calculations
-source(paste0(getwd(),  "/funs/c-statistics/c-statistics"))
+source(paste0(getwd(),  "/funs/c-statistics/c-statistics.R"))
 
 
 #' get the matrix "w * X[, interactions]"
