@@ -45,6 +45,7 @@ baseline.risk <- function(X, y, alpha = 1){
 #' 
 #' @export 
 risk.model.stage2 <- function(linear.predictor, y, w, z, lambda, 
+                              alpha = 1,
                               intercept = FALSE){
   
   # check input for offset.linear.predictor
@@ -66,7 +67,8 @@ risk.model.stage2 <- function(linear.predictor, y, w, z, lambda,
                                family = "binomial",
                                lambda = lambda,
                                intercept = intercept,
-                               offset = z) 
+                               offset = z,
+                               alpha = alpha) 
   
   # get the estimated coefficients
   coefs.obj     <- glmnet::coef.glmnet(mod.stage2)
@@ -144,6 +146,7 @@ risk.modeling <- function(X, y, w, alpha = 1,
                               y = y, w = w,
                               lambda = stage1$lambda.min, 
                               intercept = intercept.stage.2,
+                              alpha = alpha,
                               z = z)
   
   # absolute predicted benefit
