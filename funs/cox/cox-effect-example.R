@@ -53,3 +53,4 @@ interacted.variables = colnames(X)
 retained.variables = NULL
 significance.level = 0.05
 
+em <- cox.effect.modeling(X, y, w, interacted.variables = interacted.variables, alpha = alpha, lifeyears = lifeyears, prediction.timeframe = prediction.timeframe, retained.variables = retained.variables, significance.level = significance.level)

@@ -2,6 +2,7 @@ source(paste0(getwd(), "/funs/c-statistics/c-statistics.R"))
 source(paste0(getwd(), "/funs/linear-models/effect-modeling.R"))
 source(paste0(getwd(), "/funs/cox/cox-risk-modeling.R"))
 
+
 #' compute log likelihood of a Cox PH model
 #' 
 #' @param beta vector of coefficients (p-dimensional)
@@ -51,9 +52,8 @@ loglik.coxph <- function(beta, time, status, X){
 #' @export
 variable.selection.cox <- function(X, y, w,
                                    interacted.variables,
-                                   alpha = 1,
-                                   prediction.timeframe,
                                    lifeyears,
+                                   alpha = 1,
                                    retained.variables = NULL,
                                    significance.level = 0.05){
   
@@ -174,7 +174,33 @@ variable.selection.cox <- function(X, y, w,
 } # FUN
 
 
-
+#' Performs effect modeling. Final effect model is done via variable selection based on post-selection hypothesis tests. Function follows the strategy of Wasserman and Roeder (2009, Annals of Statistics):
+#' 
+#' step 0.1: create matrix Z = (w, X, interaction.terms). 
+#' 
+#' step 0.2: partition the observations in three roughly equally-sized sets sets: D1, D2, D3.
+#' 
+#' step 1.1: use D1 to perform variable selection by penalized logistic regression for given value of lambda. Let Z_lambda be the design matrix associated with the retained variables.
+#' 
+#' step 1.2: use the retained variables from 1.1 to calculate the logistic least squares estimator beta_lambda on D1.
+#' 
+#' step 1.3 calculate the empirical cross-entropy loss on D2, by using beta_lambda
+#' 
+#' step 2: repeat steps 1.1 to 1.3 for many lambdas. Let beta_lambdahat be the logistic least squares estimator that corresponds to the retained variables of the model with the lambda that minimizes the loss. Calculate this least squares estimator on D3.
+#' 
+#'  step 3: perform standard hypothesis tests to decide which of the retained variables in step 2 make it to the final model. Note that the critical value needs to be adjusted; see  Wasserman and Roeder (2009, Annals of Statistics) for details
+#' 
+#' @param X design matrix, can also be a data frame
+#' @param y vector of binary responses. 
+#' @param w vector of binary treatment assignments
+#' @param interacted.variables string array of variables in _X_ that shall be interacted with treatment _w_
+#' @param alpha the alpha as in 'glmnet'. Default is 1, which corresponds to the Lasso
+#' @param lifeyears vector of life years. Default is NULL.
+#' @param prediction.timeframe vector of the prediction time frame. Default is NULL.
+#' @param retained.variables string array of variable names in Z that shall always be retained (i.e. also interaction terms can be considered). If NULL (default), then no restriction applies. Note that treatment assignment w will always be retained by the function.
+#' @param significance.level for the hypothesis tests. Default is 0.05
+#' 
+#' @export
 cox.effect.modeling <- function(X, y, w,
                                 interacted.variables,
                                 alpha = 1,
@@ -197,191 +223,53 @@ cox.effect.modeling <- function(X, y, w,
                                      lifeyears = lifeyears,
                                      prediction.timeframe = prediction.timeframe)
   baseline.risk <- baseline.mod$response 
-
-
   
-  ###################################################################
-  ### 0. preparation ----
-  # split the sample as suggested in Wasserman and Roeder (2009)
-  lifeyears <- ifelse(lifeyears <=predictiontimeframe, lifeyears, predictiontimeframe)
-  y <- ifelse(lifeyears <=predictiontimeframe, y, 0)
-  n    <- nrow(X)
-  p    <- ncol(X)
-  set.seed(25)
-  set1 <- sample(1:n, floor(0.5 * n), replace = FALSE)
-  set2 <- setdiff(1:n, set1)
+  ### 2. perform variable selection ----
+  # We use the strategy in Wasserman and Roeder (2009; Annals of Statistics)
+  vs.obj <- variable.selection.cox(X = X, y = y, w = w, 
+                                   lifeyears = lifeyears,
+                                   interacted.variables = interacted.variables, 
+                                   alpha = alpha, 
+                                   retained.variables = retained.variables, 
+                                   significance.level = significance.level)
   
-  # prepare the variable set as in rekkas2019:
-  if(!is.null(colnames(X))){
-    colnames.orig <- colnames(X)
-  } else{
-    colnames.orig <- paste0("X", 1:p)
-  }
-  colnames(X)     <- paste0("X", 1:p)
+  # get design matrix associated with the final model
+  Z     <- vs.obj$final.model$design.matrix_selected.variables
   
-  if(is.null(interactions)){
-    interaction.vars <- colnames(X)
-  } else{
-    interaction.vars <- paste0("X", which(colnames.orig %in% interactions))
-  }
-  
-  # add interaction variables
-  interaction.terms <- sapply(which(colnames(X) %in% interaction.vars),
-                              function(j) ifelse(w == 1, X[,j], 0))
-  
-  interaction.terms <- cbind(w, interaction.terms)
-  colnames(interaction.terms) <- c("w", paste0("w.", interaction.vars))
-  X.star <- cbind(X, interaction.terms)
-  glmsurvival.coxeffect.obj <-survival::Surv(lifeyears, y)
-  colnames(glmsurvival.coxeffect.obj) <- c("time", "status")
-  
-  ### 1. stage 1: penalized regression on whole set  ----
-  # whole set is x.star. We apply sample splitting as suggested in Wasserman and Roeder (2009)
-  mod.pm <- glmnet::cv.glmnet(X.star[set1,], glmsurvival.coxeffect.obj[set1], family = "cox", type.measure = "C", alpha = 1)
-  
-  ### 2. stage 2: perform variable selection based on the "best" model ----
-  coefs.obj     <- glmnet::coef.glmnet(mod.pm, s = "lambda.min")
-  kept.vars     <- coefs.obj@i 
-  if(0 %in% kept.vars){
-    kept.vars <- kept.vars[-which(kept.vars == 0)]
-  }
-  kept.vars.nam <- colnames(X.star)[kept.vars]
-  
-  ### 3. stage 3: perform chi-squared test on significance of interactions in the "best" model ----
-  # big model
-  X.kept <- X.star[, kept.vars.nam]
-  
-  # reduced model: (X_lambda, w), where X_lambda are the retained (by the lasso) initial variables
-  kept.vars.no.x.nam <- 
-    kept.vars.nam[grepl(pattern = "w.", x = kept.vars.nam, fixed = TRUE)]
-  X.star.red <- X.kept[, -which(kept.vars.nam %in% kept.vars.no.x.nam)]
-  
-  # fit both large and reduced model
-  #fit.1     <-  glmnet::glmnet(X.kept[set2,], glmsurvival.coxeffect.obj[set2], family = "cox", type.measure = "C")
-  #fit.0     <-  glmnet::glmnet(X.star.red[set2,], glmsurvival.coxeffect.obj[set2], family = "cox", type.measure = "C")
-  fit.1     <- rms::cph(glmsurvival.coxeffect.obj[set2]~ X.kept[set2,])
-  fit.0     <-  rms::cph(glmsurvival.coxeffect.obj[set2]~ X.star.red[set2,])# reduced model
-  formula.0 <- paste0("surv ~ ", paste(colnames(X.star.red), collapse = " + "))
-  formula.1 <- paste0("surv ~ ", paste(colnames(X.kept), collapse = " + "))
-  anova_fit1 = anova(fit.1)
-  anova_fit0 = anova(fit.0)
-  
-  # perform likelihood ratio test
-  test.stat <- anova_fit1[2,1]- anova_fit0[2,1]
-  df        <- anova_fit1[2,2]- anova_fit0[2,2]
-  pval      <- pchisq(test.stat, df, lower.tail = FALSE)
-  
-  # if we reject the null, go with the smaller (the reduced model) to make risk predictions
-  if(pval < sig.level){
-    final.model         <- fit.0
-    X.final             <- X.star.red
-  } else{
-    final.model         <- fit.1
-    X.final             <- X.kept
-  }
-  
-  ### 4. use the final model to obtain risk estimates ----
-  
-  
-  # risk with regular w
-  #final.model.fit <-glmnet::glmnet(X.final, glmsurvival.coxeffect.obj, family = "cox", type.measure = "C")
-  #lambda        <- min(final.model.fit$lambda)
-  #lp              <-predict(final.model.fit, s=lambda, X.final,type="link") #linear predictors
-  #basehaz  <- hdnom::glmnet_basesurv(lifeyears, y, lp , times.eval = predictiontimeframe, centered = FALSE)
-  final.model.fit <- rms::cph(glmsurvival.coxeffect.obj~ X.final,y=TRUE,x=TRUE)
-  lp=X.final %*% final.model.fit$coefficients
-  basehazard <- survival::basehaz(final.model.fit,centered=FALSE)
-  Hazard_t_index = match(1, round(basehazard$time,1) == predictiontimeframe, nomatch = NA)
-  
-  # 1) ordinary w
-  probs  =  1-exp(-basehazard[Hazard_t_index,1])^exp(lp) 
-  #probs  =  1-exp(-basehaz$cumulative_base_hazard)^exp(lp)
-  # coefs.glm.cox     <- glmnet::coef.glmnet(final.model.fit, s = lambda)
-  
-  # get risk with flipped w
-  kept.X <- colnames(X.final)[startsWith(colnames(X.final), "X")]
-  kept.w <- sub(".*\\.", "", colnames(X.final)[startsWith(colnames(X.final), "w")])
-  X.star <- cbind(X, w = ifelse(w == 1, 0, 1))
-  interaction.terms.flipped <- sapply(kept.w, 
-                                      function(j) ifelse(w == 1, 0, X.star[,j]))
-  X.rev <- cbind(X[,kept.X], interaction.terms.flipped)
-  colnames(X.rev) <- colnames(X.final)
-  
-  lp.flipped.w     <- as.numeric(X.rev  %*% final.model.fit$coefficients)
-  probs.flipped.w  <-  1-exp(-basehazard[Hazard_t_index,1])^exp(lp.flipped.w) 
-  
-  
-  # get absolute predicted benefit
-  pred.ben.abs.raw <- probs - probs.flipped.w
-  pred.ben.abs     <- ifelse(w == 1, pred.ben.abs.raw, -pred.ben.abs.raw)
-  
-  # get relative predicted benefit
-  pred.ben.rel.raw <- probs / probs.flipped.w
-  pred.ben.rel     <- ifelse(w == 1, pred.ben.rel.raw, 1 / pred.ben.rel.raw)
-  
-  
-  ### 5. housekeeping: make sure the naming is consistent
-  # update variable names
-  colnames.final.temp <- colnames(X.final)
-  colnames.final      <- rep(NA_character_, length(colnames.final.temp))
-  
-  for(i in 1:p){
-    idx <- grepl(pattern = paste0("X", i), x = colnames.final.temp, fixed = TRUE)
-    colnames.final[idx] <- gsub(paste0("X", i), colnames.orig[i], colnames.final.temp[idx])
-  }
-  colnames.final[is.na(colnames.final)] <- "w" # fill up 'w'
-  colnames(X.final)                     <- colnames.final
-  colnames(X)                           <- colnames.orig
-  formula.final.model                   <- paste0("surv ~ ", 
-                                                  paste(colnames.final, collapse = " + "))
+  ### 3. fit the final effect model and use it for risk estimates ----
+  # fit the final model, this time on full sample (no penalty required, selection already took place!)
+  final.model        <- survival::coxph(survival::Surv(lifeyears, y) ~., data = as.data.frame(Z)) 
+  predicted.benefits <- effect.model.predicted.benefits(X = X, y = y, w = w, 
+                                                        final.model = final.model, Z = Z)
   
   # coefficients
-  coefficients <- final.model$coefficients
-  names(coefficients) <- c(colnames.final)
+  coefficients <- summary(final.model)$coefficients
   
-  
-  
-  #Match cases based on observed benefit
-  Treatment.formula<- w~pred.ben.abs
-  matched <- MatchIt::matchit(Treatment.formula)
-  treated <- as.numeric(rownames(matched$match.matrix))
-  control <- as.numeric(matched$match.matrix[,1])
-  
-  #Remove unpaired observations
-  no.pairing <- which(is.na(matched$match.matrix))
-  treated <- treated[-no.pairing]
-  control <- control[-no.pairing]
-  
-  obs.ben <- y[control]-y[treated]
-  pred.ben.abs.paired = (pred.ben.abs[control]+pred.ben.abs[treated])/2 #Pairs are matched by predicted benefit; average over the pair
-  
-  # calculate C for benefit by using predicted risk (with regular w)
-  c.index.benefit = unname(Hmisc::rcorr.cens(pred.ben.abs.paired, obs.ben)[1])
-  Dxy = final.model$stats[[9]]
-  abs.Dxy = abs(Dxy)
-  c.index.youtcome=(abs.Dxy/2)+0.5
-  
-  
-  ## 6. return ----
+  ### 4. return ----
   return(list(
-    inputs = list(X = X, w = w, y = y),
-    effect.model = list(formula = formula.final.model, 
-                        selected.data = X.final,
+    inputs = list(X = X, w = w, y = y.orig, 
+                  lifeyears = lifeyears, 
+                  prediction.timeframe = prediction.timeframe, 
+                  y.prediction.timeframe = y),
+    average.treatment.effect = mean(predicted.benefits$pred.ben.abs),
+    baseline.model = baseline.mod,
+    effect.model = list(formula = vs.obj$final.model$formula.final.model, 
+                        selected.data = Z,
                         glm.obj = final.model,
-                        coefficients = coefficients,
-                        model.building = list(test.stat = test.stat,
-                                              df = df,
-                                              pval = pval)),
-    risk.regular.w = probs,
-    risk.flipped.w = probs.flipped.w,
-    predicted.absolute.benefit = pred.ben.abs,
-    predicted.absolute.benefit.raw = pred.ben.abs.raw,
-    predicted.relative.benefit = pred.ben.rel,
-    predicted.relative.benefit.raw = pred.ben.rel.raw,
-    ate.hat = mean(pred.ben.abs),
-    c.index.youtcome = c.index.youtcome,
-    c.index.benefit =c.index.benefit
+                        coefficients = coefficients[,1],
+                        summary = coefficients,
+                        model.building = vs.obj),
+    risk = list(risk.regular.w = predicted.benefits$risk.regular.w,
+                risk.flipped.w = predicted.benefits$risk.flipped.w,
+                risk.baseline  = baseline.risk),
+    benefits = list(predicted.absolute.benefit = predicted.benefits$pred.ben.abs,
+                    predicted.relative.benefit = predicted.benefits$pred.ben.rel,
+                    predicted.absolute.benefit.raw = predicted.benefits$pred.ben.abs.raw,
+                    predicted.relative.benefit.raw = predicted.benefits$pred.ben.rel.raw),
+    C.statistics = list(c.index.outcome = C.index.outcome(y = y, 
+                                                          risk.prediction = predicted.benefits$risk.regular.w),
+                        c.index.benefit = C.index.benefit(y = y, w = w, 
+                                                          predicted.benefit = predicted.benefits$pred.ben.abs))
   ))
-  
   
 } # FUN

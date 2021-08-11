@@ -242,9 +242,18 @@ variable.selection <- function(X, y, w,
 effect.model.predicted.benefits <- function(X, y, w, final.model, Z){
   
   # get risk with regular w (response is a probability)
-  response <- unname(predict.glm(final.model,
-                                 newdata = as.data.frame(Z), 
-                                 type = "response"))
+  if("glm" %in% attr(final.model, which = "class")){
+    
+    response <- unname(predict.glm(final.model,
+                                   newdata = as.data.frame(Z), 
+                                   type = "response"))
+    
+  } else if (attr(final.model, which = "class") == "coxph"){
+    
+    response <- unname(1 - exp(-predict(final.model, type = "expected"))) # Pr(Y = 1 | X) = 1 - Pr(survival)
+    
+  } else stop("final.model is of illegal type (only glm and coxph allowed)")
+  
   
   # get risk with flipped w
   kept.interactions <- substr(colnames(Z)[startsWith(colnames(Z), "w.")], start = 3, stop = 1e6)
@@ -261,9 +270,20 @@ effect.model.predicted.benefits <- function(X, y, w, final.model, Z){
   } # IF
   colnames(Z_w.flipped) <- colnames(Z)
   
-  response_w.flipped <- unname(predict.glm(final.model, 
-                                           newdata = as.data.frame(Z_w.flipped),
-                                           type = "response"))
+  
+  if("glm" %in% attr(final.model, which = "class")){
+    
+    response_w.flipped <- unname(predict.glm(final.model,
+                                   newdata = as.data.frame(Z_w.flipped), 
+                                   type = "response"))
+    
+  } else if (attr(final.model, which = "class") == "coxph"){
+    
+    response_w.flipped <- unname(1 - exp(-predict(final.model,
+                                                  type = "expected", 
+                                                  newdata = Z_w.flipped)))
+    
+  } else stop("final.model is of illegal type (only glm and coxph allowed)")
   
   # get absolute predicted benefit
   pred.ben.abs.raw <- response - response_w.flipped
