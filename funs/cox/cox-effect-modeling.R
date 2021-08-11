@@ -2,6 +2,25 @@ source(paste0(getwd(), "/funs/c-statistics/c-statistics.R"))
 source(paste0(getwd(), "/funs/linear-models/effect-modeling.R"))
 source(paste0(getwd(), "/funs/cox/cox-risk-modeling.R"))
 
+#' compute log likelihood of a Cox PH model
+#' 
+#' @param beta vector of coefficients (p-dimensional)
+#' @param time vector of time (n-dimensional)
+#' @param status binary vector of status (n-dimensional)
+#' @param X design matrix (nxp-dimensional)
+#' 
+#' @export
+loglik.coxph <- function(beta, time, status, X){
+  
+  X     <- as.matrix(X)
+  xb    <- as.numeric(X %*% beta)
+  theta <- exp(xb)
+  
+  # logL: sum_{i:status=1} <x_i, beta> - ln(sum_{j:t_j >= t_i} theta_j )
+  sum(sapply(which(status == 1), function(i ) xb[i] - log(sum(theta[time >= time[i]]))))
+  
+} # FUN
+
 
 #' Performs variable selection based on post-selection hypothesis tests. Function follows the strategy of Wasserman and Roeder (2009, Annals of Statistics):
 #' 
@@ -72,14 +91,17 @@ variable.selection.cox <- function(X, y, w,
   suite <- lapply(1:length(lambdapath), function(...) list(retained.variables = NA, lasso.estimates = NA))
   loss  <- rep(NA_real_, length(lambdapath))
   
+  # get survival matrix; to be passed as response of glmnet
+  survival.matrix_set1 <- survival::Surv(lifeyears[set1], y[set1])
+  survival.matrix_set2 <- survival::Surv(lifeyears[set2], y[set2])
+  survival.matrix_set3 <- survival::Surv(lifeyears[set3], y[set3])
+  colnames(survival.matrix_set1) <- 
+    colnames(survival.matrix_set2) <- colnames(survival.matrix_set3) <- c("time", "status")
+  
   for(i in 1:length(lambdapath)){
     
-    # get survival matrix; to be passed as response of glmnet
-    survival.matrix           <-survival::Surv(lifeyears[set1], y[set1])
-    colnames(survival.matrix) <- c("time", "status")
-    
     # penalized logistic regression on first set
-    mod <- glmnet::glmnet(x = Z[set1,], y = survival.matrix, 
+    mod <- glmnet::glmnet(x = Z[set1,], y = survival.matrix_set1, 
                           family = "cox", type.measure = "C", 
                           alpha = alpha,
                           lambda = lambdapath[i])
@@ -95,37 +117,29 @@ variable.selection.cox <- function(X, y, w,
     suite[[i]]$lasso.estimates    <- as.numeric(mod$beta) # Cox doesn't have intercept
     
     #  fit Cox model with retained variables on first set
-    mod <- survival::coxph(survival.matrix~., data = data.frame(Z[set1, kept.vars]))
-    # CONTINUE HERE
+    mod <- survival::coxph(survival.matrix_set1 ~., data = data.frame(Z[set1, kept.vars]))
     
     
-    # predict Pr(Y=1) on second set
-    df <- data.frame(Z[set2, kept.vars])
-    colnames(df) <- colnames(Z)[kept.vars]
-    p.hat <- predict.glm(mod, newdata = df, type = "response")
-    
-    # cross-validation: evaluate the loss (cross-entropy here) on the second set
-    crossentropy <- rep(NA_real_, length(set2))
-    crossentropy[y[set2] == 1] <- -log(p.hat[y[set2] == 1])
-    crossentropy[y[set2] == 0] <- -log(1 - p.hat[y[set2] == 0])
-    loss[i] <- mean(crossentropy)
+    # calculate loss of the model on 2nd set (loss = negative logL)
+    loss[i] <- -loglik.coxph(beta = mod$coefficients, 
+                             time = survival.matrix_set2[,"time"], 
+                             status = survival.matrix_set2[,"status"], 
+                             X = Z[set2, kept.vars])
     
   } # FOR
   
-  # find the lambda that minimizes the empirical loss and its associated model
-  lambda.min <- lambdapath[which.min(loss)]
-  S.hat      <- suite[[which.min(loss)]]$retained.variables
+  # find the lambda that minimizes the empirical loss and its associated model (S.hat)
+  lambda.min   <- lambdapath[which.min(loss)]
+  S.hat        <- suite[[which.min(loss)]]$retained.variables
   Z.lambda.min <- Z[, S.hat]
   
-  # on third set: use S.hat to calculate logistic least squares estimator with Z.lambda.min
-  df <- data.frame(y = y[set3], Z.lambda.min[set3,])
-  colnames(df) <- c("y", colnames(Z.lambda.min))
-  mod <- glm(y~., family =  binomial(link = "logit"), 
-             data = df)
+  # on third set: use S.hat to calculate Cox model with Z.lambda.min
+  mod <- survival::coxph(survival.matrix_set3 ~., data = data.frame(Z.lambda.min[set3,]))
   
   # on third set: hypothesis testing
   coeffs <- summary(mod)$coefficients
-  coeffs <- cbind(coeffs, rep(NA_real_, length(S.hat) + 1))
+  coeffs <- coeffs[, c("coef", "se(coef)", "z", "Pr(>|z|)")]
+  coeffs <- cbind(coeffs, rep(NA_real_, length(S.hat)))
   colnames(coeffs) <- c("Estimate", "Std. Error", "z value", "critical value", "retain?")
   critval <- qnorm(significance.level / 2 * length(S.hat), lower.tail = FALSE)
   coeffs[, "critical value"] <- critval
@@ -139,12 +153,13 @@ variable.selection.cox <- function(X, y, w,
   
   # get the regularized estimates at the minimizing lambda
   regularized.estimates_lambda.min <- suite[[which.min(loss)]]$lasso.estimates
-  names(regularized.estimates_lambda.min) <- c("(Intercept)", colnames(Z))
+  names(regularized.estimates_lambda.min) <- colnames(Z)
   
   # organize output
   model.selection <- list(selected.variables = colnames(Z)[D.hat],
                           design.matrix_selected.variables = Z[, D.hat],
-                          formula.final.model = paste0("y ~ ", paste(colnames(Z)[D.hat], collapse = " + ")),
+                          formula.final.model = paste0("Surv(lifeyears, y) ~ ", 
+                                                       paste(colnames(Z)[D.hat], collapse = " + ")),
                           final.model.object = mod,
                           lambda.min = lambda.min,
                           significance.tests_lambda.min = coeffs,
