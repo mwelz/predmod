@@ -81,11 +81,10 @@ cox.risk.model.stage2  <- function(linear.predictor, y, w, z,
   survival.matrix           <-survival::Surv(lifeyears, y)
   colnames(survival.matrix) <- c("time", "status")
   
-  # Cox regression for survival
+  # Cox regression for survival (no offset due to lack of constant)
   mod.stage2 <- glmnet::glmnet(x = X.stage2, y = survival.matrix,
                                family = "cox", type.measure = "C",
                                lambda = lambda,
-                               offset = z,
                                alpha = alpha) # TODO: ask Kevin, no offset previously!
   
   # get the estimated coefficients
