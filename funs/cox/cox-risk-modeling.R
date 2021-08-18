@@ -56,12 +56,14 @@ baseline.risk.cox <- function(X, y,
 #' @param y a binary response vector
 #' @param w a binary treatment assignment vector
 #' @param z the `z` in the model, which is used as product with w and as an offset. Default is `linear.predictor`.
+#' @param constant.relative.treatment.effect If TRUE, the interaction z*w is not used as regressor. Default is FALSE.
 #' @param lifeyears vector of life years.
 #' @param prediction.timeframe vector of the prediction time frame.
 #' @param lambda the lambda for the penalty term
 #' 
 #' @export 
 cox.risk.model.stage2  <- function(linear.predictor, y, w, z, 
+                                   constant.relative.treatment.effect = FALSE,
                                    lifeyears, prediction.timeframe, lambda){
   
   # check input for offset.linear.predictor
@@ -75,7 +77,12 @@ cox.risk.model.stage2  <- function(linear.predictor, y, w, z,
   } # IF
   
   # prepare X for second stage
-  X.stage2 <- cbind(w = w, w.z = w * z)
+  if(constant.relative.treatment.effect){
+    X.stage2 <- as.matrix(w)
+    colnames(X.stage2) <- "w"
+  } else{
+    X.stage2 <- cbind(w = w, w.z = w * z)
+  } # IF
   
   # get survival matrix; to be passed as response of glmnet
   survival.matrix           <-survival::Surv(lifeyears, y)
@@ -137,12 +144,14 @@ cox.risk.model.stage2  <- function(linear.predictor, y, w, z,
 #' @param y a binary response vector
 #' @param w a binary treatment assignment vector
 #' @param alpha the alpha as in glmnet. Default is 1 (= Lasso)
+#' @param constant.relative.treatment.effect If TRUE, the interaction z*w is not used as regressor. Default is FALSE.
 #' @param lifeyears vector of life years. Default is NULL.
 #' @param prediction.timeframe vector of the prediction time frame. Default is NULL.
 #' @param z the `z` in the 2nd stage, which is used as product with w and as an offset. Default is `linear.predictor`.
 #' 
 #' @export
 cox.risk.modeling <- function(X, w, y, alpha = 1, 
+                              constant.relative.treatment.effect = FALSE,
                               lifeyears, prediction.timeframe, z = "linear.predictor"){
   
   # truncate y if necessary
@@ -160,6 +169,7 @@ cox.risk.modeling <- function(X, w, y, alpha = 1,
   # stage 2
   stage2 <- cox.risk.model.stage2(linear.predictor = stage1$linear.predictor, 
                                   y = y, w = w, z = z,
+                                  constant.relative.treatment.effect = constant.relative.treatment.effect,
                                   lifeyears = lifeyears, prediction.timeframe = prediction.timeframe, 
                                   lambda = stage1$lambda.min)
   

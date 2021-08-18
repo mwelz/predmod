@@ -45,11 +45,14 @@ baseline.risk <- function(X, y, alpha = 1){
 #' @param w a binary treatment assignment vector
 #' @param z the `z` in the model, which is used as product with w and as an offset. Default is `linear.predictor`.
 #' @param lambda the lambda for the penalty term
+#' @param alpha the glmnet alpha. Default is 1 (Lasso)
+#' @param constant.relative.treatment.effect If TRUE, the interaction z*w is not used as regressor. Default is FALSE.
 #' @param intercept logical. Shall an intercept be included? Default is `FALSE`
 #' 
 #' @export 
 risk.model.stage2 <- function(linear.predictor, y, w, z, lambda, 
                               alpha = 1,
+                              constant.relative.treatment.effect = FALSE,
                               intercept = FALSE){
   
   # check input for offset.linear.predictor
@@ -64,7 +67,13 @@ risk.model.stage2 <- function(linear.predictor, y, w, z, lambda,
   
   
   # prepare X for second stage
-  X.stage2 <- cbind(w = w, w.z = w * z)
+  if(constant.relative.treatment.effect){
+    X.stage2 <- as.matrix(w)
+    colnames(X.stage2) <- "w"
+  } else{
+    X.stage2 <- cbind(w = w, w.z = w * z)
+  } # IF
+  
   
   # stage 2 modeling
   mod.stage2 <- glmnet::glmnet(X.stage2, y, 
@@ -121,7 +130,7 @@ risk.model.stage2 <- function(linear.predictor, y, w, z, lambda,
 #' @param lifeyears vector of life years. Default is NULL.
 #' @param prediction.timeframe vector of the prediction time frame. Default is NULL.
 #' @param z the `z` in the 2nd stage, which is used as product with w and as an offset. Default is `linear.predictor`.
-#' @param lambda the lambda for the penalty term
+#' @param constant.relative.treatment.effect If TRUE, the interaction z*w is not used as regressor in stage 2. Default is FALSE.
 #' @param intercept.stage.2 logical. Shall an intercept in stage 2 be included? Default is `FALSE`
 #' 
 #' @export
@@ -129,6 +138,7 @@ risk.modeling <- function(X, y, w, alpha = 1,
                           lifeyears = NULL,
                           prediction.timeframe = NULL,
                           intercept.stage.2 = FALSE,
+                          constant.relative.treatment.effect = FALSE,
                           z = "linear.predictor"){
   
   # truncate y if necessary
@@ -150,6 +160,7 @@ risk.modeling <- function(X, y, w, alpha = 1,
                               y = y, w = w,
                               lambda = stage1$lambda.min, 
                               intercept = intercept.stage.2,
+                              constant.relative.treatment.effect = constant.relative.treatment.effect,
                               alpha = alpha,
                               z = z)
   
