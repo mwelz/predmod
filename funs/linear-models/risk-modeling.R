@@ -21,10 +21,11 @@ baseline.risk <- function(X, y, alpha = 1){
   coefs.obj     <- glmnet::coef.glmnet(glmnet.obj, s = "lambda.min")
   kept.vars     <- coefs.obj@i
   if(0 %in% kept.vars) kept.vars <- kept.vars[-which(kept.vars == 0)] # intercept is not a variable
-  coefs         <- coefs.obj@x
-  names(coefs)  <- c("(Intercept)", colnames(X)[kept.vars])
-  X.retained    <- cbind(intercept = 1, X[,kept.vars])
-  lp            <- as.numeric(X.retained %*% coefs) # linear predictor
+  coefs            <- as.matrix(coefs.obj@x)
+  rownames(coefs)  <- c("(Intercept)", colnames(X)[kept.vars])
+  colnames(coefs)  <- "Estimate"
+  X.retained       <- cbind(intercept = 1, X[,kept.vars])
+  lp               <- as.numeric(X.retained %*% coefs) # linear predictor
   
   return(list(
     glmnet.obj = glmnet.obj,
@@ -37,87 +38,89 @@ baseline.risk <- function(X, y, alpha = 1){
 } # FUN
 
 
-#' perform risk modeling: second stage (penalized logistic regression):
+#' perform risk modeling: second stage 
 #' y = g(\beta_0 +\beta_1 * w + \beta_2 w * z + z + \varepsilon)
 #' 
 #' @param linear.predictor a vector of linear predictions
 #' @param y a binary response vector
 #' @param w a binary treatment assignment vector
 #' @param z the `z` in the model, which is used as product with w and as an offset. Default is `linear.predictor`.
-#' @param lambda the lambda for the penalty term
-#' @param alpha the glmnet alpha. Default is 1 (Lasso)
-#' @param constant.relative.treatment.effect If TRUE, the interaction z*w is not used as regressor. Default is FALSE.
+#' @param constant.treatment.effect If TRUE, the interaction z*w is not used as regressor. Default is FALSE.
 #' @param intercept logical. Shall an intercept be included? Default is `FALSE`
 #' 
 #' @export 
-risk.model.stage2 <- function(linear.predictor, y, w, z, lambda, 
-                              alpha = 1,
-                              constant.relative.treatment.effect = FALSE,
+risk.model.stage2 <- function(linear.predictor, y, w, 
+                              z = "linear.predictor", 
+                              constant.treatment.effect = FALSE,
                               intercept = FALSE){
   
   # check input for offset.linear.predictor
   if(any(is.character(z))){
     
     if(z == "linear.predictor"){
-      z <- linear.predictor
+      zz <- linear.predictor
     } else{
       stop("z needs to be numeric or equal to 'linear predictor'!")
     } # IF
+  } else{
+    
+    zz <- z
+    
   } # IF
   
+  # prepare flipped W
+  w.rev                  <- ifelse(w == 1, 0, 1)
   
-  # prepare X for second stage
-  if(constant.relative.treatment.effect){
+  if(constant.treatment.effect){
+    
+    # prepare X for second stage...
     X.stage2 <- as.matrix(w)
     colnames(X.stage2) <- "w"
+    
+    # ... and its counterpart with flipped w
+    X.stage2.rev           <- as.matrix(w)
+    colnames(X.stage2.rev) <- "w"
+    
+    # prepare formula
+    f <- ifelse(intercept, "y ~ w", "y ~ 0 + w")
   } else{
-    X.stage2 <- cbind(w = w, w.z = w * z)
+    
+    # prepare X for second stage...
+    X.stage2 <- cbind(w = w, w.z = w * zz)
+    
+    # ... and its counterpart with flipped w
+    X.stage2.rev <- cbind(w = w.rev, w.z = w.rev * zz)
+    
+    # prepare formula
+    f <- ifelse(intercept, "y ~ w + w.z", "y ~ 0 + w + w.z")
+    
   } # IF
   
   
-  # stage 2 modeling
-  mod.stage2 <- glmnet::glmnet(X.stage2, y, 
-                               family = "binomial",
-                               lambda = lambda,
-                               intercept = intercept,
-                               offset = z,
-                               alpha = alpha) 
+  # fit the model
+  mod.stage2 <- stats::glm(formula = formula(f), 
+                           family = binomial(link = "logit"), 
+                           data = as.data.frame(X.stage2), 
+                           offset = zz)
   
-  # get the estimated coefficients
-  coefs.obj     <- glmnet::coef.glmnet(mod.stage2)
-  kept.vars     <- coefs.obj@i
-  if(0 %in% kept.vars) kept.vars <- kept.vars[-which(kept.vars == 0)] # intercept is not a variable
-  coefs         <- coefs.obj@x
+  # get the responses with the regular w ( = F_logistic(x'beta + z))
+  risk.regular.w <- as.numeric(predict.glm(mod.stage2, type = "response"))
   
-  # prepare design matrix with retained variables
+  # for some cryptic reason, predict.glm does not work with new data when there is an offset, so we need to do it manually:
   if(intercept){
-    X.retained  <- cbind(intercept = 1, X.stage2[,kept.vars])
+    X.temp <- cbind(1, X.stage2.rev)  
   } else{
-    X.retained  <- X.stage2[,kept.vars]
+    X.temp <- X.stage2.rev
   } # IF
   
-  # get the responses with the regular w
-  risk.regular.w <- plogis(as.numeric(X.retained %*% coefs) + as.numeric(z))
-  
-  # get the responses with flipped w
-  w.rev           <- ifelse(w == 1, 0, 1)
-  X.stage2.rev    <- cbind(w = w.rev, w.z = w.rev * z)
-  
-  # prepare design matrix with flipped w
-  if(intercept){
-    X.retained.rev  <- cbind(intercept = 1, X.stage2.rev[,kept.vars])
-  } else{
-    X.retained.rev  <- X.stage2.rev[,kept.vars]
-  } # IF
-  
-  # calculate risk with flipped w
-  risk.flipped.w  <- plogis(as.numeric(X.retained.rev %*% coefs) + as.numeric(z))
+  risk.flipped.w <- as.numeric(plogis(X.temp %*% mod.stage2$coefficients + zz))
   
   # return
   return(list(mod.stage2 = mod.stage2,
+              coefficients = summary(mod.stage2)$coefficients,
               risk.regular.w = risk.regular.w,
               risk.flipped.w = risk.flipped.w,
-              z = z))
+              z = zz))
 } # FUN
 
 
@@ -130,16 +133,16 @@ risk.model.stage2 <- function(linear.predictor, y, w, z, lambda,
 #' @param lifeyears vector of life years. Default is NULL.
 #' @param prediction.timeframe vector of the prediction time frame. Default is NULL.
 #' @param z the `z` in the 2nd stage, which is used as product with w and as an offset. Default is `linear.predictor`.
-#' @param constant.relative.treatment.effect If TRUE, the interaction z*w is not used as regressor in stage 2. Default is FALSE.
+#' @param constant.treatment.effect If TRUE, the interaction z*w is not used as regressor in stage 2. Default is FALSE.
 #' @param intercept.stage.2 logical. Shall an intercept in stage 2 be included? Default is `FALSE`
 #' 
 #' @export
 risk.modeling <- function(X, y, w, alpha = 1, 
+                          z = "linear.predictor",
                           lifeyears = NULL,
                           prediction.timeframe = NULL,
                           intercept.stage.2 = FALSE,
-                          constant.relative.treatment.effect = FALSE,
-                          z = "linear.predictor"){
+                          constant.treatment.effect = FALSE){
   
   # truncate y if necessary
   y.orig    <- y
@@ -157,12 +160,9 @@ risk.modeling <- function(X, y, w, alpha = 1,
   
   ## stage 2
   stage2 <- risk.model.stage2(linear.predictor = stage1$linear.predictor,
-                              y = y, w = w,
-                              lambda = stage1$lambda.min, 
-                              intercept = intercept.stage.2,
-                              constant.relative.treatment.effect = constant.relative.treatment.effect,
-                              alpha = alpha,
-                              z = z)
+                              y = y, w = w, z = z,
+                              constant.treatment.effect = constant.treatment.effect, 
+                              intercept = intercept.stage.2)
   
   # absolute predicted benefit
   pred.ben.abs.raw <- stage2$risk.regular.w - stage2$risk.flipped.w
@@ -172,11 +172,6 @@ risk.modeling <- function(X, y, w, alpha = 1,
   pred.ben.rel.raw <- stage2$risk.regular.w / stage2$risk.flipped.w
   pred.ben.rel     <- ifelse(w == 1, pred.ben.rel.raw, 1 / pred.ben.rel.raw)
   
-  # coefficients
-  coefs.stage1 <- as.matrix(glmnet::coef.glmnet(stage1$glmnet.obj, s = "lambda.min"))
-  coefs.stage2 <- as.matrix(glmnet::coef.glmnet(stage2$mod.stage2))
-  colnames(coefs.stage2) <- colnames(coefs.stage1) <- "Estimated Coefficient"
-  
   # return
   return(list(
     inputs = list(X = X, w = w, y = y.orig, 
@@ -185,8 +180,8 @@ risk.modeling <- function(X, y, w, alpha = 1,
                   y.prediction.timeframe = y),
     models = list(model.stage1 = stage1$glmnet.obj,
                   model.stage2 = stage2$mod.stage2,
-                  coefficients.stage1 = coefs.stage1,
-                  coefficients.stage2 = coefs.stage2),
+                  coefficients.stage1 = stage1$coefficients,
+                  coefficients.stage2 = stage2$coefficients),
     average.treatment.effect = mean(pred.ben.abs),
     risk = list(risk.regular.w = stage2$risk.regular.w,
                 risk.flipped.w = stage2$risk.flipped.w,

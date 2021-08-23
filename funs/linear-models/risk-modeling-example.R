@@ -33,21 +33,39 @@ y0 <- rbinom(n, 1, pi0)
 y1 <- rbinom(n, 1, pi1)
 y  <- ifelse(w == 1, y1, y0) # observed outcome
 
+## test the model
+stage1 <- baseline.risk(X, y)
+stage2 <- risk.model.stage2(linear.predictor = stage1$linear.predictor, y = y, w = w,
+                            z = "linear.predictor", 
+                            constant.treatment.effect = FALSE, 
+                            intercept = TRUE)
 
-# test the risk model
-alpha <- 1
-intercept.stage.2 <- FALSE
-z <- "linear.predictor"
-prediction.timeframe = NULL
-lifeyears = NULL
-
-RM <- risk.modeling(X = X, y = y, w = w, alpha = alpha, 
-                    intercept.stage.2 = intercept.stage.2, z = z, 
-                    lifeyears = lifeyears, prediction.timeframe = prediction.timeframe)
-
-calibration.plot(RM)
-subgroup.plot(RM, X[,1])
-
+RM <- risk.modeling(X, y, w, alpha = 1)
 RM$models$coefficients.stage2
-RM$average.treatment.effect
-RM$C.statistics
+
+summary(stage2$mod.stage2)$coefficients
+stage1$coefficients
+
+# stage2$risk.regular.w
+# stage2$risk.flipped.w
+# 
+# # test the risk model
+# alpha <- 1
+# intercept.stage.2 <- intercept <- FALSE
+# z <- "linear.predictor"
+# prediction.timeframe = NULL
+# lifeyears = NULL
+# constant.treatment.effect=F
+# stage1 <- baseline.risk(X, y)
+# linear.predictor = stage1$linear.predictor
+# 
+# RM <- risk.modeling(X = X, y = y, w = w, alpha = alpha, 
+#                     intercept.stage.2 = intercept.stage.2, z = z, 
+#                     lifeyears = lifeyears, prediction.timeframe = prediction.timeframe)
+# 
+# calibration.plot(RM)
+# subgroup.plot(RM, X[,1])
+# 
+# RM$models$coefficients.stage2
+# RM$average.treatment.effect
+# RM$C.statistics
