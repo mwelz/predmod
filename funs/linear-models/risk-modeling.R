@@ -54,7 +54,7 @@ risk.model.stage2 <- function(linear.predictor, y, w,
                               constant.treatment.effect = FALSE,
                               intercept = FALSE){
   
-  # check input for offset.linear.predictor
+  # check input
   if(any(is.character(z))){
     
     if(z == "linear.predictor"){

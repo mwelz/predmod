@@ -42,6 +42,7 @@ baseline.risk.cox <- function(X, y,
     linear.predictor = lp,
     response = plogis(lp),
     coefficients = coefs,
+    retained.variables = colnames(X)[kept.vars],
     timeframe = basehaz$times,
     cumulative.base.hazard = basehaz$cumulative_base_hazard,
     cumulative.survival = basehaz$base_surv
@@ -56,54 +57,58 @@ baseline.risk.cox <- function(X, y,
 #' @param y a binary response vector
 #' @param w a binary treatment assignment vector
 #' @param z the `z` in the model, which is used as product with w and as an offset. Default is `linear.predictor`.
-#' @param constant.relative.treatment.effect If TRUE, the interaction z*w is not used as regressor. Default is FALSE.
+#' @param constant.treatment.effect If TRUE, the interaction z*w is not used as regressor. Default is FALSE.
 #' @param lifeyears vector of life years.
 #' @param prediction.timeframe vector of the prediction time frame.
-#' @param lambda the lambda for the penalty term
 #' 
 #' @export 
 cox.risk.model.stage2  <- function(linear.predictor, y, w, z, 
-                                   constant.relative.treatment.effect = FALSE,
-                                   lifeyears, prediction.timeframe, lambda){
+                                   constant.treatment.effect = FALSE,
+                                   lifeyears, prediction.timeframe){
   
-  # check input for offset.linear.predictor
+  # check input
   if(any(is.character(z))){
     
     if(z == "linear.predictor"){
-      z <- linear.predictor
+      zz <- linear.predictor
     } else{
       stop("z needs to be numeric or equal to 'linear predictor'!")
     } # IF
+  } else{
+    
+    zz <- z
+    
   } # IF
   
-  # prepare X for second stage
-  if(constant.relative.treatment.effect){
+  # prepare flipped W
+  w.rev                  <- ifelse(w == 1, 0, 1)
+  
+  if(constant.treatment.effect){
+    
+    # prepare X for second stage...
     X.stage2 <- as.matrix(w)
     colnames(X.stage2) <- "w"
+    
+    # ... and its counterpart with flipped w
+    X.stage2.rev           <- as.matrix(w)
+    colnames(X.stage2.rev) <- "w"
+    
   } else{
-    X.stage2 <- cbind(w = w, w.z = w * z)
+    
+    # prepare X for second stage...
+    X.stage2 <- cbind(w = w, w.z = w * zz)
+    
+    # ... and its counterpart with flipped w
+    X.stage2.rev <- cbind(w = w.rev, w.z = w.rev * zz)
+    
   } # IF
   
-  # get survival matrix; to be passed as response of glmnet
-  survival.matrix           <-survival::Surv(lifeyears, y)
-  colnames(survival.matrix) <- c("time", "status")
+  # fit the model (no offset due to lack of constant)
+  mod.stage2 <- survival::coxph(y ~., data = data.frame(X.stage2, y = survival::Surv(lifeyears, y)))
   
-  # Cox regression for survival (no offset due to lack of constant)
-  mod.stage2 <- glmnet::glmnet(x = X.stage2, y = survival.matrix,
-                               family = "cox", type.measure = "C",
-                               lambda = lambda,
-                               alpha = alpha) # TODO: ask Kevin, no offset previously!
-  
-  # get the estimated coefficients
-  coefs.obj     <- glmnet::coef.glmnet(mod.stage2)
-  coefs         <- coefs.obj@x
-  kept.vars     <- coefs.obj@i + 1 # Cox has no constant, so account for zero-indexing
-  
-  # prepare design matrix with retained variables
-  X.retained  <- X.stage2[,kept.vars]
-  
-  # get the linear predictor of stage 2 (including the offset)
-  lp.stage2 <- as.numeric(X.retained %*% coefs) + as.numeric(z)
+  # get the linear predictor of stage 2 (TODO: does this really account for the centering in the object output?)
+  lp.stage2     <- as.numeric(X.stage2 %*% mod.stage2$coefficients)
+  lp.stage2.rev <- as.numeric(X.stage2.rev %*% mod.stage2$coefficients)
   
   # base hazard
   stage2.basehaz <- hdnom::glmnet_basesurv(time = lifeyears, event = y, 
@@ -113,24 +118,15 @@ cox.risk.model.stage2  <- function(linear.predictor, y, w, z,
   # get the responses with the regular w
   risk.regular.w <- 1 - exp(-stage2.basehaz$cumulative_base_hazard)^exp(lp.stage2)
   
-  # get the responses with flipped w
-  w.rev           <- ifelse(w == 1, 0, 1)
-  X.stage2.rev    <- cbind(w = w.rev, w.z = w.rev * z)
-  
-  # prepare design matrix with flipped w
-  X.retained.rev  <- X.stage2.rev[,kept.vars]
-  
-  # get the linear predictor of stage 2 with flipped w (inc. offset)
-  lp.stage2.rev <- as.numeric(X.retained.rev %*% coefs) + as.numeric(z)
-  
-  # calculate risk with flipped w
-  risk.flipped.w <-  1 - exp(-stage2.basehaz$cumulative_base_hazard)^exp(lp.stage2.rev)
+  # get the responses with the flipped w
+  risk.flipped.w <- 1 - exp(-stage2.basehaz$cumulative_base_hazard)^exp(lp.stage2.rev)
   
   # return
   return(list(mod.stage2 = mod.stage2,
+              coefficients = summary(mod.stage2)$coefficients,
               risk.regular.w = risk.regular.w,
               risk.flipped.w = risk.flipped.w,
-              z = z,
+              z = zz,
               timeframe = stage2.basehaz$times,
               cumulative.base.hazard = stage2.basehaz$cumulative_base_hazard,
               cumulative.survival = stage2.basehaz$base_surv))
@@ -144,14 +140,14 @@ cox.risk.model.stage2  <- function(linear.predictor, y, w, z,
 #' @param y a binary response vector
 #' @param w a binary treatment assignment vector
 #' @param alpha the alpha as in glmnet. Default is 1 (= Lasso)
-#' @param constant.relative.treatment.effect If TRUE, the interaction z*w is not used as regressor. Default is FALSE.
+#' @param constant.treatment.effect If TRUE, the interaction z*w is not used as regressor in stage 2. Default is FALSE.
 #' @param lifeyears vector of life years. Default is NULL.
 #' @param prediction.timeframe vector of the prediction time frame. Default is NULL.
 #' @param z the `z` in the 2nd stage, which is used as product with w and as an offset. Default is `linear.predictor`.
 #' 
 #' @export
 cox.risk.modeling <- function(X, w, y, alpha = 1, 
-                              constant.relative.treatment.effect = FALSE,
+                              constant.treatment.effect = FALSE,
                               lifeyears, prediction.timeframe, z = "linear.predictor"){
   
   # truncate y if necessary
@@ -168,10 +164,10 @@ cox.risk.modeling <- function(X, w, y, alpha = 1,
   
   # stage 2
   stage2 <- cox.risk.model.stage2(linear.predictor = stage1$linear.predictor, 
-                                  y = y, w = w, z = z,
-                                  constant.relative.treatment.effect = constant.relative.treatment.effect,
-                                  lifeyears = lifeyears, prediction.timeframe = prediction.timeframe, 
-                                  lambda = stage1$lambda.min)
+                                  y = y, w = w, z = z, 
+                                  constant.treatment.effect = constant.treatment.effect, 
+                                  lifeyears = lifeyears,
+                                  prediction.timeframe = prediction.timeframe)
   
   # absolute predicted benefit
   pred.ben.abs.raw <- stage2$risk.regular.w - stage2$risk.flipped.w
@@ -180,11 +176,6 @@ cox.risk.modeling <- function(X, w, y, alpha = 1,
   # relative predicted benefit
   pred.ben.rel.raw <- stage2$risk.regular.w / stage2$risk.flipped.w
   pred.ben.rel     <- ifelse(w == 1, pred.ben.rel.raw, 1 / pred.ben.rel.raw)
-  
-  # coefficients
-  coefs.stage1 <- as.matrix(glmnet::coef.glmnet(stage1$glmnet.obj, s = "lambda.min"))
-  coefs.stage2 <- as.matrix(glmnet::coef.glmnet(stage2$mod.stage2))
-  colnames(coefs.stage2) <- colnames(coefs.stage1) <- "Estimated Coefficient"
   
   # C-stat belonging to lambda.min
   lambda.min.index <- which(stage1$glmnet.obj[["lambda"]] %in% stage1$glmnet.obj$lambda.min)
@@ -198,8 +189,8 @@ cox.risk.modeling <- function(X, w, y, alpha = 1,
                   y.prediction.timeframe = y),
     models = list(model.stage1 = stage1$glmnet.obj,
                   model.stage2 = stage2$mod.stage2,
-                  coefficients.stage1 = coefs.stage1,
-                  coefficients.stage2 = coefs.stage2),
+                  coefficients.stage1 = stage1$coefficients,
+                  coefficients.stage2 = stage2$coefficients),
     average.treatment.effect = mean(pred.ben.abs),
     risk = list(risk.regular.w = stage2$risk.regular.w,
                 risk.flipped.w = stage2$risk.flipped.w,
@@ -209,7 +200,8 @@ cox.risk.modeling <- function(X, w, y, alpha = 1,
                     predicted.absolute.benefit.raw = pred.ben.abs.raw,
                     predicted.relative.benefit.raw = pred.ben.rel.raw),
     C.statistics = list(c.index.outcome.stage1 = c.index.outcome.stage1,
-                        c.index.outcome.stage2 = C.index.outcome(y = y, risk.prediction = stage2$risk.regular.w),
+                        c.index.outcome.stage2 = list(estimate = unname(stage2$mod.stage2$concordance["concordance"]),
+                                                      stderr   = unname(stage2$mod.stage2$concordance["std"])),
                         c.index.benefit = C.index.benefit(y = y, w = w, predicted.benefit = pred.ben.abs)),
     linear.predictor = stage1$linear.predictor,
     z = stage2$z

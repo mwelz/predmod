@@ -51,8 +51,12 @@ alpha = 1
 lifeyears = LY
 z = "linear.predictor"
 
+stage1 <- baseline.risk.cox(X, y, lifeyears, prediction.timeframe)
+linear.predictor = stage1$linear.predictor
+
 crm <- cox.risk.modeling(X = X, w = w, y = y, 
                          alpha = alpha, prediction.timeframe = prediction.timeframe, 
                          lifeyears = lifeyears, z = z)
+
 
 # TODO: ask Kevin about the two different ways of computing C outcome (stage 1 & 2)
