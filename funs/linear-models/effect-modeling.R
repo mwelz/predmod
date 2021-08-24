@@ -8,6 +8,24 @@ source(paste0(getwd(), "/funs/imputation/imputation.R"))
 source(paste0(getwd(),  "/funs/c-statistics/c-statistics.R"))
 
 
+#' compute log likelihood of a logistic regression model
+#' 
+#' @param X design matrix (nxp-dimensional)
+#' @param y n-vector of binary responses
+#' @param beta vector of coefficients (p or p+1 dimensional)
+#' @param intercept shall intercept be included? Default is TRUE
+#' 
+#' @export
+loglik <- function(X, y, beta, intercept = TRUE){
+  
+  if(intercept) X <- cbind(1, X)
+  
+  linpred <- as.numeric(X %*% beta) # linear predictor 
+  sum(y * linpred - log(1 + exp(linpred))) # log likelihood
+  
+} # FUN
+
+
 #' get the matrix "w * X[, interactions]"
 #' 
 #' @param X design matrix
@@ -78,21 +96,7 @@ get.Z.index.of.retained.variables <- function(retained.variables, X, Z){
 } # FUN
   
 
-#' Performs variable selection based on post-selection hypothesis tests. Function follows the strategy of Wasserman and Roeder (2009, Annals of Statistics):
-#' 
-#' step 0.1: create matrix Z = (w, X, interaction.terms). 
-#' 
-#' step 0.2: partition the observations in three roughly equally-sized sets sets: D1, D2, D3.
-#' 
-#' step 1.1: use D1 to perform variable selection by penalized logistic regression for given value of lambda. Let Z_lambda be the design matrix associated with the retained variables.
-#' 
-#' step 1.2: use the retained variables from 1.1 to calculate the logistic least squares estimator beta_lambda on D1.
-#' 
-#' step 1.3 calculate the empirical cross-entropy loss on D2, by using beta_lambda
-#' 
-#' step 2: repeat steps 1.1 to 1.3 for many lambdas. Let beta_lambdahat be the logistic least squares estimator that corresponds to the retained variables of the model with the lambda that minimizes the loss. Calculate this least squares estimator on D3.
-#' 
-#'  step 3: perform standard hypothesis tests to decide which of the retained variables in step 2 make it to the final model. Note that the critical value needs to be adjusted; see  Wasserman and Roeder (2009, Annals of Statistics) for details
+#' Performs variable selection based on post-selection hypothesis tests. Function follows the strategy of Wasserman and Roeder (2009, Annals of Statistics), adapted to effect modeling.
 #' 
 #' @param X design matrix, can also be a data frame
 #' @param y vector of binary responses. 
@@ -140,7 +144,7 @@ variable.selection <- function(X, y, w,
   # prepare cross-validation: loop over the lambdas of the glmnet path
   lambdapath <- get.lambdapath(x = Z[set1,], y = y[set1])
   
-  suite <- lapply(1:length(lambdapath), function(...) list(retained.variables = NA, lasso.estimates = NA))
+  suite <- lapply(1:length(lambdapath), function(...) list(retained.variables = NA, coefficients = NA))
   loss  <- rep(NA_real_, length(lambdapath))
   
   for(i in 1:length(lambdapath)){
@@ -161,43 +165,33 @@ variable.selection <- function(X, y, w,
     kept.vars <- unique(sort(c(kept.vars, retained.variables.Z.idx), decreasing = FALSE))
     
     # add to suite
+    estimates                     <- c(as.numeric(mod$a0), as.numeric(mod$beta))
     suite[[i]]$retained.variables <- kept.vars
-    suite[[i]]$lasso.estimates    <- c(as.numeric(mod$a0), as.numeric(mod$beta))
+    suite[[i]]$coefficients       <- estimates
     
-    #  calculate logistic least squares estimator with retained variables on first set
-    df <- data.frame(y = y[set1], Z[set1, kept.vars])
-    colnames(df) <- c("y", colnames(Z)[kept.vars])
-    mod <- glm(y~., family =  binomial(link = "logit"), data = df)
-    
-    # predict Pr(Y=1) on second set
-    df <- data.frame(Z[set2, kept.vars])
-    colnames(df) <- colnames(Z)[kept.vars]
-    p.hat <- predict.glm(mod, newdata = df, type = "response")
-    
-    # cross-validation: evaluate the loss (cross-entropy here) on the second set
-    crossentropy <- rep(NA_real_, length(set2))
-    crossentropy[y[set2] == 1] <- -log(p.hat[y[set2] == 1])
-    crossentropy[y[set2] == 0] <- -log(1 - p.hat[y[set2] == 0])
-    loss[i] <- mean(crossentropy)
+    # calculate loss (negative log likelihood) on second set
+    loss[i] <- -loglik(X = Z[set2,], y = y[set2], 
+                       beta = estimates, intercept = TRUE)
     
   } # FOR
   
   # find the lambda that minimizes the empirical loss and its associated model
-  lambda.min <- lambdapath[which.min(loss)]
-  S.hat      <- suite[[which.min(loss)]]$retained.variables
-  Z.lambda.min <- Z[, S.hat]
+  lambda.min   <- lambdapath[which.min(loss)]
+  S.hat        <- suite[[which.min(loss)]]$retained.variables
+  Z.lambda.min <- Z[, S.hat, drop = FALSE]
   
-  # on third set: use S.hat to calculate logistic least squares estimator with Z.lambda.min
+  # on third set: use S.hat to calculate logistic regression estimator with Z.lambda.min
   df <- data.frame(y = y[set3], Z.lambda.min[set3,])
   colnames(df) <- c("y", colnames(Z.lambda.min))
   mod <- glm(y~., family =  binomial(link = "logit"), 
              data = df)
   
   # on third set: hypothesis testing
+  m      <- length(S.hat) + 1
   coeffs <- summary(mod)$coefficients
-  coeffs <- cbind(coeffs, rep(NA_real_, length(S.hat) + 1))
+  coeffs <- cbind(coeffs, rep(NA_real_, m))
   colnames(coeffs) <- c("Estimate", "Std. Error", "z value", "critical value", "retain?")
-  critval <- qnorm(significance.level / 2 * length(S.hat), lower.tail = FALSE)
+  critval <- qnorm(significance.level / 2 * m, lower.tail = FALSE)
   coeffs[, "critical value"] <- critval
   coeffs[, "retain?"] <- 1 * (abs(coeffs[, "z value"]) > critval)
   
@@ -207,25 +201,20 @@ variable.selection <- function(X, y, w,
   # make sure that all variables that are forced to be retained will be retained
   D.hat <- unique(sort(c(D.hat, retained.variables.Z.idx), decreasing = FALSE))
   
-  # get the regularized estimates at the minimizing lambda
-  regularized.estimates_lambda.min <- suite[[which.min(loss)]]$lasso.estimates
-  names(regularized.estimates_lambda.min) <- c("(Intercept)", colnames(Z))
-  
-  # organize output
-  model.selection <- list(selected.variables = colnames(Z)[D.hat],
-                          design.matrix_selected.variables = Z[, D.hat],
-                          formula.final.model = paste0("y ~ ", paste(colnames(Z)[D.hat], collapse = " + ")),
-                          final.model.object = mod,
-                          lambda.min = lambda.min,
-                          significance.tests_lambda.min = coeffs,
-                          regularized.estimates_lambda.min = regularized.estimates_lambda.min,
-                          S.hat = S.hat)
-  partitioning.membership <- list(set1 = sort(set1, decreasing = FALSE),
-                                  set2 = sort(set2, decreasing = FALSE),
-                                  set3 = sort(set3, decreasing = FALSE))
-  
-  return(list(final.model = model.selection, 
-              partitioning.membership = partitioning.membership))
+  # return
+  return(list(selected.variables = D.hat,
+              design.matrix_selected.variables = Z[, D.hat, drop = FALSE],
+              formula.final.model = paste0("y ~ ", paste(colnames(Z)[D.hat], collapse = " + ")),
+              selecton.process = list(S.hat = S.hat,
+                                      significance.tests_model.object = mod,
+                                      significance.tests_coefficients = coeffs,
+                                      lambda.path = lambdapath,
+                                      loss = loss,
+                                      lambda.min = lambda.min,
+                                      partitioning.membership = list(set1 = sort(set1, decreasing = FALSE),
+                                                                     set2 = sort(set2, decreasing = FALSE),
+                                                                     set3 = sort(set3, decreasing = FALSE)))))
+ 
 } # FUN
 
 
@@ -304,21 +293,7 @@ effect.model.predicted.benefits <- function(X, y, w, final.model, Z){
 } # FUN
 
 
-#' Performs effect modeling. Final effect model is done via variable selection based on post-selection hypothesis tests. Function follows the strategy of Wasserman and Roeder (2009, Annals of Statistics):
-#' 
-#' step 0.1: create matrix Z = (w, X, interaction.terms). 
-#' 
-#' step 0.2: partition the observations in three roughly equally-sized sets sets: D1, D2, D3.
-#' 
-#' step 1.1: use D1 to perform variable selection by penalized logistic regression for given value of lambda. Let Z_lambda be the design matrix associated with the retained variables.
-#' 
-#' step 1.2: use the retained variables from 1.1 to calculate the logistic least squares estimator beta_lambda on D1.
-#' 
-#' step 1.3 calculate the empirical cross-entropy loss on D2, by using beta_lambda
-#' 
-#' step 2: repeat steps 1.1 to 1.3 for many lambdas. Let beta_lambdahat be the logistic least squares estimator that corresponds to the retained variables of the model with the lambda that minimizes the loss. Calculate this least squares estimator on D3.
-#' 
-#'  step 3: perform standard hypothesis tests to decide which of the retained variables in step 2 make it to the final model. Note that the critical value needs to be adjusted; see  Wasserman and Roeder (2009, Annals of Statistics) for details
+#' Performs effect modeling. Final effect model is done via variable selection based on post-selection hypothesis tests. Function follows the strategy of Wasserman and Roeder (2009, Annals of Statistics).
 #' 
 #' @param X design matrix, can also be a data frame
 #' @param y vector of binary responses. 
@@ -362,7 +337,7 @@ effect.modeling <- function(X, y, w,
                                significance.level = significance.level)
   
   # get design matrix associated with the final model
-  Z     <- vs.obj$final.model$design.matrix_selected.variables
+  Z     <- vs.obj$design.matrix_selected.variables
   
   ### 3. fit the final effect model and use it for risk estimates ----
   # fit the final model, this time on full sample (no penalty required, selection already took place!)
@@ -382,7 +357,7 @@ effect.modeling <- function(X, y, w,
                   y.prediction.timeframe = y),
     average.treatment.effect = mean(predicted.benefits$pred.ben.abs),
     baseline.model = baseline.mod,
-    effect.model = list(formula = vs.obj$final.model$formula.final.model, 
+    effect.model = list(formula = vs.obj$formula.final.model, 
                         selected.data = Z,
                         glm.obj = final.model,
                         coefficients = coefficients[,1],

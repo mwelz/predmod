@@ -48,6 +48,8 @@ em <- effect.modeling(X = X, y = y, w = w,
                        retained.variables = retained.variables, 
                        significance.level = significance.level)
 
+em$effect.model$model.building$selecton.process$significance.tests_coefficients
+
 calibration.plot(em)
 subgroup.plot(em, X[,1])
 
