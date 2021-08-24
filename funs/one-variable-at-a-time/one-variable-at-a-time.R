@@ -8,9 +8,14 @@
 #' @return a rateratio object and an estimate of the rate ratio
 #' 
 #' @export
-rate.ratio <- function(y, w, lifeyears, predictiontimeframe, subgroup = NULL, ...){
-  lifeyears <- ifelse(lifeyears <=predictiontimeframe, lifeyears, predictiontimeframe)
-  y <- ifelse(lifeyears <=predictiontimeframe, y, 0)
+rate.ratio <- function(y, w, lifeyears, prediction.timeframe, subgroup = NULL, ...){
+  
+  # truncate y if necessary
+  if(!is.null(prediction.timeframe)){
+    lifeyears <- ifelse(lifeyears <= prediction.timeframe, lifeyears, prediction.timeframe) 
+    y         <- ifelse(lifeyears <= prediction.timeframe, y, 0)
+  } # IF
+  
   # input check
   if(!all(c(0, 1) %in% y)) warning("y is not a binary vector!")
   if(any(lifeyears < 0)) warning("Some life years are negative")
@@ -32,6 +37,10 @@ rate.ratio <- function(y, w, lifeyears, predictiontimeframe, subgroup = NULL, ..
     n = c(sum(lifeyears[smpl.w1]), sum(lifeyears[smpl.w0])),
     ...)
   
-  return(list(rate.ratio = unname(rr.obj$estimate["Rate Ratio"]),
+  # prepare output
+  rr <- c(rr.obj$estimate["Rate Ratio"], as.numeric(rr.obj$conf.int), rr.obj$p.value)
+  names(rr) <- c("Estimate", "Lower 95%CI", "Upper 95%CI", "p.value")
+  
+  return(list(rate.ratio = rr,
               rate.ratio.obj = rr.obj))
 } # FUN
