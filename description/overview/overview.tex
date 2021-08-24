@@ -194,25 +194,36 @@ The \textit{reduced model}, denoted $\widehat{S}_n$, contains the retained varia
         \vartheta_j \in \vartheta : j \in \widehat{S}_n
     \Big\}
 \end{equation}
-the vector of independent variables that are retained in the reduced  model $\widehat{S}_n$ and its associated coefficient vector, respectively. Both vectors are of dimension $m := |\widehat{S}_n|$, which corresponds to the number of retained variables in the reduced model.
+the vector of independent variables that are retained in the reduced  model $\widehat{S}_n$ and its associated coefficient vector, respectively. Both vectors are of dimension $s = |\widehat{S}_n|$, which corresponds to the number of retained variables in the reduced model.
 
 On $\widehat{S}_n$ (that is, with these reduced vectors), we can subsequently perform logistic regression by using only the observations in the third sample subset, $\D_3$. Concretely, we minimize the negative log-likelihood 
 \begin{equation*} 
-    \big(\widehat{\beta}_0, \widehat{\vartheta}_S\big)
+    \big(\breve{\beta}_0, \breve{\vartheta}_S\big)
     =
-    \arg\min_{(\beta_0, \vartheta_S) \in \R^{m+1}}
+    \arg\min_{(\beta_0, \vartheta_S) \in \R^{s+1}}
     \Bigg\{
     - 
     \sum_{\{ i:i \in \D_3 \}} \bigg( Y_i \big(\beta_0 + z_{S,i}^\top \vartheta_S \big) - \ln\Big( 1 + \exp \big(\beta_0 + z_{S,i}^\top \vartheta_S\big) \Big)\bigg)\Bigg\}.
 \end{equation*}
 
-We can now construct the final model by performing inference. Elementary logistic regression theory allows us to compute a covariance matrix estimate $\widehat{\V}\big(\widehat{\vartheta}_{\widehat{S}_n}\big)$ with which we can compute $t$-test statistics $T_j = \widehat{\vartheta}_{S, j} \Big/ \widehat{\V}\big(\widehat{\vartheta}_{S,j}\big)$ for all $j \in \widehat{S}_n$. Thereupon we construct the \textit{final model} by
+We can now construct the final model by performing inference. Elementary logistic regression theory allows us to compute a covariance matrix estimate $\widehat{\V}\big(\breve{\vartheta}_{\widehat{S}_n}\big)$ with which we can compute $z$-test statistics $T_j = \breve{\vartheta}_{S, j} \Big/ \widehat{\V}\big(\breve{\vartheta}_{S,j}\big)$ for all $j \in \widehat{S}_n$. Thereupon we construct the \textit{final model} by
 \[
     \widehat{D}_n = \Big\{ j\in\widehat{S}_n : |T_j| > c_n \Big\},
 \]
-where $c_n = z_{\delta/2m}$ is the $(\delta/2m)$-th upper quantile of the standard normal distribution for pre-specified significance level $\delta\in(0,0.5)$. Using the notation in \eqref{eq:reduced-vectors}, the final model's  estimated coefficient vector and vector of independent variables are given by  $\widehat{\vartheta}_D$ and $z_{D,i}$, respectively. Both vectors are of length $d := |\widehat{D}_n|$.
+where $c_n = z_{\delta/2m}$ is the $(\delta/2m)$-th upper quantile of the standard normal distribution for pre-specified significance level $\delta\in(0,0.5)$, and $m = |\widehat{S}_n| + 1$ (the ``$+1$'' is due to the intercept). Using the notation in \eqref{eq:reduced-vectors}, the final model's  coefficient vector and vector of independent variables are given by  $\vartheta_D$ and $z_{D,i}$, respectively. Both vectors are of length $d := |\widehat{D}_n|$.
 
-\paragraph{Step 4. Risk prediction with the final model.}
+\paragraph{Step 4. Fitting the final model.} With the selected independent variables, we can finally fit the final effect model. We do so by performing logistic regression on the selected variables. Mathematically, the final model's coefficient estimates solve
+\begin{equation*} 
+    \big(\widehat{\beta}_0, \widehat{\vartheta}_D\big)
+    =
+    \arg\min_{(\beta_0, \vartheta_D) \in \R^{d+1}}
+    \Bigg\{
+    - 
+    \sum_{i=1}^n \bigg( Y_i \big(\beta_0 + z_{D,i}^\top \vartheta_D \big) - \ln\Big( 1 + \exp \big(\beta_0 + z_{D,i}^\top \vartheta_D\big) \Big)\bigg)\Bigg\}.
+\end{equation*}
+Confidence intervals on the estimates $(\widehat{\beta}_0, \widehat{\vartheta}_D)$ can be constructed via elementary logistic regression theory.
+
+\paragraph{Step 5. Risk prediction with the final model.}
 Given some $w \in \{0,1\}$, the \textit{risk prediction function} of the (final) effect model is, for all $i=1,\dots,n$, given by
 \begin{equation}\label{eq:em-risk}
     \textsf{risk}_i(w)
