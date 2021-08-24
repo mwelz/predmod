@@ -253,9 +253,9 @@ effect.model.predicted.benefits <- function(X, y, w, final.model, Z){
   w.flipped   <- ifelse(w == 1, 0, 1)
   
   if(length(kept.interactions) == 0){
-    Z_w.flipped <- data.frame(w = w.flipped, X[,kept.X])
+    Z_w.flipped <- data.frame(w = w.flipped, X[,kept.X, drop = FALSE])
   } else{
-    Z_w.flipped <- data.frame(w = w.flipped, X[,kept.X], interaction.terms.flipped)
+    Z_w.flipped <- data.frame(w = w.flipped, X[,kept.X, drop = FALSE], interaction.terms.flipped)
   } # IF
   colnames(Z_w.flipped) <- colnames(Z)
   
