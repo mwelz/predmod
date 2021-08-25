@@ -8,7 +8,7 @@
 #' @return a rateratio object and an estimate of the rate ratio
 #' 
 #' @export
-rate.ratio <- function(y, w, lifeyears, prediction.timeframe, subgroup = NULL, ...){
+rate.ratio <- function(y, w, lifeyears, prediction.timeframe = NULL, subgroup = NULL, ...){
   
   # truncate y if necessary
   if(!is.null(prediction.timeframe)){
