@@ -5,6 +5,7 @@ dgp.baseline <- function(n, p, theta = -2.5,
   
   # sample covariates
   X <- mvtnorm::rmvnorm(n, mean = rep(0, p), sigma = diag(p))
+  colnames(X) <- paste0("V", 1:p)
   
   # sample treatment asisgnment
   W <- rbinom(n, size = 1, prob = 0.5)
@@ -35,7 +36,7 @@ dgp.baseline <- function(n, p, theta = -2.5,
   # return
   return(list(X = X, Y = Y, W = W, time = T., 
               ATE = mean(p1 - p0),
-              ARTE = mean(p1 / p0),
+              ARTE = mean(p1) / mean(p0),
               p1 = p1, p0 = p0,
               Y1 = Y1, Y0 = Y0))
   
