@@ -109,7 +109,7 @@ dml <- function(X, w, y,
   
   return(list(summary = summary,
               Estimate = as.numeric(summary["Estimate"]),
-              StDError = as.numeric(summary["StDError"]), 
+              StDError = as.numeric(summary["StdError"]), 
               confidence.interval = c(lower = as.numeric(summary["CI.lower"]), 
                                       upper = as.numeric(summary["CI.upper"])),
               t.test = as.numeric(summary["t.test"]),
