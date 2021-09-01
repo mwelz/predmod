@@ -8,6 +8,24 @@ source(paste0(getwd(), "/funs/imputation/imputation.R"))
 source(paste0(getwd(),  "/funs/c-statistics/c-statistics.R"))
 
 
+#' compute log likelihood of a logistic regression model
+#' 
+#' @param X design matrix (nxp-dimensional)
+#' @param y n-vector of binary responses
+#' @param beta vector of coefficients (p or p+1 dimensional)
+#' @param intercept shall intercept be included? Default is TRUE
+#' 
+#' @export
+loglik <- function(X, y, beta, intercept = TRUE){
+  
+  if(intercept) X <- cbind(1, X)
+  
+  linpred <- as.numeric(X %*% beta) # linear predictor 
+  sum(y * linpred - log(1 + exp(linpred))) # log likelihood
+  
+} # FUN
+
+
 #' get the matrix "w * X[, interactions]"
 #' 
 #' @param X design matrix
@@ -35,6 +53,28 @@ get.interaction.terms.matrix <- function(X, w, interacted.variables){
 } # FUN
 
 
+get.lambdapath <- function(y, x, K = 100){
+  
+  # taken from https://stackoverflow.com/questions/23686067/default-lambda-sequence-in-glmnet-for-cross-validation
+  
+  n <- length(y)
+  p <- ncol(x)
+  
+  ## Standardize variables: (need to use n instead of (n-1) as denominator)
+  mysd <- function(z) sqrt(sum((z-mean(z))^2)/length(z))
+  sx <- scale(x, scale = apply(x, 2, mysd))
+  sx <- as.matrix(sx, ncol = n, nrow = p)
+  
+  ## Calculate lambda path (first get lambda_max):
+  lambda_max <- max(abs(colSums(sx*y)))/n
+  epsilon <- 0.0001
+  lambdapath <- round(exp(seq(log(lambda_max), log(lambda_max*epsilon), 
+                              length.out = K)), digits = 10)
+  return(lambdapath)
+} # FUN
+
+
+
 #' helper function that recovers the index of the variables that shall always be retained
 #' 
 #' @param retained.variables A string array of variable names in Z that shall always be retained (also works on interaction variables). If NULL, then no restriction applies. Note that treatment assignment w will always be retained by the function.
@@ -48,12 +88,12 @@ get.Z.index.of.retained.variables <- function(retained.variables, X, Z){
   if(!any(retained.variables %in% Z.names)){
     stop("This variable/interaction effect does not exist in X")
   } 
-  
+
   # w will always be retained, which is at index 1
   return(which(Z.names %in% c("w", retained.variables)))
   
 } # FUN
-
+  
 
 #' Performs variable selection based on post-selection hypothesis tests. Function follows the strategy of Wasserman and Roeder (2009, Annals of Statistics), adapted to effect modeling.
 #' 
@@ -63,12 +103,14 @@ get.Z.index.of.retained.variables <- function(retained.variables, X, Z){
 #' @param interacted.variables string array of variables in _X_ that shall be interacted with treatment _w_
 #' @param alpha the alpha as in 'glmnet'. Default is 1, which corresponds to the Lasso
 #' @param retained.variables string array of variable names in Z that shall always be retained (i.e. also interaction terms can be considered). If NULL (default), then no restriction applies. Note that treatment assignment w will always be retained by the function.
+#' @param significance.level for the hypothesis tests. Default is 0.05
 #' 
 #' @export
 variable.selection <- function(X, y, w,
                                interacted.variables,
                                alpha = 1,
-                               retained.variables = NULL){
+                               retained.variables = NULL,
+                               significance.level = 0.05){
   
   ## prepare the design matrix Z 
   n    <- nrow(X)
@@ -97,40 +139,66 @@ variable.selection <- function(X, y, w,
   set1 <- sample(1:n, floor(n / 2), replace = FALSE)
   set2 <- setdiff(1:n, set1)
   
-  ### Step 1 in Wasserman and Roeder (2009): fit a suite of candidate models on set 1 ----
-  candidate.models <- glmnet::cv.glmnet(x = Z[set1,], y = y[set1],
-                                        family = "binomial",
-                                        alpha = alpha)
+  # prepare cross-validation: loop over the lambdas of the glmnet path
+  lambdapath <- get.lambdapath(x = Z[set1,], y = y[set1], K = 100)
   
-  # get model which minimizes loss
-  lambda        <- candidate.models$lambda.min 
-  coefs.obj     <- glmnet::coef.glmnet(candidate.models, s = "lambda.min")
-  kept.vars     <- coefs.obj@i
+  suite <- lapply(1:length(lambdapath), function(...) list(retained.variables = NA, coefficients = NA))
+  loss  <- rep(NA_real_, length(lambdapath))
   
-  # intercept isn't a covariate
-  if(0 %in% kept.vars){ 
-    kept.vars <- kept.vars[-which(kept.vars == 0)]
-  } # IF
+  for(i in 1:length(lambdapath)){
+    
+    # penalized logistic regression on first set
+    mod <- glmnet::glmnet(Z[set1,], y[set1], 
+                          family = "binomial", 
+                          alpha = alpha,
+                          lambda = lambdapath[i])
+    
+    # obtain retained variables (excluding intercept)
+    kept.vars     <- glmnet::coef.glmnet(mod)@i 
+    if(0 %in% kept.vars){
+      kept.vars <- kept.vars[-which(kept.vars == 0)]
+    } # IF
+    
+    # make sure that all variables that are forced to be retained will be retained
+    kept.vars <- unique(sort(c(kept.vars, retained.variables.Z.idx), decreasing = FALSE))
+    
+    # add to suite
+    estimates                     <- c(as.numeric(mod$a0), as.numeric(mod$beta))
+    suite[[i]]$retained.variables <- kept.vars
+    suite[[i]]$coefficients       <- estimates
+    
+    # calculate loss (negative log likelihood) on first set
+    loss[i] <- -loglik(X = Z[set1,], y = y[set1], 
+                       beta = estimates, intercept = TRUE)
+    
+  } # FOR
   
-  # make sure that all variables that are forced to be retained will be retained
-  kept.vars <- unique(sort(c(kept.vars, retained.variables.Z.idx), decreasing = FALSE))
+  # find the lambda that minimizes the empirical loss and its associated model
+  lambda.min                <- lambdapath[which.min(loss)]
+  S.hat                     <- suite[[which.min(loss)]]$retained.variables
+  coefficients_S.hat        <- suite[[which.min(loss)]]$coefficients
+  names(coefficients_S.hat) <- c("(Intercept)", colnames(Z))
+  Z.lambda.min              <- Z[, S.hat, drop = FALSE]
   
-  
-  ### Step 2 in Wasserman and Roeder (2009): perform inference with retained variables on set 2 ----
-  final.model <- glm(y~., family =  binomial(link = "logit"), 
-                 data = data.frame(y = y[set2], Z[set2, kept.vars, drop = FALSE]))
+  # on second set: use S.hat to calculate logistic regression estimator with Z.lambda.min
+  df <- data.frame(y = y[set2], Z.lambda.min[set2,])
+  colnames(df) <- c("y", colnames(Z.lambda.min))
+  mod <- glm(y~., family =  binomial(link = "logit"), 
+             data = df)
   
   # return
-  return(list(final.model = final.model,
-              model.selection = list(design.matrix_pre.selection      = Z,
-                                     candidate.models                 = candidate.models,
-                                     coefficients_selected.model      = coefs.obj,
-                                     lambda_selected.model            = lambda,
-                                     selected.variables               = colnames(Z)[kept.vars],
-                                     design.matrix_selected.variables = Z[,kept.vars, drop = FALSE]),
-              partitioning.membership = list(set1 = sort(set1, decreasing = FALSE),
-                                             set2 = sort(set2, decreasing = FALSE))))
-              
+  return(list(final.model = mod,
+              design.matrix_pre.selection = Z,
+              design.matrix_selected.variables = Z.lambda.min,
+              selected.variables = S.hat,
+              formula.final.model = paste0("y ~ ", paste(colnames(Z)[S.hat], collapse = " + ")),
+              selecton.process = list(lambda.path = lambdapath,
+                                      loss = loss,
+                                      lambda.min = lambda.min,
+                                      coefficients_S.hat = coefficients_S.hat,
+                                      partitioning.membership = list(set1 = sort(set1, decreasing = FALSE),
+                                                                     set2 = sort(set2, decreasing = FALSE)))))
+ 
 } # FUN
 
 
@@ -179,8 +247,8 @@ effect.model.predicted.benefits <- function(X, y, w, final.model, Z){
   if("glm" %in% attr(final.model, which = "class")){
     
     response_w.flipped <- unname(predict.glm(final.model,
-                                             newdata = as.data.frame(Z_w.flipped), 
-                                             type = "response"))
+                                   newdata = as.data.frame(Z_w.flipped), 
+                                   type = "response"))
     
   } else if (attr(final.model, which = "class") == "coxph"){
     
@@ -219,6 +287,7 @@ effect.model.predicted.benefits <- function(X, y, w, final.model, Z){
 #' @param lifeyears vector of life years. Default is NULL.
 #' @param prediction.timeframe vector of the prediction time frame. Default is NULL.
 #' @param retained.variables string array of variable names in Z that shall always be retained (i.e. also interaction terms can be considered). If NULL (default), then no restriction applies. Note that treatment assignment w will always be retained by the function.
+#' @param significance.level for the hypothesis tests. Default is 0.05
 #' 
 #' @export
 effect.modeling <- function(X, y, w,
@@ -226,7 +295,8 @@ effect.modeling <- function(X, y, w,
                             alpha = 1,
                             lifeyears = NULL, 
                             prediction.timeframe = NULL,
-                            retained.variables = NULL){
+                            retained.variables = NULL,
+                            significance.level = 0.05){
   
   # truncate y if necessary
   y.orig    <- y
@@ -247,16 +317,21 @@ effect.modeling <- function(X, y, w,
   vs.obj <- variable.selection(X = X, y = y, w = w, 
                                interacted.variables = interacted.variables, 
                                alpha = alpha, 
-                               retained.variables = retained.variables)
+                               retained.variables = retained.variables, 
+                               significance.level = significance.level)
+  
+  # get design matrix associated with the final model
+  Z     <- vs.obj$design.matrix_selected.variables
   
   ### 3. obtain the final effect model and use it for risk estimates ----
   # the final model has been fit on a different set than the observations that were used for variable selection
   final.model        <- vs.obj$final.model
-  predicted.benefits <- 
-    effect.model.predicted.benefits(X = X, y = y, w = w, 
-                                    final.model = final.model,
-                                    Z = vs.obj$model.selection$design.matrix_selected.variables)
-
+  predicted.benefits <- effect.model.predicted.benefits(X = X, y = y, w = w, 
+                                                        final.model = final.model, Z = Z)
+  
+  # coefficients
+  coefficients <- summary(final.model)$coefficients
+  
   ### 4. return ----
   return(list(
     inputs = list(X = X, w = w, y = y.orig, 
@@ -265,10 +340,12 @@ effect.modeling <- function(X, y, w,
                   y.prediction.timeframe = y),
     average.treatment.effect = mean(predicted.benefits$pred.ben.abs),
     baseline.model = baseline.mod,
-    effect.model = list(summary = summary(final.model)$coefficients,
-                        model = final.model,
-                        model.selection = vs.obj$model.selection,
-                        partitioning = vs.obj$partitioning.membership),
+    effect.model = list(formula = vs.obj$formula.final.model, 
+                        selected.data = Z,
+                        glm.obj = final.model,
+                        coefficients = coefficients[,1],
+                        summary = coefficients,
+                        model.building = vs.obj),
     risk = list(risk.regular.w = predicted.benefits$risk.regular.w,
                 risk.flipped.w = predicted.benefits$risk.flipped.w,
                 risk.baseline  = baseline.risk),
@@ -321,14 +398,14 @@ effect.modeling_imputation.accounter <- function(predictive.model.imputed){
       
       # get names of all variables (pre-selection)
       nam.all.variables <<- 
-        names(predictive.model.imputed[[i]]$effect.model$model.selection$design.matrix_pre.selection)
+        names(predictive.model.imputed[[i]]$effect.model$model.building$design.matrix_pre.selection)
       
       # initialize long array with zeros for unselected variables
       selected.variables.long <<- rep(0.0, length(nam.all.variables))
       names(selected.variables.long) <<- nam.all.variables
       
       # assign values to long array
-      selected.variables.short <<- predictive.model.imputed[[i]]$effect.model$summary[,1]
+      selected.variables.short <<- predictive.model.imputed[[i]]$effect.model$coefficients
       selected.variables.long[names(selected.variables.short)] <<- selected.variables.short
       selected.variables.long
       

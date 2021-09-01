@@ -31,11 +31,13 @@ y  <- ifelse(w == 1, y1, y0) # observed outcome
 
 
 ### 1. effect modeling ----
+# add a bogus variable
+X = cbind(X, bogus = runif(n))
 # arguments
 alpha = 1
 sig.level = 0.05
 interacted.variables = colnames(X) 
-retained.variables = c(colnames(X), "w.nam.1") # A string array of variable names in Z that shall always be retained (also works on interaction variables). If NULL, then no restriction applies. Note that treatment assignment w will always be retained by the function.
+retained.variables = NULL#c(colnames(X), "w.nam.1") # A string array of variable names in Z that shall always be retained (also works on interaction variables). If NULL, then no restriction applies. Note that treatment assignment w will always be retained by the function.
 significance.level = 0.05
 prediction.timeframe = NULL
 lifeyears = NULL
@@ -45,10 +47,10 @@ em <- effect.modeling(X = X, y = y, w = w,
                        interacted.variables = interacted.variables, 
                        alpha = alpha, lifeyears = lifeyears, 
                        prediction.timeframe = prediction.timeframe,
-                       retained.variables = retained.variables, 
-                       significance.level = significance.level)
+                       retained.variables = retained.variables)
 
-em$effect.model$model.building$selecton.process$significance.tests_coefficients
+em$effect.model$summary 
+em$effect.model$model.selection$coefficients_selected.model
 
 calibration.plot(em)
 subgroup.plot(em, X[,1])
