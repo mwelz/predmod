@@ -1,6 +1,7 @@
 rm(list = ls()) ; cat("\014")
 
 source(paste0(getwd(), "/funs/cox/cox-effect-modeling.R"))
+source(paste0(getwd(), "/funs/plotmakers/plotmakers.R"))
 
 logistic <- function(x) 1 / (1 + exp(-x))
 
@@ -53,4 +54,6 @@ interacted.variables = colnames(X)
 retained.variables = NULL
 significance.level = 0.05
 
-em <- cox.effect.modeling(X, y, w, interacted.variables = interacted.variables, alpha = alpha, lifeyears = lifeyears, prediction.timeframe = prediction.timeframe, retained.variables = retained.variables, significance.level = significance.level)
+em <- cox.effect.modeling(X, y, w, interacted.variables = interacted.variables, alpha = alpha, lifeyears = lifeyears, prediction.timeframe = prediction.timeframe, retained.variables = retained.variables)
+
+calibration.plot(em)
