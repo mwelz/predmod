@@ -113,22 +113,22 @@ In stage one, we fit a linear logistic model of $X_i$ to $Y_i$, which assumes th
     =
     \beta_0 + x_i^\top \beta, 
 \end{equation}
-for all $i=1,\dots,n$, where $(\beta_0, \beta) = (\beta_0,\beta_1,\dots,\beta_p)\in\R^{p+1}$ is some fixed but unknown vector of coefficients. Fitting this model by means of cross-validated regularized logistic regression (see Appendix \ref{sec:logistic-regression} for details) yields estimates $(\widehat{\beta_0}, \widehat{\beta})$. Due to the regularization penalty in the corresponding optimization problem, the estimate will be sparse; the idea behind this is to separate more relevant predictors from less relevant ones.  
-The estimates $(\widehat{\beta_0}, \widehat{\beta})$ can then be used to compute an estimate of the \textit{baseline risk}, $\widehat{\P}[Y_i=1 | X_i = x_i]$, as well as an estimate of the \textit{linear index}, $\widehat{\eta}_i$, which corresponds to the estimated right-hand side of~\eqref{eq:baseline-identity} at $X_i = x_i$:
+for all $i=1,\dots,n$, where $(\beta_0, \beta) = (\beta_0,\beta_1,\dots,\beta_p)\in\R^{p+1}$ is some fixed vector of coefficients. Fitting this model by means of cross-validated regularized logistic regression (see Appendix \ref{sec:logistic-regression} for details) yields estimates $(\widehat{\beta_0}, \widehat{\beta})$. Due to the regularization penalty in the corresponding optimization problem, the estimate will be sparse; the idea behind this is to separate more relevant predictors from less relevant ones.  
+The estimates $(\widehat{\beta_0}, \widehat{\beta})$ can then be used to compute an estimate of the \textit{baseline risk}, $\widehat{\P}[Y_i=1 | X_i = x_i]$, as well as an estimate of the \textit{linear predictor}, $\widehat{\eta}_i$, which corresponds to the estimated right-hand side of~\eqref{eq:baseline-identity} at $X_i = x_i$:
 \begin{equation*}
     \widehat{\eta}_i = \widehat{\eta}_i(x_i) = \widehat{\beta}_0 + x_i^\top \widehat{\beta}.
 \end{equation*}
-We retain the linear indices $\widehat{\eta}_i$ for the second stage.
+We retain the linear predictors $\widehat{\eta}_i$ for the second stage.
 
 \subsubsection{Stage 2: Final Risk}
-In stage two, we fit another linear logistic model, this time of $W_i$ and the interaction $W_i \widehat{\eta}_i$ to $Y_i$, where $\widehat{\eta}_i$ is the linear predictor from Stage 1. We moreover assume an individual-specific offset of the value $\widehat{\eta}_i$. Formally, the assumed model satisfies 
+In stage two, we fit another linear logistic model, this time of $W_i$ and the interaction $W_i \widehat{\eta}_i$ to $Y_i$, where $\widehat{\eta}_i$ is the linear predictor from Stage 1. We moreover assume an offset of the value $\widehat{\eta}_i$. Formally, the assumed model satisfies 
 \begin{equation} \label{eq:stage2-model}
     \ln \left( 
     \frac{ \P[Y_i=1 | W_i = w_i, \eta_i = \widehat{\eta}_i] }{1 - \P[Y_i=1 | W_i = w_i, \eta_i = \widehat{\eta}_i]} \right)
     =
     \alpha_0 + \alpha_1 w_i + \alpha_2 w_i \widehat{\eta}_i + \widehat{\eta}_i 
 \end{equation}
-for all $i=1,\dots,n$, where $\alpha_0, \alpha_1, \alpha_2 \in \R$ are coefficients. \textcolor{red}{[There seems to be an inconsistency in the definition of Stage 2 between \cite{rekkas2019} and \cite{kent2020path}, We've reached out to David Kent on which definition is intended.]} We fit this model by means of non-regularized logistic regression. The obtained estimates of the fitted model, $(\widehat{\alpha}_0, \widehat{\alpha}_1, \widehat{\alpha}_2)$, can then be used to calculate the \textit{risk prediction function} for $w\in\{0,1\}$:
+for all $i=1,\dots,n$, where $\alpha_0, \alpha_1, \alpha_2 \in \R$ are coefficients. We fit this model by means of non-regularized logistic regression. The obtained estimates of the fitted model, $(\widehat{\alpha}_0, \widehat{\alpha}_1, \widehat{\alpha}_2)$, can then be used to calculate the \textit{risk prediction function} for $w\in\{0,1\}$:
 \begin{equation} \label{eq:rm-risk}
 \begin{split}
     \textsf{risk}_i(w)
@@ -146,7 +146,7 @@ Effect models attempt to model treatment effect heterogeneity explicitly by addi
 
 However, if one wants to perform inference in a model in which variable selection took place, one needs to address the additional uncertainty stemming from the selection process. This issue is addressed in \cite{wasserman2009high}. We correspondingly adapt the model selection of an effect model as proposed in \cite{kent2020path} by using the strategy suggested in \cite{wasserman2009high}. The following steps explain the ensuing effect model selection strategy.
 
-\paragraph{Step 0. Initialization.} Fix some $\alpha \in [0,1]$. Let $\mathcal{I}\subset [p] := \{1,\dots,p\}$ be the set of variables that are to be interacted with the treatment assignment variable.\footnote{The choice $\mathcal{I}=\varnothing$ is also permitted (i.e. no variable is interacted), but we decidedly do not reflect this possibility in our notation for the sake of notational brevity.} Let $\D_1$ and $\D_2$ be approximately equally sized, mutually disjoint subsets of the sample space, that is, $\bigcup_{i=1}^2 \D_i = [n]$, while $\bigcap_{i=1}^2 \D_i = \varnothing$. Let $\Lambda_n$ be a finite set of pre-specified choices of the regularization tuning parameter $\lambda$. The parameter choices in $\Lambda_n$ constitute the grid along which we perform cross-validation.\footnote{See \cite{friedman2010} for details on the construction of the grid $\Lambda_n$.} 
+\paragraph{Step 0. Initialization.} Fix some $\alpha \in [0,1]$. Let $\mathcal{I}\subset [p] := \{1,\dots,p\}$ be the set of variables that are to be interacted with the treatment assignment variable.\footnote{The choice $\mathcal{I}=\varnothing$ is also permitted (i.e. no variable is interacted), but we decidedly do not reflect this possibility in our notation for the sake of notational brevity.} Let $\D_1,\D_2,\D_3$ be approximately equally sized, mutually disjoint subsets of the sample space, that is, $\bigcup_{i=1}^3 \D_i = [n]$, while $\bigcap_{i=1}^3 \D_i = \varnothing$. Let $\Lambda_n$ be a finite set of pre-specified choices of the regularization tuning parameter $\lambda$. The parameter choices in $\Lambda_n$ constitute the grid along which we perform cross-validation.\footnote{See \cite{friedman2010} for details on the construction of the grid $\Lambda_n$.} 
 
 \paragraph{Step 1. Fitting of a single effect model.} Fix some $\lambda \in \Lambda_n$. For all $i = 1,\dots, n$, we consider the linear logistic model identified by
 \begin{equation} \label{eq:effect-model-individual}
@@ -169,25 +169,18 @@ Define by $\mathcal{L}_{\mathcal{D}}(\beta_0, \vartheta)$ the log-likelihood fun
     \Big)
     \Bigg\},
 \end{equation}
-that is, we obtain coefficient estimates $(\widetilde{\beta}_{0,\lambda}, \widetilde{\vartheta}_\lambda)$ by only using information from the observations in set $\D_1$. The estimates $(\widetilde{\beta}_{0,\lambda}, \widetilde{\vartheta}_\lambda)$ depend on the choice of tuning parameter $\lambda$; we make this dependence explicit in our notation by including a $\lambda$-subscript. Next, collect the retained variables in a suite 
-\[\widehat{S}_n(\lambda) := \left\{ j \in [q]: \widetilde{\vartheta}_{j,\lambda} \neq 0 \right\}.
-\]
-Denote by 
-\[
-\widehat{L}(\lambda) := - \mathcal{L}_{\D_1}(\widetilde{\beta}_{0,\lambda}, \widetilde{\vartheta}_\lambda)
-\]
-the empirical loss associated with tuning parameter $\lambda$. The empirical loss here corresponds to value of the negative log-likelihood evaluated at the observations in $\D_1$ and the the coefficient estimates $(\widetilde{\beta}_{0,\lambda}, \widetilde{\vartheta}_\lambda)$. 
+that is, we obtain coefficient estimates $(\widetilde{\beta}_{0,\lambda}, \widetilde{\vartheta}_\lambda)$ by only using information from the observations in set $\D_1$. The estimates $(\widetilde{\beta}_{0,\lambda}, \widetilde{\vartheta}_\lambda)$ depend on the choice of tuning parameter $\lambda$; we make this dependence explicit in our notation by including a $\lambda$-subscript. Next, collect the retained variables in a suite $\widehat{S}_n(\lambda) := \left\{ j \in [q]: \widetilde{\vartheta}_{j,\lambda} \neq 0 \right\}$. Denote by $\widehat{L}(\lambda) := - \mathcal{L}_{\D_2}(\widetilde{\beta}_{0,\lambda}, \widetilde{\vartheta}_\lambda)$ the empirical loss associated with tuning parameter $\lambda$. The empirical loss here corresponds to value of the negative log-likelihood evaluated at the observations in $\D_2$ and the the coefficient estimates $(\widetilde{\beta}_{0,\lambda}, \widetilde{\vartheta}_\lambda)$. Fitting the model \eqref{eq:effect-lambda-problem} and evaluating  its empirical loss on two distinct, separate sample subsets helps to prevent overfitting \citep{wasserman2009high}.
 
 \paragraph{Step 2. Cross-validation.} The optimal choice for the tuning parameter $\lambda$ in \eqref{eq:effect-lambda-problem} corresponds to the choice that minimizes the empirical loss, that is,
 \[
     \widehat{\lambda} = \arg \min_{\lambda\in\Lambda_n} \widehat{L}(\lambda).
 \]
-The \textit{final model}, denoted $\widehat{S}_n$, contains the retained variables of the model associated with the optimal tuning parameter $\lambda$:
+The \textit{reduced model}, denoted $\widehat{S}_n$, contains the retained variables of the model associated with the optimal tuning parameter $\lambda$:
 \[
     \widehat{S}_n := \widehat{S}_n(\widehat{\lambda}) \subset [q].
 \]
 
-\paragraph{Step 3. Final model.} For $i\in [n]$, recall that $z_i = (z_{i1},\dots, z_{ij}) = \big(x_i, w_i, \{ w_i x_{ij} \}_{j\in\mathcal{I}}\big)$ is the $q$-dimensional vector that holds the independent variables in the linear logistic model \eqref{eq:effect-model-individual} and that $\vartheta = (\vartheta_1, \dots, \vartheta_q)$ is the associated vector of coefficients. Potentially, some of the coefficients in $\vartheta$ have been shrunk to zero in the final model $\widehat{S}_n$. Using a slight abuse of set theoretic notation, denote by
+\paragraph{Step 3. Inference and final model.} For $i\in [n]$, recall that $z_i = (z_{i1},\dots, z_{ij}) = \big(x_i, w_i, \{ w_i x_{ij} \}_{j\in\mathcal{I}}\big)$ is the $q$-dimensional vector that holds the independent variables in the linear logistic model \eqref{eq:effect-model-individual} and that $\vartheta = (\vartheta_1, \dots, \vartheta_q)$ is the associated vector of coefficients. Potentially, some of the coefficients in $\vartheta$ have been shrunk to zero in the reduced model $\widehat{S}_n$. Using a slight abuse of set theoretic notation, denote by
 \begin{equation}\label{eq:reduced-vectors}
     z_{S,i}
     =
@@ -201,20 +194,36 @@ The \textit{final model}, denoted $\widehat{S}_n$, contains the retained variabl
         \vartheta_j \in \vartheta : j \in \widehat{S}_n
     \Big\}
 \end{equation}
-the vector of independent variables that are retained in the final  model $\widehat{S}_n$ and its associated coefficient vector, respectively. Both vectors are of dimension $s = |\widehat{S}_n|$, which corresponds to the number of retained variables in the reduced model.
+the vector of independent variables that are retained in the reduced  model $\widehat{S}_n$ and its associated coefficient vector, respectively. Both vectors are of dimension $s = |\widehat{S}_n|$, which corresponds to the number of retained variables in the reduced model.
 
-On $\widehat{S}_n$ (that is, with these reduced vectors), we can subsequently perform logistic regression by using only the observations in the second sample subset, $\D_2$, to fit the final model. Concretely, we minimize the negative log-likelihood 
+On $\widehat{S}_n$ (that is, with these reduced vectors), we can subsequently perform logistic regression by using only the observations in the third sample subset, $\D_3$. Concretely, we minimize the negative log-likelihood 
 \begin{equation*} 
-    \big(\widehat{\beta}_0, \widehat{\vartheta}_S\big)
+    \big(\breve{\beta}_0, \breve{\vartheta}_S\big)
     =
     \arg\min_{(\beta_0, \vartheta_S) \in \R^{s+1}}
     \Bigg\{
     - 
-    \sum_{\{ i:i \in \D_2 \}} \bigg( Y_i \big(\beta_0 + z_{S,i}^\top \vartheta_S \big) - \ln\Big( 1 + \exp \big(\beta_0 + z_{S,i}^\top \vartheta_S\big) \Big)\bigg)\Bigg\}.
+    \sum_{\{ i:i \in \D_3 \}} \bigg( Y_i \big(\beta_0 + z_{S,i}^\top \vartheta_S \big) - \ln\Big( 1 + \exp \big(\beta_0 + z_{S,i}^\top \vartheta_S\big) \Big)\bigg)\Bigg\}.
 \end{equation*}
-The estimates $(\widehat{\beta}_0, \widehat{\vartheta}_S)$ are the estimated coefficients of the fitted final model. Elementary logistic regression theory allows us to compute a covariance matrix estimate $\widehat{\V}\big(\widehat{\vartheta}_{\widehat{S}_n}\big)$ with which we can perform $z$-tests on the significance of the coefficients of the retained variables in $\widehat{S}_n$. We emphasize that all inference needs to be based on data in $\mathcal{D}_2$ to avoid a bias (see \cite{wasserman2009high} for details).
 
-\paragraph{Step 4. Risk prediction with the final model.}
+We can now construct the final model by performing inference. Elementary logistic regression theory allows us to compute a covariance matrix estimate $\widehat{\V}\big(\breve{\vartheta}_{\widehat{S}_n}\big)$ with which we can compute $z$-test statistics $T_j = \breve{\vartheta}_{S, j} \Big/ \widehat{\V}\big(\breve{\vartheta}_{S,j}\big)$ for all $j \in \widehat{S}_n$. Thereupon we construct the \textit{final model} by
+\[
+    \widehat{D}_n = \Big\{ j\in\widehat{S}_n : |T_j| > c_n \Big\},
+\]
+where $c_n = z_{\delta/2m}$ is the $(\delta/2m)$-th upper quantile of the standard normal distribution for pre-specified significance level $\delta\in(0,0.5)$, and $m = |\widehat{S}_n| + 1$ (the ``$+1$'' is due to the intercept). Using the notation in \eqref{eq:reduced-vectors}, the final model's  coefficient vector and vector of independent variables are given by  $\vartheta_D$ and $z_{D,i}$, respectively. Both vectors are of length $d := |\widehat{D}_n|$.
+
+\paragraph{Step 4. Fitting the final model.} With the selected independent variables, we can finally fit the final effect model. We do so by performing logistic regression on the selected variables. Mathematically, the final model's coefficient estimates solve
+\begin{equation*} 
+    \big(\widehat{\beta}_0, \widehat{\vartheta}_D\big)
+    =
+    \arg\min_{(\beta_0, \vartheta_D) \in \R^{d+1}}
+    \Bigg\{
+    - 
+    \sum_{i=1}^n \bigg( Y_i \big(\beta_0 + z_{D,i}^\top \vartheta_D \big) - \ln\Big( 1 + \exp \big(\beta_0 + z_{D,i}^\top \vartheta_D\big) \Big)\bigg)\Bigg\}.
+\end{equation*}
+Confidence intervals on the estimates $(\widehat{\beta}_0, \widehat{\vartheta}_D)$ can be constructed via elementary logistic regression theory.
+
+\paragraph{Step 5. Risk prediction with the final model.}
 Given some $w \in \{0,1\}$, the \textit{risk prediction function} of the (final) effect model is, for all $i=1,\dots,n$, given by
 \begin{equation}\label{eq:em-risk}
     \textsf{risk}_i(w)
@@ -222,16 +231,17 @@ Given some $w \in \{0,1\}$, the \textit{risk prediction function} of the (final)
     \widehat{\P}[Y_i=1 | W_i = w, X_i = x_i] 
     =
     F_{logistic}\Big(\widehat{\beta}_0 +
-    z_{D,i}^\top \widehat{\vartheta}_{S}\Big), 
+    z_{D,i}^\top \widehat{\vartheta}_{D}\Big), 
 \end{equation}
 where $z_{D,i}$ depends on $w$: recall that the original vector is given by $z_i = (z_{i1},\dots, z_{ij}) = \big(x_i, w_i, \{ w_i x_{ij} \}_{j\in\mathcal{I}}\big)$, which can be expressed as $z_i = \big(x_i, w, \{ w x_{ij} \}_{j\in\mathcal{I}}\big)$ to make the dependence on $w$ explicit.
 
-Observe that it may happen that treatment assignment $W_i = w_i$ is not among the retained variables in the final model $\widehat{D}_n$. This is problematic because if the treatment assignment is not retained, then the risk prediction function $w \mapsto \textsf{risk}_i(w)$ in \eqref{eq:em-risk} is not defined. \cite{kent2020path} do not address this possibility. To overcome this potential issue, we could artificially add the treatment assignment to the retained variables. That is, if $j_w\in[q]$ is the index of the treatment assignment variable, we would define the final model by
+Observe that it may happen that treatment assignment $W_i = w_i$ is not among the retained variables in the final model $\widehat{D}_n$. This is problematic because if the treatment assignment is not retained, then the risk prediction function $w \mapsto \textsf{risk}_i(w)$ in \eqref{eq:em-risk} is not defined. \cite{kent2020path} do not address this possibility. To overcome this potential issue, we could artificially add the treatment assignment to the retained variables. That is, if $j_w\in[q]$ is the index of the treatment assignment variable, we would define the reduced model and final model by
 \[
-    \widehat{S}_n = \{j_w\} \cup \widehat{S}_n(\widehat{\lambda}).
+    \widehat{S}_n = \{j_w\} \cup \widehat{S}_n(\widehat{\lambda})
+    \quad \text{ and } \quad
+    \widehat{D}_n =  \{j_w\} \cup \Big\{ j\in\widehat{S}_n : |T_j| > c_n \Big\},
 \]
-However, this solution is potentially problematic from a statistical point of view \textcolor{red}{[Indeed, this is an issue. Amdreas recommended to use the hierarchical elastic net to overcome this problem. In addition, he pointed out that we should check out a series of papers by ETH people whose post selection inference strategies are less prone to p-value hacking than the method of \cite{wasserman2009high}.]}
-
+respectively. However, this solution is potentially problematic from a statistical point of view \textcolor{red}{[Add some explanations here. @Andreas: do you agree that this solution is problematic? If yes, a potential alternative could be to to keep the coefficient of the treatment assignment, $\gamma_0$, out of the regularization penalty in \eqref{eq:effect-lambda-problem} to avoid that it gets shrunk to zero. What do you think about this potential solution?]}
 
 \subsection{Estimation of Benefits}
 Suppose we have fitted a predictive model, either a risk model (as in Section \ref{sec:risk-model} or an effect model (as in Section \ref{sec:effect-model}). Consider the risk prediction function $w \mapsto \textsf{risk}_i(w), i=1,\dots,n$, associated with the fitted model. 
