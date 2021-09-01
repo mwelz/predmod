@@ -103,6 +103,7 @@ The \textit{observed outcome} $Y_i$ is defined by
     Y_i(0) \quad \text{ if } W_i =0.
     \end{cases}
 \]
+We assume that $Y_i$ is a mortality indicator, that is, $Y_i = 1$ if individual $i$ dies during the time-at-risk (see below for details), and $Y_i = 0$ otherwise.
 
 \paragraph{Time at risk.} We assume that the trial takes 10 years and that all deceasing individuals die after 7 years. That is, individual $i$'s \textit{time-at-risk}, $T_i$, is given by
 \[
@@ -112,10 +113,9 @@ The \textit{observed outcome} $Y_i$ is defined by
 \paragraph{Quantities of interest.}
 We are interested in estimating the following quantities by using the observations $\{(X_i, Y_i, W_i, T_i)\}_{i=1}^n$:
 \begin{itemize}
-    \item Treatment effect parameter $\theta$;
-    \item 95\% coverage of $\theta$;
-    \item Average treatment effect: $\textsf{ATE} = \frac{1}{n} \sum_{i=1}^n \big(Y_i(1) - Y_i(0)\big)$;
-    \item Average relative treatment effect: $\textsf{ARTE} = \frac{\sum_{i=1}^n Y_i(0)}{\sum_{i=1}^n Y_(0)}$;
+    \item Treatment effect parameter $\theta$ and 95\% coverage thereof;
+    \item Average treatment effect: $\textsf{ATE} = \frac{1}{n} \sum_{i=1}^n \big(Y_i(1) - Y_i(0)\big)$ and 95\% coverage thereof;
+    \item Average relative treatment effect: $\textsf{ARTE} = \frac{\sum_{i=1}^n Y_i(1)}{\sum_{i=1}^n Y_i(0)}$ and 95\% coverage thereof;
     \item Calibration curve, both relative and absolute.
 \end{itemize}
 
@@ -130,8 +130,20 @@ We are interested in estimating the following quantities by using the observatio
         -1  &\text{ if $j$ is odd}.
         \end{cases}
     \]
+    Hence, $\beta$ obeys a Rademacher-like scheme.
 \end{itemize}
 These choices lead to the ``true'' values $\textsf{ATE}\approx -0.25$ and $\textsf{ARTE} \approx 0.5$.
 
-\end{document}
+\paragraph{Considered models.} We evaluate the following models'  performance in estimating the quantities of interest.
+\begin{itemize}
+    \item one-variable-at-a-time analysis (can only estimate the $\textsf{ARTE}$);
+    \item risk models and effect models, both with and without survival (in survival models, we effectively fit Cox Proportional Hazard models), as in \cite{kent2020path};
+    \item causal random forest, both with and without survival (\citealp{athey2019grf} and \citealp{cui2021estimating});
+    \item Double Machine Learning \citep{chernozhukov2018double} (can only estimate the $\textsf{ATE}$);
+    \item Generic Machine Learning \citep{chernozhukov2020generic} (give qualitative evaluation of presence of treatment effect heterogeneity).
+\end{itemize}
 
+\bibliography{bibliography}
+
+
+\end{document}
