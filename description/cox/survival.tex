@@ -88,7 +88,7 @@ Thus, we can also express survival $S$ in terms of  cumulative hazard $H$:
 \]
 
 \section{Cox Proportional Hazard Modeling}
-A \textit{Cox proportional hazard model} (\cite{cox1972}; hereafter Cox model) attempts to explain the survival time $Y$ by some explanatory variables which are collected in a $p$-dimensional random vector $X$. An essential component of a Cox model is the baseline hazard function $h_0$, which is a pre-specified hazard function that only depends on time instead of variables in $X$. The corresponding cumulative baseline hazard and baseline survival functions of $h_0$ are denoted by $H_0$ and $S_0$, respectively. Often, $h_0$ is chosen to be modeled non-parameterically, for instance via a Kaplan-Meijer or a Nelson-Aalen estimator (see \cite{cameron2005} for definitions of these estimators).
+A \textit{Cox proportional hazard model} (\cite{cox1972}; hereafter Cox model) attempts to explain the survival time $Y$ by some explanatory variables which are collected in a $p$-dimensional random vector $X$. An essential component of a Cox model is the baseline hazard function $h_0$, which is a pre-specified hazard function that only depends on time instead of variables in $X$. The corresponding cumulative baseline hazard and baseline survival functions of $h_0$ are denoted by $H_0$ and $S_0$, respectively. Often, $h_0$ is chosen to be modeled non-parameterically, for instance via a Kaplan-Meier or a Nelson-Aalen estimator (see \cite{cameron2005} for definitions of these estimators).
 
 With pre-specified baseline hazard and time $t \in[0,\infty]$, the hazard function of a Cox model is given by the semi-parameteric expression
 \begin{equation}\label{eq:cox-hazard}
@@ -117,19 +117,19 @@ Thus, the associated survival function $S_\beta$ of a Cox model is by definition
 
 \section{Fitting a Cox Proportional Hazard Model}
 \subsection{Setup}
-Suppose we have information on $n$ observations, indexed $i=1,\dots,n$. Suppose further that we observe non-negative real-valued random variables $Y_i$ that measure the failure time of observation $i$ and $p$-dimensional random vectors $X_i$, which contain explanatory variables for the $Y_i$. Assume that the failure times $Y_i$ are right-censored at a fixed time $T>0$, meaning that observations which have not yet failed at censoring time $T$ are counted as \textit{survivors}. Thus, for all survivors, it holds that $Y_i = T$, and for all failures, we have that $Y_i < T$. Thereupon, define a binary random variable $\delta_i$ that takes the value one if individual $i$ is a failure and the value zero if it is a survivor. The goal is to use the random sample $\big\{ (X_i, Y_i, \delta_i) \big\}_{i=1}^n$ to estimate the unknown coefficient vector $\beta\in\R^p$ in the Cox hazard function in \eqref{eq:cox-hazard}. We do so via maximum likelihood estimation. 
+Suppose we have information on $n$ observations, indexed $i=1,\dots,n$. Suppose further that we observe non-negative real-valued random variables $Y_i$ that measure the failure time of observation $i$, as well as $p$-dimensional random vectors $X_i$ which contain explanatory variables for the $Y_i$. Assume that the failure times $Y_i$ are right-censored at a fixed time $T>0$, meaning that observations which have not yet failed at censoring time $T$ are counted as \textit{survivors}. Thus, for all survivors, it holds that $Y_i = T$, and for all failures, we have that $Y_i < T$. Thereupon, define a binary random variable $\delta_i$ that takes the value one if individual $i$ is a failure and the value zero if it is a survivor. The goal is to use the random sample $\big\{ (X_i, Y_i, \delta_i) \big\}_{i=1}^n$ to estimate the unknown coefficient vector $\beta\in\R^p$ in the Cox hazard function in \eqref{eq:cox-hazard}. We do so via maximum likelihood estimation. 
 
-Assume for the moment that all failure times $Y_i$ are unique; Section \ref{sec:non-unique-times} for a discussion on non-unique failure times. To perform maximum likelihood estimation, we consider the partial likelihood function $L$, which calculated on the failures:
+Assume for the moment that all failure times $Y_i$ are unique; see Section \ref{sec:non-unique-times} for a discussion on non-unique failure times. To perform maximum likelihood estimation, we consider the partial likelihood function $L$, which is calculated on the failures and constructed as
 \begin{equation} \label{eq:cox-likelihood}
     \begin{split}
         L(\beta)
         &=
         \prod_{\{ i \in [n] : \delta_i = 1 \}}
-        \frac{ h_\beta(Y_i | X_i) }{ \sum_{\{ j\in[n] : Y_j \geq Y_i \}} h_\beta(Y_i | X_j) },
+        \frac{ h_\beta(Y_i | X_i) }{ \sum_{\{ j\in[n] : Y_j \geq Y_i \}} h_\beta(Y_i | X_j) }
         \\
         &=
         \prod_{\{ i \in [n] : \delta_i = 1 \}}
-        \frac{ \exp(X_i^\top \beta) }{ \sum_{\{ j\in[n] : Y_j \geq Y_i \}} \exp(X_j^\top \beta) }
+        \frac{ \exp(X_i^\top \beta) }{ \sum_{\{ j\in[n] : Y_j \geq Y_i \}} \exp(X_j^\top \beta) },
     \end{split}
 \end{equation}
 with the hazard function $h_\beta$ as in \eqref{eq:cox-hazard}. Observe that the the partial likelihood does \textit{not} depend on the baseline hazard $h_0$, as corresponding expressions cancel in the first line of the previous display. 
@@ -161,7 +161,7 @@ We maximize \eqref{eq:cox-likelihood} by maximizing its corresponding log-likeli
         P_\alpha (\beta)
     \right\},
 \end{equation}
-where the scaling factor $2/n$ has been added for mathematical convenience and $P_\alpha$ is the elastic net penalty \citep{zou2005}, defined by
+where the scaling factor $2/n$ has been added for mathematical convenience, and $P_\alpha$ is the elastic net penalty \citep{zou2005}, defined by
 \[
     P_\alpha (\beta) = \alpha \sum_{j=1}^p |\beta_j| + \frac{1}{2} (1 - \alpha) \sum_{j=1}^p \beta_j^2
     =
@@ -176,7 +176,7 @@ With estimate $\widehat{\beta}$, we can estimate the Cox model's survival functi
     =
     \widehat{S}_0(t)^{\exp\big(X^\top \widehat{\beta}\big)}.
 \]
-Recall that the baseline survival $S_0$ does not depend on $\beta$, hence its estimate $\widehat{S}_0$ also does not depend on $\widehat{\beta}$. Thus, as already discussed, $\widehat{S}_0$ is typically estimated separately in non-parameteric fashion. An estimate of the Cox model's hazard function in \eqref{eq:cox-hazard} can be constructed analogously.
+Recall that the baseline survival $S_0$ does not depend on $\beta$, hence its estimate $\widehat{S}_0$ also does not depend on $\widehat{\beta}$. Thus, as previously discussed, $\widehat{S}_0$ is typically estimated separately in non-parameteric fashion. An estimate of the Cox model's hazard function in \eqref{eq:cox-hazard} can be constructed analogously.
 
 \textcolor{red}{TODO: Add some stuff on the proportional hazard assumption and merge with main document}
 
@@ -190,7 +190,7 @@ Let the sets $\mathcal{D}_i = \{ j \in [n] : Y_j = Y_i \}$ contain the observati
         \prod_{\{ i \in [n] : \delta_i = 1 \}}
         \frac{ \sum_{\{j\in \mathcal{D}_i\}}\exp(X_j^\top \beta) }{ \Big( \sum_{\{ j\in[n] : Y_j \geq Y_i \}} \exp(X_j^\top \beta) \Big)^{|\mathcal{D}_i|} }
 \end{equation*}
-and the optimization problem in \ref{eq:cox-loss} is adapted correspondingly.
+and the optimization problem in \eqref{eq:cox-loss} is adapted correspondingly.
 
 \bibliography{bibliography}
 
