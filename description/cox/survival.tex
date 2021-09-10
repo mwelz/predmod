@@ -59,9 +59,9 @@
 \maketitle
 
 \section{Essential Theory}
-Suppose we want to model the failure rate of a some statistical process. Concretely, let the random variable $Y$ denote the (non-negative) real-valued failure time of the process of interest. Let $F$ be the distribution function of $Y$ and $f$ be its corresponding density. By definition, for some time $t\in[0, \infty]$,
+Suppose we want to model the failure rate of a some statistical process. Concretely, let the random variable $T$ denote the (non-negative) real-valued failure time of the process of interest. Let $F$ be the distribution function of $Y$ and $f$ be its corresponding density. By definition, for some time $t\in[0, \infty]$,
 \[
-    F(t) = \P[Y \leq t]
+    F(t) = \P[T \leq t]
     =
     \int_0^t f(s)\d s
 \]
@@ -69,13 +69,17 @@ measures the probability that the process fails before or at time $t$. Conversel
 \[
     S(t) = 1 - F(t) = \P[Y > t],
 \]
-is the probability that failure occurs \textit{after} time $t$. A popular choice for $F$ is the exponential distribution. An essential quantity in survival modeling is the \textit{hazard function} $h:\R\to\R$, defined by
+is the probability that failure occurs \textit{after} time $t$. We call the distribution function $F$ the \textit{incidence function}. An essential quantity in survival modeling is the \textit{hazard function} $h:\R\to\R$, defined by
 \[
-    h(t) = \frac{f(t)}{1-F(t)} = \frac{f(t)}{S(t)}.
+    h(t) = \lim_{\Delta \downarrow 0}\frac{\P[t \leq T < t + \Delta | T \geq t]}{\Delta} = \frac{f(t)}{1-F(t)} = \frac{f(t)}{S(t)}.
 \]
-We emphasize that the hazard function is \textit{not} a probability, which is a frequent misconception. For some time $t\in[0, \infty]$, the \textit{cumulative hazard function} of hazard $h$ is defined by
+The hazard function $h(t)$ is interpreted as the instantaneous rate of failure in individuals who are still at risk at time $t$. We emphasize that the hazard function is \textit{not} a probability, which is a frequent misconception. For some time $t\in[0, \infty]$, the \textit{cumulative hazard function} of hazard $h$ is correspondingly defined by
 \[
     H(t) = \int_0^t h(s) \d s.
+\]
+By definition, we can relate the incidence function $F$ to hazard $h$ and survival $S$ through the identity
+\[
+    F(t) = \int_0^t h(u)S(u) \d u.
 \]
 
 Observe that the definition of the hazard function $h$ gives rise to a differential equation of distribution $F$, namely $h(t) = \frac{F'(t)}{1-F(t)}$. Solving yields the following useful identity, which expresses distribution $F$ in terms of cumulative hazard $H$:
@@ -88,7 +92,7 @@ Thus, we can also express survival $S$ in terms of  cumulative hazard $H$:
 \]
 
 \section{Cox Proportional Hazard Modeling}
-A \textit{Cox proportional hazard model} (\cite{cox1972}; hereafter Cox model) attempts to explain the survival time $Y$ by some explanatory variables which are collected in a $p$-dimensional random vector $X$. An essential component of a Cox model is the baseline hazard function $h_0$, which is a pre-specified hazard function that only depends on time instead of variables in $X$. The corresponding cumulative baseline hazard and baseline survival functions of $h_0$ are denoted by $H_0$ and $S_0$, respectively. Often, $h_0$ is chosen to be modeled non-parameterically, for instance via a Kaplan-Meier or a Nelson-Aalen estimator (see \cite{cameron2005} for definitions of these estimators).
+A \textit{Cox proportional hazard model} (\cite{cox1972}; hereafter Cox model) attempts to explain the survival time $T$ by some explanatory variables which are collected in a $p$-dimensional random vector $X$. An essential component of a Cox model is the baseline hazard function $h_0$, which is a pre-specified hazard function that only depends on time instead of variables in $X$. The corresponding cumulative baseline hazard and baseline survival functions of $h_0$ are denoted by $H_0$ and $S_0$, respectively. Often, $h_0$ is chosen to be modeled non-parameterically, for instance via a Kaplan-Meier or a Nelson-Aalen estimator (see \cite{cameron2005} for definitions of these estimators).
 
 With pre-specified baseline hazard and time $t \in[0,\infty]$, the hazard function of a Cox model is given by the semi-parameteric expression
 \begin{equation}\label{eq:cox-hazard}
@@ -117,9 +121,11 @@ Thus, the associated survival function $S_\beta$ of a Cox model is by definition
 
 \section{Fitting a Cox Proportional Hazard Model}
 \subsection{Setup}
-Suppose we have information on $n$ observations, indexed $i=1,\dots,n$. Suppose further that we observe non-negative real-valued random variables $Y_i$ that measure the failure time of observation $i$, as well as $p$-dimensional random vectors $X_i$ which contain explanatory variables for the $Y_i$. Assume that the failure times $Y_i$ are right-censored at a fixed time $T>0$, meaning that observations which have not yet failed at censoring time $T$ are counted as \textit{survivors}. Thus, for all survivors, it holds that $Y_i = T$, and for all failures, we have that $Y_i < T$. Thereupon, define a binary random variable $\delta_i$ that takes the value one if individual $i$ is a failure and the value zero if it is a survivor. The goal is to use the random sample $\big\{ (X_i, Y_i, \delta_i) \big\}_{i=1}^n$ to estimate the unknown coefficient vector $\beta\in\R^p$ in the Cox hazard function in \eqref{eq:cox-hazard}. We do so via maximum likelihood estimation. 
+Suppose we have information on $n$ observations, indexed $i=1,\dots,n$. Suppose further that we observe non-negative real-valued random variables $Y_i$ that measure the time at risk of individual $i$, as well as $p$-dimensional random vectors $X_i$ which contain explanatory variables for the $Y_i$. 
 
-Assume for the moment that all failure times $Y_i$ are unique; see Section \ref{sec:non-unique-times} for a discussion on non-unique failure times. To perform maximum likelihood estimation, we consider the partial likelihood function $L$, which is calculated on the failures and constructed as
+We assume that the times at risk $Y_i$ are right-censored. This means that we assume the existence of latent variables $T_i$ and $C_i$. The latent variable $T_i$ denotes the failure time of individual $i$ and the latent variable $C_i$ denotes the censoring time of individual $i$. For the sake of simplicity, we assume that all individuals have the same  censoring time, $C=C_i$, for all $i\in[n]$, and that $C$ is observed; one may think of $C$ as the ending time of a trial. Therefore, for the observed time $Y_i$, the identity $Y_i = T_i \wedge C$ holds. We say that individuals which have not yet failed at censoring time $C$ are  \textit{survivors} (within observed time period), whereas we refer to individuals which fail before censoring time $C$ as \textit{failures}. Thus, for all survivors, it holds that $Y_i = C$, and for all failures, we have that $Y_i < C$. Thereupon, define a binary random variable $\delta_i$ that takes the value one if individual $i$ is a failure and the value zero if it is a survivor, that is, $\delta_i = \indic\{ T_i < C\}$. The goal is to use the observed random sample $\big\{ (X_i, Y_i, \delta_i) \big\}_{i=1}^n$ to estimate the unknown coefficient vector $\beta\in\R^p$ in the Cox hazard function in \eqref{eq:cox-hazard}. We do so via maximum likelihood estimation. 
+
+Assume for the moment that all times at risk $Y_i$ are unique; see Section \ref{sec:non-unique-times} for a discussion on non-unique times at risk. To perform maximum likelihood estimation, we consider the partial likelihood function $L$, which is calculated on the failures and constructed as
 \begin{equation} \label{eq:cox-likelihood}
     \begin{split}
         L(\beta)
@@ -180,10 +186,10 @@ Recall that the baseline survival $S_0$ does not depend on $\beta$, hence its es
 
 \textcolor{red}{TODO: Add some stuff on the proportional hazard assumption and merge with main document}
 
-\subsection{What if the Failure Times are not Unique?} \label{sec:non-unique-times}
-Consider a situation where some of the failure times $Y_i$ are not unique. \cite{breslow1975} and \cite{efron1977} propose two different approaches for this situation. In the following, we briefly discuss the approach of \cite{breslow1975}.
+\subsection{What if the Times at Risk are not Unique?} \label{sec:non-unique-times}
+Consider a situation where some of the times at risk $Y_i$ are not unique. \cite{breslow1975} and \cite{efron1977} propose two different approaches for this situation. In the following, we briefly discuss the approach of \cite{breslow1975}.
 
-Let the sets $\mathcal{D}_i = \{ j \in [n] : Y_j = Y_i \}$ contain the observations whose failure times are tied with the one of individual $i$. Then, the likelihood function $L$ in \eqref{eq:cox-likelihood} becomes
+Let the sets $\mathcal{D}_i = \{ j \in [n] : Y_j = Y_i \}$ contain the observations whose times at risk are tied with the one of individual $i$. Then, the likelihood function $L$ in \eqref{eq:cox-likelihood} becomes
 \begin{equation*} 
         L(\beta)
         =
@@ -191,6 +197,45 @@ Let the sets $\mathcal{D}_i = \{ j \in [n] : Y_j = Y_i \}$ contain the observati
         \frac{ \sum_{\{j\in \mathcal{D}_i\}}\exp(X_j^\top \beta) }{ \Big( \sum_{\{ j\in[n] : Y_j \geq Y_i \}} \exp(X_j^\top \beta) \Big)^{|\mathcal{D}_i|} }
 \end{equation*}
 and the optimization problem in \eqref{eq:cox-loss} is adapted correspondingly.
+
+\section{Competing Risk Modeling}
+There might be several causes for an individual to fail. Suppose that there are $K$ failure types/causes in total and that there exist variables $\varepsilon_i$ that indicate the cause of failure of individual $i$. Without loss of generality, assume that $\varepsilon_i$ have support on the set $\{1,\dots,K\}$ and $\varepsilon_i = k$ means that individual $i$ fails due to cause $k$. In practice, we observe the variables $\delta_i\varepsilon_i$. Hence, if individual $i$ survives, we observe $\delta_i\varepsilon_i = 0$, whereas if individual $i$ fails before the censoring time, we observe $\delta_i\varepsilon_i =\varepsilon_i$. Obviously, $\delta_i\varepsilon_i$ is supported on $\{0,1,\dots,K\}$. Models in which there are multiple causes of failure are referred to as \textit{competing risk models}. In such models, we observe the random sample $\{ (X_i, Y_i, \delta_i, \delta_i\varepsilon_i) \}_{i=1}^n$.
+
+In situations with competing risk, one is typically only interested in one single cause of failure. For instance, in a trial on cardiovascular diseases, one is typically only interested in cardiovascular deaths and not in non-cardiovascular deaths (some individuals in the trial might die of causes other than cardiovascular diseases). A naive approach in such a situation is to artificially set the time at risk of all non-cardiovascular deaths equal to the censoring time, thereby effectively counting them as survivors. However, this approach may produce upward biased estimates of incidence function $F$, which will in turn lead to downwards biased estimates of the survival function $S$ (e.g. \citealp{austin2016introduction}). 
+
+Approaches that provides accurate estimates of incidence and survival despite the presence of competing risks typically make use of \textit{Cumulative Incidence Functions}. Unlike incidence functions $F$, cumulative incidence functions consider each failure type separately. Hence, if there are $K$ types of failure, there are $K$ cumulative incidence functions, denoted $F_k$, for $k=1,\dots,K$. Mathematically, for some time $t\in[0,\infty]$, the \textit{cumulative incidence function of failure type} $k\in\{1,\dots,K\}$ is defined by
+\[
+    F_k(t) = \P[T_1 \leq t , \varepsilon_1 = k].
+\]
+This definition\footnote{A cumulative incidence function $F_k$ with $K>1$ is not a distribution function, because $\lim_{t\to+\infty}F_k(t) \neq 1$.} gives rise to the following decomposition of incidence function $F$:
+\[
+    F(t) = \P[T_1 \leq t] = \sum_{k=1}^K \P[T_1 \leq t, \varepsilon_1 = k] = \sum_{k=1}^K F_k(t).
+\]
+Hence, for the survival function $S$ it holds that
+\[
+    S(t) = 1 - F(t) = 1 -  \sum_{k=1}^K F_k(t).
+\]
+We emphasize that for survivors (for which $\delta_i\varepsilon_i=0$), no cumulative incidence function is considered.  
+
+There are two main ways of specifying competing risk models, \textit{proportional cause-specific hazard} modedels. and \textit{proportional subdistribution hazard} models.
+
+\subsection{Proportional Cause-Specific Hazard Models}
+Proportional cause-specific hazard models essentially fit $K$ separate Cox proportional hazard models. Hence, for cause $k\in[K]$, the hazard function associated with this cause is given by
+\begin{equation*}
+\begin{split}
+     h^k_{\beta^k}(t|X_i) &= \lim_{\Delta \downarrow 0}\frac{\P[t \leq T_i < t + \Delta, \varepsilon_i = k | T_i \geq t]}{\Delta} 
+     \\ &=
+     h_0^k (t) \exp (X^\top \beta^k),
+\end{split}
+\end{equation*}
+where $h_0^k$ is a Breslow-type of the baseline hazard of individuals for which $\varepsilon_i = k$. We use the $k$-superscript in $\beta^k \in \R^p$ to remind us that the coefficients of each of the $K$. Consequently, we estimate $\beta^k$ by solving the problem \eqref{eq:cox-loss} on individuals for which $\varepsilon_i = k$. We can subsequently estimate the associated survival function $S(t) = S_{(\beta^1,\dots,\beta^K)}(t)$ by
+\[
+    \hat{S}(t) = S_{(\hat{\beta}^1,\dots,\hat{\beta}^K)}(t)
+    =
+    \prod_{k=1}^K
+    S_0^k(t)^{\exp(X^\top\widehat{\beta}_k)}
+\]
+\textcolor{red}{make dependence on X explicit: we need info on $t$ and $X$ for prediction! We need to estimate beta $K$ times}
 
 \bibliography{bibliography}
 
