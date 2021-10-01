@@ -17,7 +17,8 @@ source(paste0(getwd(),  "/funs/c-statistics/c-statistics.R"))
 #' @export
 grf.modeling <- function(X, y, w,
                          lifeyears = NULL, 
-                         prediction.timeframe = NULL, 
+                         prediction.timeframe = NULL,
+                         store.causal.forest.object = TRUE,
                          num.trees = 2000, ...){
   
   # truncate y if necessary
@@ -42,6 +43,8 @@ grf.modeling <- function(X, y, w,
   
   # ATE
   ate.obj <- grf::average_treatment_effect(cf)
+  
+  if(!store.causal.forest.object) cf <- NULL
   
   # return
   return(list(inputs = list(X = X, w = w, y = y.orig, 
