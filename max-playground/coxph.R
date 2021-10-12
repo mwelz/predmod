@@ -1,7 +1,109 @@
 rm(list = ls()) ; cat("\014")
 
-# get data
-library(survival)
+optim_prep_phm <- function(x, time, status){
+  
+  # get index set I
+  I <- which(status == 1)
+  
+  # get R_list
+  R_list <- 
+    lapply(I, function(i){
+      
+      # get set R_{i,k}
+      which(time >= time[i])
+      
+    }) # LAPPLY
+  
+  # naming
+  names(R_list) <- paste0("idx", I)
+  
+  # return
+  return(list(I = I, R_list = R_list))
+  
+} # FUN
+
+
+neglogL <- function(x, beta, optim_prep_phm_object){
+  
+  # get X*beta and exp() thereof
+  xb  <- as.numeric(x %*% beta)
+  exb <- exp(xb)
+  
+  # get Rk_list and Ik
+  I <- optim_prep_phm_object$I
+  R_list <- optim_prep_phm_object$R_list
+  
+  # get the log likelihood
+  -sum(sapply(I, function(i){
+    
+    R  <- R_list[[paste0("idx",i)]]
+    
+    xb[i] - log(sum(exb[R]))
+    
+  })) # SAPPLY
+  
+} # FUN
+
+
+
+
+neglogL_gradient <- function(x, beta, optim_prep_phm_object){
+  
+  # get X*beta and exp() thereof
+  xb  <- as.numeric(x %*% beta)
+  exb <- exp(xb)
+  p   <- ncol(x)
+  
+  # get Rk_list and Ik
+  I <- optim_prep_phm_object$I
+  R_list <- optim_prep_phm_object$R_list
+  
+  # get the gradient, evaluated at beta
+  -rowSums(sapply(I, function(i){
+    
+    R  <- R_list[[paste0("idx",i)]]
+    
+    x[i,] - colSums(matrix(x[R,] * exb[R], ncol = p)) / sum(exb[R])
+    
+  })) # SAPPLY
+  
+} # FUN
+
+
+
+#' fitting a proportional hazard model Cox (1972, JRSSB)
+#' 
+#' @param x Matrix of covariates.
+#' @param time Vector of failure/censoring times
+#' @param status Binary vector. Equal to to zero for censoring times.
+#' 
+#' TODO: covariance estimate, dealing with duplicate failure times, prediction
+#' 
+#' @export
+phm <- function(x, time, status){
+  
+  x <- as.matrix(x)
+  if(is.null(colnames(x))) colnames(x) <- paste0("V", 1:ncol(x))
+  
+  # prepare and perform optimization routine
+  optim_prep_phm_object <- optim_prep_phm(x = x, time = time, status = status)
+  opt <- optim(par = rep(0.0, ncol(x)),
+               fn = neglogL,
+               gr = neglogL_gradient, 
+               method = "BFGS",
+               x = x, 
+               optim_prep_phm_object = optim_prep_phm_object)
+  
+  return(structure(list(
+    coef = structure(opt$par, names = colnames(x)),
+    loglik = -opt$value
+  ), class = "phm"))
+} # FUN
+
+
+
+############################
+
 lung <- survival::lung
 
 # 1 means having the event
@@ -10,74 +112,11 @@ lung$status <- ifelse(lung$status == 1, 1, 0)
 # for now, kick out duplicate times
 lung <- lung[!duplicated(lung$time),]
 
-# run model
-res.cox <- coxph(Surv(time, status) ~ sex + age, data = lung )
-res.cox
+x <- cbind(sex = lung$sex, age = lung$age)
+time <- lung$time
+status <- lung$status
 
-x = cbind(sex = lung$sex, age = lung$age)
-x = as.matrix(x) # x needs to be a matrix!
-time = lung$time
-beta = c(-0.1, 0.1)
-status = lung$status
-i=1
-Ri <- which(time >= time[i])
+phm(x = x, time = time, status = status)$coef
 
-# x needs to be a matrix with more than one column, otherwise error due
-
-sum_over_Ri <- function(Ri, x, beta){
-  
-  sum(sapply(Ri, function(j) as.numeric(exp(t(x[j,]) %*% beta))))
-  
-}
-
-
-sum_over_Ri_gradient <- function(Ri, x, beta){
-  
-  rowSums(sapply(Ri, function(j) x[j,] * as.numeric(exp(t(x[j,]) %*% beta))))
-  
-}
-
-
-logL_individual_contribution <- function(x, i, beta, time){
-
-  Ri <- which(time >= time[i])
-  
-  as.numeric(t(x[i,]) %*% beta - log(sum_over_Ri(Ri, x, beta)))
-  
-} # FUN
-
-
-logL_individual_contribution_gradient <- function(x, i, beta, time){
-  
-  Ri <- which(time >= time[i])
-  
-  as.numeric(x[i,] - sum_over_Ri_gradient(Ri, x, beta) / sum_over_Ri(Ri, x, beta))
-  
-} # FUN
-
-
-neglogL_gradient <- function(x, beta, time, status){
-  
-  failures <- which(status == 1)
-  -rowSums(
-    sapply(failures, function(i)  logL_individual_contribution_gradient(x, i, beta, time))
-    )
-
-} 
-
-
-neglogL <- function(x, beta, time, status){
-  
-  failures <- which(status == 1)
-  -sum(sapply(failures, function(i)  logL_individual_contribution(x, i, beta, time) ))
-  
-}
-
-#neglogL(x, beta, time, status)
-#neglogL_gradient(x, beta, time, status)
-
-foo = optim(par = rep(0, ncol(x)),
-            fn = neglogL, gr = neglogL_gradient, method = "BFGS",
-            x = x, time = time, status = status)
-foo$par
-res.cox$coefficients
+# comparison
+coxph(Surv(time, status) ~ sex + age, data = lung )$coefficients

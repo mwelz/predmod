@@ -1,27 +1,13 @@
 rm(list = ls()) ; cat("\014")
-library(cmprsk)
 
-# simulated data to test
-set.seed(10)
-time <- rexp(200)
-status <- sample(0:2,200,replace=TRUE)
-x <- matrix(runif(600),nrow=200)
-dimnames(x)[[2]] <- c('x1','x2','x3')
-
-#print(z <- crr(ftime,fstatus,cov))
-#summary(z)
-#z.p <- predict(z,rbind(c(.1,.5,.8),c(.1,.5,.2)))
-#plot(z.p,lty=1,color=2:3)
-
-################################################
-
-# Status is binary
 km_fit <- function(time, status){
   
+  # status should be binary
   survival::survfit(survival::Surv(time, status) ~ 1, 
                     data = data.frame(time, status),
                     type = "kaplan-meier")
 } # FUN
+
 
 km_predict_survival <- function(x, time){
   
@@ -31,100 +17,142 @@ km_predict_survival <- function(x, time){
 } # FUN
 
 
-# i is in I_k, j is in R_{i,k}. 
-Zw <- function(time_i, time_j, km_fit_object, status_j, k){
+optim_prep_pshm <- function(x, time, status, k){
   
-  if((time_j < time_i) & (0 < status_j) & (status_j != k)){
-    km_predict_survival(km_fit_object, time_i) / 
-      km_predict_survival(km_fit_object, time_j)
-  } else 1
+  # get Kaplan-Meier (KM) estimator of censoring time by using {time, 1 - delta}
+  km <- km_fit(time = time, status = 1*(status == 0))
+  
+  # evaluate KM estimator at all times
+  G <- sapply(1:length(time), function(i) {
+    km_predict_survival(x = km, time = time[i])
+    })
+  
+  # get index set Ik
+  Ik <- which(status == k)
+  
+  # get Rk_list
+  Rk_list <- 
+    lapply(Ik, function(i){
+      
+      # get set R_{i,k}
+      Rk <- which(time >= time[i] | (0 < status & status != k))
+      
+      # get Z_j(Y_i) * w_j(Y_i) for all j \in R_{i,k}
+      zw <- sapply(Rk, function(j){
+        ifelse(test = (time[j] < time[i]) & (0 < status[j]) & (status[j] != k), 
+               yes = G[i] / G[j], no = 1.0)
+      })
+      
+      # get Z_j(Y_i) * w_j(Y_i) * X_j for all j \in R_{i,k}
+      zwx <- x[Rk,] * zw
+      
+      # return
+      list(Rk = Rk, zw = zw, zwx = zwx)
+      
+    }) # LAPPLY
+  
+  # naming
+  names(Rk_list) <- paste0("idx", Ik)
+  
+  # return
+  return(list(Ik = Ik, Rk_list = Rk_list, G = G, KM = km))
   
 } # FUN
 
 
-sum_over_Rik <- function(Rik, i, x, beta, time, status, km_fit_object, k){
+neglogL <- function(x, beta, optim_prep_pshm_object){
   
-  sum(sapply(Rik, function(j){ 
+  # get X*beta and exp() thereof
+  xb  <- as.numeric(x %*% beta)
+  exb <- exp(xb)
+  
+  # get Rk_list and Ik
+  Ik <- optim_prep_pshm_object$Ik
+  Rk_list <- optim_prep_pshm_object$Rk_list
+  
+  # get the log likelihood
+  -sum(sapply(Ik, function(i){
     
-    as.numeric( Zw(time_i = time[i], time_j = time[j], 
-                   km_fit_object = km_fit_object, 
-                   status_j = status[j], k = k) * exp(t(x[j,]) %*% beta))
+    Rk  <- Rk_list[[paste0("idx",i)]]$Rk
+    zw  <- Rk_list[[paste0("idx",i)]]$zw
+
+    xb[i] - log(sum(zw * exb[Rk]))
     
-    }))
-} # FUN
-
-
-sum_over_Rik_gradient <- function(Rik, i, x, beta, time, status, km_fit_object, k){
-  
-  rowSums(sapply(Rik, function(j){ 
-    
-    x[j,] * 
-    as.numeric( Zw(time_i = time[i], time_j = time[j], 
-                   km_fit_object = km_fit_object, 
-                   status_j = status[j], k = k) * exp(t(x[j,]) %*% beta))
-    
-  }))
-} # FUN
-
-
-logL_individual_contribution_k <- function(i, x, beta, time, status, km_fit_object, k){
-  
-  Rik <- which(time >= time[i] | (0 < status & status != k))
-  
-  as.numeric(t(x[i,]) %*% beta - 
-               log(sum_over_Rik(Rik, i, x, beta, time, status, km_fit_object, k)))
+  })) # SAPPLY
   
 } # FUN
 
 
-
-logL_individual_contribution_k_gradient <- function(i, x, beta, time, status, km_fit_object, k){
+neglogL_gradient <- function(x, beta, optim_prep_pshm_object){
   
-  Rik <- which(time >= time[i] | (0 < status & status != k))
+  # get X*beta and exp() thereof
+  xb  <- as.numeric(x %*% beta)
+  exb <- exp(xb)
+  p   <- ncol(x)
   
-  as.numeric(x[i,] - 
-               sum_over_Rik_gradient(Rik, i, x, beta, time, status, km_fit_object, k) /
-               sum_over_Rik(Rik, i, x, beta, time, status, km_fit_object, k))
+  # get Rk_list and Ik
+  Ik <- optim_prep_pshm_object$Ik
+  Rk_list <- optim_prep_pshm_object$Rk_list
   
-} # FUN
-
-
-neglogL_k <- function(x, beta, time, status, k){
-  
-  delta <- 1 * (status > 0)
-  km_fit_object <- km_fit(time = time, status = 1 - delta)
-  
-  failures.k <- which(status == k)
-  -sum(sapply(failures.k, function(i){
-    logL_individual_contribution_k(i, x, beta, time, status, km_fit_object, k)
-    }))
-  
-} # FUN
-
-neglogL_k_gradient <- function(x, beta, time, status, k){
-  
-  delta <- 1 * (status > 0)
-  km_fit_object <- km_fit(time = time, status = 1 - delta)
-  
-  failures.k <- which(status == k)
-  
+  # evaluate the gradient
   -rowSums(
-    sapply(failures.k, function(i){
-      logL_individual_contribution_k_gradient(i, x, beta, time, status, km_fit_object, k)})
-  )
+    
+    sapply(Ik, function(i){
+    
+    Rk  <- Rk_list[[paste0("idx",i)]]$Rk
+    zw  <- Rk_list[[paste0("idx",i)]]$zw
+    zwx <- Rk_list[[paste0("idx",i)]]$zwx
+    
+    x[i,] - colSums(matrix(zwx * exb[Rk], ncol = p)) / (sum(zw * exb[Rk]))
+    
+  })) # SAPPLY
   
 } # FUN
 
 
-foo = optim(par = rep(0, ncol(x)),
-            fn = neglogL_k, gr = neglogL_k_gradient, method = "BFGS",
-            x = x, time = time, status = status, k = 1)
+#' fitting a proportional subdistribution hazard model as in Fine and Gray (1999, JASA)
+#' 
+#' @param x Matrix of covariates.
+#' @param time Vector of failure/censoring times
+#' @param status Vector with a unique code (nonzero) for each failure type and a separate code (equality to zero) for censored observations
+#' @param k fit for k-th failure type.
+#' 
+#' TODO: covariance estimate, dealing with duplicate failure times, Breslow-type estimator for prediction
+#' 
+#' @export
+pshm <- function(x, time, status, k = 1){
+  
+  x <- as.matrix(x)
+  if(is.null(colnames(x))) colnames(x) <- paste0("V", 1:ncol(x))
+  
+  # prepare and perform optimization routine
+  optim_prep_pshm_object <- optim_prep_pshm(x = x, time = time, status = status, k = k)
+  opt <- optim(par = rep(0.0, ncol(x)),
+               fn = neglogL,
+               gr = neglogL_gradient, 
+               method = "BFGS",
+               x = x, 
+               optim_prep_pshm_object = optim_prep_pshm_object)
+  
+  return(structure(list(
+    coef = structure(opt$par, names = colnames(x)),
+    loglik = -opt$value,
+    km = optim_prep_pshm_object$KM
+  ), class = "pshm"))
+} # FUN
 
 
-foo2 <- cmprsk::crr(time,status,x)
+########################################
 
-foo2$coef
-foo$par
-#neglogL_k_gradient(x, c(-0.1, 0.1, 0.1), time, status, 1)
-# TODO: slow, it's faster to compute G for all times and then just select from that set iteratively
+# simulated data to test
+set.seed(10)
+time <- rexp(200)
+status <- sample(0:2,200,replace=TRUE)
+x <- matrix(runif(600),nrow=200)
+dimnames(x)[[2]] <- c('x1','x2','x3')
 
+pshm.obj <- pshm(x = x, time = time, status = status, k = 1)
+pshm.obj$coef
+
+# for comparison:
+cmprsk::crr(ftime = time, fstatus = status, cov1 = x)$coef # accurate
