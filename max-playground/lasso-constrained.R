@@ -35,10 +35,11 @@ A <- rbind(rep(-1, 2*p),
            diag(2*p))
 c <- c(-t, rep(0, 2*p))
 
-cop = constrOptim(theta = rep(0.00001, 2*p), f = fr, grad = gr, y = y, x = x, 
+cop <- constrOptim(theta = rep(0.00001, 2*p), f = fr, grad = gr, y = y, x = x, 
                   ui = A, ci = c)
 
-round(cop$par, 5)
+hat <- cop$par
+round(sapply(1:p, function(j) hat[j] - hat[p+j] ), 5)
 
 glm <- glmnet::cv.glmnet(x = x, y = y)
 coef(glm)
