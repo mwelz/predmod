@@ -25,12 +25,12 @@ gr <- function(y, x, betapm){
 
 set.seed(1)
 p <- 10
-x = mvtnorm::rmvnorm(100, mean = rep(0, p), sigma = diag(p))
+x = mvtnorm::rmvnorm(1000, mean = rep(0, p), sigma = diag(p))
 beta <-  rep(0, p)
 beta[c(1,3)] <- 2
-y <- as.numeric(x %*% beta + rnorm(100))
+y <- as.numeric(x %*% beta + rnorm(1000))
 
-t <- sum(abs(beta)) 
+t <- sum(abs(beta)) + 10
 A <- rbind(rep(-1, 2*p),
            diag(2*p))
 c <- c(-t, rep(0, 2*p))
