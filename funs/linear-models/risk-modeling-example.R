@@ -35,12 +35,11 @@ y  <- ifelse(w == 1, y1, y0) # observed outcome
 
 ## test the model
 stage1 <- baseline.risk(X, y)
-stage2 <- risk.model.stage2(linear.predictor = stage1$linear.predictor, y = y, w = w,
-                            z = "linear.predictor", 
+stage2 <- risk.model.stage2(y = y, w = w, z = stage1$linear.predictor,
                             constant.treatment.effect = FALSE, 
                             intercept = TRUE)
 
-RM <- risk.modeling(X, y, w, alpha = 1)
+RM <- risk.modeling(X, y, w, alpha = NULL)
 RM$models$coefficients.stage2
 
 summary(stage2$mod.stage2)$coefficients
