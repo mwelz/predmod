@@ -101,6 +101,22 @@ phm <- function(x, time, status){
 } # FUN
 
 
+km_fit <- function(time, status, type = "kaplan-meier"){
+  
+  # status should be binary
+  survival::survfit(survival::Surv(time, status) ~ 1, 
+                    data = data.frame(time, status),
+                    type = type)
+} # FUN
+
+
+km_predict_survival <- function(x, time){
+  
+  # x is returned by km_fit()
+  summary(x, time = time)$surv
+  
+} # FUN
+
 
 ############################
 
@@ -118,5 +134,24 @@ status <- lung$status
 
 phm(x = x, time = time, status = status)$coef
 
+# survival predictions at time[1]
+phm_fit <- phm(x = x, time = time, status = status)
+km <- km_fit(time, status, type = "kaplan-meier")
+baseline_survival <- km_predict_survival(km, time[1])
+betahat <- phm_fit$coef
+
+pred <- baseline_survival^exp(as.numeric(x %*% betahat))
+
+
+
 # comparison
-coxph(Surv(time, status) ~ sex + age, data = lung )$coefficients
+library(survival)
+check <- coxph(Surv(time, status) ~ sex + age, data = lung )
+check_pred <- summary(survfit(check, newdata = data.frame(x)), time=time[1])
+as.numeric(check_pred$surv)
+
+bhaz=basehaz(check, centered = T)
+exp(-bhaz[bhaz$time == time[1],1])
+
+baseline_survival # we get close, but not exactly the same :(
+
