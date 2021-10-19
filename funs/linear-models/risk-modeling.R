@@ -52,7 +52,7 @@ baseline.risk <- function(X, y, alpha = 1){
 risk.model.stage2 <- function(linear.predictor, y, w, 
                               z = "linear.predictor", 
                               constant.treatment.effect = FALSE,
-                              intercept = FALSE){
+                              intercept = TRUE){
   
   # check input
   if(any(is.character(z))){
@@ -74,25 +74,23 @@ risk.model.stage2 <- function(linear.predictor, y, w,
   if(constant.treatment.effect){
     
     # prepare X for second stage...
-    X.stage2 <- as.matrix(w)
-    colnames(X.stage2) <- "w"
-    
+    X.stage2 <- cbind(w = w, z = zz)
+
     # ... and its counterpart with flipped w
-    X.stage2.rev           <- as.matrix(w)
-    colnames(X.stage2.rev) <- "w"
-    
+    X.stage2.rev           <- cbind(w = w.rev, z = zz)
+
     # prepare formula
-    f <- ifelse(intercept, "y ~ w", "y ~ 0 + w")
+    f <- ifelse(intercept, "y ~ w + z", "y ~ 0 + w + z")
   } else{
     
     # prepare X for second stage...
-    X.stage2 <- cbind(w = w, w.z = w * zz)
+    X.stage2 <- cbind(w = w, z = zz, w.z = w * zz)
     
     # ... and its counterpart with flipped w
-    X.stage2.rev <- cbind(w = w.rev, w.z = w.rev * zz)
+    X.stage2.rev <- cbind(w = w.rev, z = zz, w.z = w.rev * zz)
     
     # prepare formula
-    f <- ifelse(intercept, "y ~ w + w.z", "y ~ 0 + w + w.z")
+    f <- ifelse(intercept, "y ~ w + z + w.z", "y ~ 0 + w + z + w.z")
     
   } # IF
   
@@ -100,20 +98,19 @@ risk.model.stage2 <- function(linear.predictor, y, w,
   # fit the model
   mod.stage2 <- stats::glm(formula = formula(f), 
                            family = binomial(link = "logit"), 
-                           data = as.data.frame(X.stage2), 
-                           offset = zz)
+                           data = as.data.frame(X.stage2))
   
   # get the responses with the regular w ( = F_logistic(x'beta + z))
   risk.regular.w <- as.numeric(predict.glm(mod.stage2, type = "response"))
   
-  # for some cryptic reason, predict.glm does not work with new data when there is an offset, so we need to do it manually:
+  # get responses with flipped W
   if(intercept){
     X.temp <- cbind(1, X.stage2.rev)  
   } else{
     X.temp <- X.stage2.rev
   } # IF
   
-  risk.flipped.w <- as.numeric(plogis(X.temp %*% mod.stage2$coefficients + zz))
+  risk.flipped.w <- as.numeric(plogis(X.temp %*% mod.stage2$coefficients))
   
   # return
   return(list(mod.stage2 = mod.stage2,
@@ -132,16 +129,16 @@ risk.model.stage2 <- function(linear.predictor, y, w,
 #' @param alpha the alpha as in glmnet. Default is 1 (= Lasso)
 #' @param lifeyears vector of life years. Default is NULL.
 #' @param prediction.timeframe vector of the prediction time frame. Default is NULL.
-#' @param z the `z` in the 2nd stage, which is used as product with w and as an offset. Default is `linear.predictor`.
+#' @param z the `z` in the 2nd stage, which is used as product with w and as a single regressor. Default is `linear.predictor`.
 #' @param constant.treatment.effect If TRUE, the interaction z*w is not used as regressor in stage 2. Default is FALSE.
-#' @param intercept.stage.2 logical. Shall an intercept in stage 2 be included? Default is `FALSE`
+#' @param intercept.stage.2 logical. Shall an intercept in stage 2 be included? Default is `TRUE`
 #' 
 #' @export
 risk.modeling <- function(X, y, w, alpha = 1, 
                           z = "linear.predictor",
                           lifeyears = NULL,
                           prediction.timeframe = NULL,
-                          intercept.stage.2 = FALSE,
+                          intercept.stage.2 = TRUE,
                           constant.treatment.effect = FALSE){
   
   # truncate y if necessary
