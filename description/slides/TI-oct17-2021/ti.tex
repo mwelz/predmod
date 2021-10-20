@@ -38,7 +38,7 @@
 \author[Welz, ten Haaf, Alfons]{\underline{Max Welz}\inst{1,2} \and Kevin ten Haaf\inst{2} \and Andreas Alfons\inst{1}}
 \institute[]{\inst{1} Erasmus University Rotterdam, Dept. of Econometrics \and \inst{2} Erasmus Medical Center, Dept. of Public Health}
 
-\titlegraphic{\includegraphics[width=5cm]{eur-logo.png}}
+\titlegraphic{\includegraphics[height=1.3cm]{eur-logo.png}\includegraphics[height=1.3cm]{emc-logo.jpg}}
 
 \date[October 21, 2021]{October 21, 2021 \\\bigskip Tinbergen Institute PhD Seminar}
 
@@ -154,7 +154,7 @@
 \begin{itemize}
 	\item Project of the  Econometric Institute and Erasmus Medical Center;
 	\item Part of the \href{https://convergencealliance.nl/}{\textit{\textcolor{emc-darkblue}{Convergence Alliance}}} between EUR, EMC, TU Delft; 
-	\item Fully funded by an \href{https://convergencealliance.nl/granted-open-mind-calls/}{\textit{\textcolor{emc-darkblue}{Open Mind Call}}} grant (awarded: 08--12/2021).  
+	\item Fully funded by an \href{https://convergencealliance.nl/granted-open-mind-calls/}{\textit{\textcolor{emc-darkblue}{Open Mind Call}}} grant (08--12/2021).  
 \end{itemize}
 \end{frame}
 
@@ -211,7 +211,7 @@ In medical data, we typically have\dots \bigskip
 
 \alert{CITRUS research question:}
 \begin{itemize}
-	\item To what extent does this affect the performance of each HTE estimation method?
+	\item To what extent does this affect the performance of each HTE identification method?
 \end{itemize}
 \end{frame}
 
@@ -493,7 +493,7 @@ Risk models \citep{kent2020path} are a two stage approach to identify HTE.
 	\gamma_0 + \gamma_1 W_i + \gamma_2 \widehat{\eta}_i + \gamma_3 \widehat{\eta}_i W_i.\bigskip
 	\]
 \begin{itemize}\setlength\itemsep{1em}
-	\item Idea behind two stages: Separate the explanatory power for $Y_i$ into a part that is due to $X_i$ and a part due to $W_i$.
+	\item Idea behind two stages: Separate the explanatory power for $Y_i$ into a part that is due to $\X_i$ and a part due to $W_i$.
 	\item If treatment is effective, then $H_0: \gamma_1 = 0$ should be rejected.
 	\item If there is heterogeneity, then $H_0: \gamma_3 = 0$ should be rejected.
 	\item Predicted risk $risk_i(W) = \widehat{\P}[Y_i = 1 | \X_i, W, \widehat{\eta}_i]$ can be used for HTE identification (more on this later).
@@ -533,7 +533,7 @@ Effect models \citep{kent2020path} rely on variable selection to identify hetero
 
 \begin{frame}{Obtaining HTE estimates}
 \alert{Given:} Predicted risk $risk_i(W)$ in risk or effect model.\\\medskip
-\alert{Goal:} Estimate HTE $\tau_i = \pi(1) - \pi(0)$ to identify heterogeneity.\bigskip
+\alert{Goal:} Estimate HTE $\tau_i = \pi_i(1) - \pi_i(0)$ to identify heterogeneity.\bigskip
 
 \begin{itemize}
 \item Define the \textit{reversed} treatment assignment
@@ -546,7 +546,12 @@ Effect models \citep{kent2020path} rely on variable selection to identify hetero
 \] 
 \item Estimate $\tau_i$ via
 \[
-	\widehat{\tau}_i = risk_i(W_i) - risk_i(W_i^{rev}).
+	\widehat{\tau}_i
+	= 
+	\begin{cases}	
+	 risk_i(W_i) - risk_i(W_i^{rev}) \quad \text{ if } W_i = 1,\\
+	 risk_i(W_i^{rev}) - risk_i(W_i) \quad \text{ if } W_i = 0.
+	 \end{cases}
 \]
 \item Thereupon, one can obtain estimates of $ATE_{\G}, ARTE_{\G}$.
 \end{itemize}
@@ -568,21 +573,20 @@ In CITRUS, we point out problems. We do not (yet) propose methodological solutio
 \end{frame}
 
 \begin{frame}{Outlook}
-\begin{center}
-\Huge{We are hiring! (In some way\dots)}
-\end{center}
 
 \begin{center}
 We might want to start working on some of these extensions in the future (EUR and EMC plan to intensify their collaboration). \bigskip
 \end{center}
 
 \begin{center}
-\LARGE{\alert{Let us know if you are interested!} \\(It's fine if you are in AMS)}
+\huge{\alert{Let us know if you are interested!} \\(It's fine if you are in AMS)}
 \end{center}
 \end{frame}
 
 \begin{frame}
-\centering \Huge{Thank you for your attention! Any questions?}
+\centering \Huge{Thank you for your attention! Any questions?}\\
+{\large
+Slides: \href{https://mwelz.github.io/publications/ti2021.pdf}{\textcolor{emc-darkblue}{\texttt{https://mwelz.github.io/publications/ti2021.pdf}}}}
 \end{frame}
 
 
