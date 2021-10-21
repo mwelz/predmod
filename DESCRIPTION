@@ -1,0 +1,32 @@
+Package: predmod
+Title: TODO
+Version: 0.0.1
+Authors@R: 
+    c(person(given = "Max",
+           family = "Welz",
+           role = c("aut", "cre"),
+           email = "welz@ese.eur.nl",
+           comment = c(ORCID = "0000-0003-2945-1860")),
+      person(given = "Andreas",
+             family = "Alfons",
+             role = "aut",
+             email = "alfons@ese.eur.nl",
+             comment = c(ORCID = "0000-0002-2513-3788")), 
+      person(given = "Kevin",
+             family = "ten Haaf",
+             role = "aut",
+             email = "k.tenhaaf@erasmusmc.nl")) 
+Author: Max Welz [aut, cre], Andreas Alfons [aut], Kevin ten Haaf [aut]
+Maintainer: Max Welz <welz@ese.eur.nl>           
+Description: To come!
+License: GPL (>= 3)
+Encoding: UTF-8
+LazyData: true
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 7.1.1
+Depends: 
+Imports: 
+    glmnet,
+    stats,
+    MatchIt,
+    Hmisc

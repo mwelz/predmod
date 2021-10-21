@@ -3,6 +3,7 @@
 #' @param y binary response vector
 #' @param w binary treatment assignment vector
 #' @param predicted.benefit vector of predicted benefits
+#' 
 #' @return point estimate and standard error of C index for benefit
 #' 
 #' @export

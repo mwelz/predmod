@@ -1,10 +1,3 @@
-# load imputation accounters
-source(paste0(getwd(), "/funs/imputation/imputation.R"))
-
-# for C index calculations
-source(paste0(getwd(),  "/funs/c-statistics/c-statistics.R"))
-
-
 #' baseline risk prediction via penalized logistic regression (treatment assignment is not used)
 #' 
 #' @param X matrix of data frame of covariates
@@ -18,7 +11,7 @@ baseline.risk <- function(X, y, alpha = 1){
     
     # fit the model
     model.obj <- stats::glm(y~., 
-                            family = binomial(link = "logit"), 
+                            family = stats::binomial(link = "logit"), 
                             data = data.frame(y, X))
     
     # get liner predictor etc.
@@ -53,7 +46,7 @@ baseline.risk <- function(X, y, alpha = 1){
     model.obj = model.obj,
     lambda.min = lambda,
     linear.predictor = lp,
-    response = plogis(lp),
+    response = stats::plogis(lp),
     coefficients = coefs,
     retained.variables = colnames(X)[kept.vars]
   ))
@@ -61,7 +54,7 @@ baseline.risk <- function(X, y, alpha = 1){
 
 
 #' perform risk modeling: second stage 
-#' y = g(\beta_0 +\beta_1 * w + \beta_2 * z + \beta_2 w * z)
+#' \code{y = g(beta_0 +beta_1 * w + beta_2 * z + beta_2 w * z)}
 #' 
 #' @param z the `z` in the 2nd stage, which is used as product with w and as a single regressor. 
 #' @param y a binary response vector
@@ -102,12 +95,12 @@ risk.model.stage2 <- function(z, y, w,
   
   
   # fit the model
-  mod.stage2 <- stats::glm(formula = formula(f), 
-                           family = binomial(link = "logit"), 
+  mod.stage2 <- stats::glm(formula = stats::formula(f), 
+                           family = stats::binomial(link = "logit"), 
                            data = as.data.frame(X.stage2))
   
   # get the responses with the regular w ( = F_logistic(x'beta + z))
-  risk.regular.w <- as.numeric(predict.glm(mod.stage2, type = "response"))
+  risk.regular.w <- as.numeric(stats::predict.glm(mod.stage2, type = "response"))
   
   # get responses with flipped W
   if(intercept){
@@ -116,7 +109,7 @@ risk.model.stage2 <- function(z, y, w,
     X.temp <- X.stage2.rev
   } # IF
   
-  risk.flipped.w <- as.numeric(plogis(X.temp %*% mod.stage2$coefficients))
+  risk.flipped.w <- as.numeric(stats::plogis(X.temp %*% mod.stage2$coefficients))
   
   # return
   return(list(mod.stage2 = mod.stage2,
@@ -203,88 +196,4 @@ risk.modeling <- function(X, y, w, alpha = 1,
                         c.index.benefit = C.index.benefit(y = y, w = w, predicted.benefit = pred.ben.abs)),
     z = stage2$z
   ))
-} # FUN
-
-
-#' TODO: write documentation
-#'
-#'
-risk.modeling_imputation.accounter <- function(predictive.model.imputed){
-  
-  # initialize
-  pred.model.imp.adj <- list()
-  m <- length(predictive.model.imputed)
-  
-  # stage 1 coefficients
-  pred.model.imp.adj$models$coefficients.stage1 <- imputation.accounter_location(
-    lapply(1:m, function(i){
-      
-      # get names of all variables (pre-selection)
-      nam.all.variables <<- c("(Intercept)", colnames(predictive.model.imputed[[i]]$inputs$X))
-      
-      # initialize long array with zeros for unselected variables
-      selected.variables.long <<- rep(0.0, length(nam.all.variables))
-      names(selected.variables.long) <<- nam.all.variables
-      
-      # assign values to long array
-      selected.variables.short <<- predictive.model.imputed[[i]]$models$coefficients.stage1
-      selected.variables.long[names(selected.variables.short)] <<- selected.variables.short
-      selected.variables.long
-    }))
-  
-  # stage 2 coefficients
-  pred.model.imp.adj$models$coefficients.stage2 <- 
-    imputation.accounter_location(lapply(1:m, function(i) predictive.model.imputed[[i]]$models$coefficients.stage2))
-  
-  # ATE
-  pred.model.imp.adj$average.treatment.effect <- 
-    imputation.accounter_location(lapply(1:m, function(i) predictive.model.imputed[[i]]$average.treatment.effect))
-  
-  # risk regular w
-  pred.model.imp.adj$risk$risk.regular.w <- 
-    imputation.accounter_location(lapply(1:m, function(i) predictive.model.imputed[[i]]$risk$risk.regular.w))
-  
-  # risk flipped w
-  pred.model.imp.adj$risk$risk.flipped.w <- 
-    imputation.accounter_location(lapply(1:m, function(i) predictive.model.imputed[[i]]$risk$risk.flipped.w))
-  
-  # risk baseline
-  pred.model.imp.adj$risk$risk.baseline <- 
-    imputation.accounter_location(lapply(1:m, function(i) predictive.model.imputed[[i]]$risk$risk.baseline))
-  
-  # predicted absolute benefit
-  pred.model.imp.adj$benefits$predicted.absolute.benefit <- 
-    imputation.accounter_location(lapply(1:m, function(i) predictive.model.imputed[[i]]$benefits$predicted.absolute.benefit))
-  
-  # predicted relative benefit
-  pred.model.imp.adj$benefits$predicted.relative.benefit <- 
-    imputation.accounter_location(lapply(1:m, function(i) predictive.model.imputed[[i]]$benefits$predicted.relative.benefit))
-  
-  # predicted absolute benefit raw
-  pred.model.imp.adj$benefits$predicted.absolute.benefit.raw <- 
-    imputation.accounter_location(lapply(1:m, function(i) predictive.model.imputed[[i]]$benefits$predicted.absolute.benefit.raw))
-  
-  # predicted relative benefit raw
-  pred.model.imp.adj$benefits$predicted.relative.benefit.raw <- 
-    imputation.accounter_location(lapply(1:m, function(i) predictive.model.imputed[[i]]$benefits$predicted.relative.benefit.raw))
-  
-  # C stat stage 1
-  pred.model.imp.adj$C.statistics$c.index.outcome.stage1 <- 
-    imputation.accounter_scalar.location.stderr(lapply(1:m, function(i) predictive.model.imputed[[i]]$C.statistics$c.index.outcome.stage1))
-  
-  # C stat stage 2
-  pred.model.imp.adj$C.statistics$c.index.outcome.stage2 <- 
-    imputation.accounter_scalar.location.stderr(lapply(1:m, function(i) predictive.model.imputed[[i]]$C.statistics$c.index.outcome.stage2))
-  
-  # C index benefit
-  pred.model.imp.adj$C.statistics$c.index.benefit <- 
-    imputation.accounter_scalar.location.stderr(lapply(1:m, function(i) predictive.model.imputed[[i]]$C.statistics$c.index.benefit))
-  
-  # z
-  pred.model.imp.adj$z <- 
-    imputation.accounter_location(lapply(1:m, function(i) predictive.model.imputed[[i]]$z))
-  
-  # return
-  return(pred.model.imp.adj)
-  
 } # FUN
