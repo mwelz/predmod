@@ -35,7 +35,7 @@ baseline.risk <- function(X, y, alpha = 1){
     coefs            <- as.matrix(coefs.obj@x)
     rownames(coefs)  <- c("(Intercept)", colnames(X)[kept.vars])
     colnames(coefs)  <- "Estimate"
-    X.retained       <- cbind(intercept = 1, X[,kept.vars])
+    X.retained       <- cbind(intercept = 1, X[,kept.vars,drop = FALSE])
     lp               <- as.numeric(X.retained %*% coefs) # linear predictor
     
   } # IF

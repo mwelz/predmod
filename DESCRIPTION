@@ -29,4 +29,6 @@ Imports:
     glmnet,
     stats,
     MatchIt,
-    Hmisc
+    Hmisc,
+    survival,
+    hdnom
