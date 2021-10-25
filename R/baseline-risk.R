@@ -114,23 +114,24 @@ baseline.risk.surv.NoCmprsk.penalized <- function(X, status, time,
 #' @param X covariate matrix
 #' @param status binary status. 1 if failure, 0 if survived
 #' @param time right-censored time at risk
+#' @param center Shall baseline survival be centered? Default is \code{FALSE}.
+#' @param ... Additional parameters to be passed to \code{\link[glmnet]{cv.glmnet}}
 #' 
 #' @noRd
-baseline.risk.surv.NoCmprsk.ordinary <- function(X, status, time){
+baseline.risk.surv.NoCmprsk.ordinary <- function(X, status, time, center, ...){
   
   # fit Cox PH model
   model.obj <- survival::coxph(survival::Surv(time = time, event = status)~.,
-                               data = data.frame(time, status, X))
+                               data = data.frame(time, status, X), ...)
   
   # get linear predictor
   lp <- as.numeric(X %*% model.obj$coefficients)
   
-  # survival probabilities is response. A function here
-  f <- function(time){
-    stopifnot(length(time) == 1) 
-    as.numeric(summary(survival::survfit(model.obj, newdata = data.frame(X)), time = time)$surv)
-  } # FUN
+  # estimate survival with Breslow baseline. A function here 
+  surv <- survival(time = time, status = status, lp = lp, center = center)$surv
+  #as.numeric(summary(survival::survfit(model.obj, newdata = data.frame(X)), time = time)$surv)
   
+
   # coefficients
   coefs            <- matrix(model.obj$coefficients)
   rownames(coefs)  <- colnames(X)
@@ -141,7 +142,48 @@ baseline.risk.surv.NoCmprsk.ordinary <- function(X, status, time){
     model.obj = model.obj,
     lambda.min = NULL,
     linear.predictor = lp,
-    response = f,
+    response = surv,
+    coefficients = coefs,
+    retained.variables = colnames(X)
+  ))
+  
+} # FUN
+
+
+
+#' baseline survival w/ competing risks (Fine-Gray), no penalty
+#' 
+#' @param X covariate matrix
+#' @param status binary status. 1 if failure, 0 if survived
+#' @param time right-censored time at risk
+#' @param failcode k
+#' @param ... Additional parameters to be passed to \code{\link[glmnet]{cv.glmnet}}
+#' 
+#' @noRd
+baseline.risk.surv.cmprsk.ordinary <- function(X, status, time, failcode = 1, ...){
+  
+  # fit Cox PH model
+  model.obj <- cmprsk::crr(ftime = time, fstatus = status, 
+                           cov1 = X, failcode = failcode, cencode = 0)
+  
+  # get linear predictor
+  lp <- as.numeric(x %*% model.obj$coef)
+  
+  # estimate survival. returns a function
+  surv <- survival_cmprsk(time = time, status = status, lp = lp,
+                          prep_predict_object = NULL, k = failcode)$surv
+  
+  # coefficients
+  coefs            <- matrix(model.obj$coef)
+  rownames(coefs)  <- colnames(X)
+  colnames(coefs)  <- "Estimate"
+  
+  # return
+  return(list(
+    model.obj = model.obj,
+    lambda.min = NULL,
+    linear.predictor = lp,
+    response = surv,
     coefficients = coefs,
     retained.variables = colnames(X)
   ))
