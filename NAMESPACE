@@ -3,6 +3,7 @@
 export(C.index.benefit)
 export(C.index.outcome)
 export(baseline.risk)
+export(baseline.risk.survival)
 export(effect.modeling)
 export(prep_predict)
 export(risk.model.stage2)

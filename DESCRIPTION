@@ -31,4 +31,5 @@ Imports:
     MatchIt,
     Hmisc,
     survival,
-    hdnom
+    hdnom,
+    cmprsk

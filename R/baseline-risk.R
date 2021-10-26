@@ -167,7 +167,7 @@ baseline.risk.surv.cmprsk.ordinary <- function(X, status, time, failcode = 1, ..
                            cov1 = X, failcode = failcode, cencode = 0)
   
   # get linear predictor
-  lp <- as.numeric(x %*% model.obj$coef)
+  lp <- as.numeric(X %*% model.obj$coef)
   
   # estimate survival. returns a function
   surv <- survival_cmprsk(time = time, status = status, lp = lp,
@@ -187,5 +187,43 @@ baseline.risk.surv.cmprsk.ordinary <- function(X, status, time, failcode = 1, ..
     coefficients = coefs,
     retained.variables = colnames(X)
   ))
+  
+} # FUN
+
+
+#' baseline survival 
+#' 
+#' @param X covariate matrix
+#' @param status binary status. 1 if failure, 0 if survived
+#' @param time right-censored time at risk
+#' @param alpha penalty
+#' 
+#' @export
+baseline.risk.survival <- function(X, status, time, alpha = NULL){
+  
+  if(length(unique(status)) > 2){
+    # competing risks
+    
+    if(is.null(alpha)){
+      
+      baseline.risk.surv.cmprsk.ordinary(X = X, status = status, time = time, failcode = 1)
+      
+    } else stop("Penalized cmprsk not yet implemented")
+    
+  } else{
+    # no competing risks
+    
+    if(is.null(alpha)){
+      
+      baseline.risk.surv.NoCmprsk.ordinary(X = X, status = status, time = time, center = FALSE)
+      
+    } else{
+      
+      baseline.risk.surv.NoCmprsk.penalized(X = X, status = status, 
+                                            time = time, alpha = alpha, center = FALSE)
+      
+    } # IF
+    
+  } # IF
   
 } # FUN
