@@ -37,4 +37,5 @@ Imports:
     lgr,
     mlr3,
     DoubleML,
-    rateratio.test
+    rateratio.test,
+    VIM
