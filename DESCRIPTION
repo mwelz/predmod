@@ -33,4 +33,7 @@ Imports:
     survival,
     hdnom,
     cmprsk,
-    grf
+    grf,
+    lgr,
+    mlr3,
+    DoubleML
