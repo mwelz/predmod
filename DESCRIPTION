@@ -36,4 +36,5 @@ Imports:
     grf,
     lgr,
     mlr3,
-    DoubleML
+    DoubleML,
+    rateratio.test
