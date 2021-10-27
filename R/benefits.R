@@ -4,59 +4,57 @@
 #'
 #' @param x The vector to be partitioned
 #' @param cutoffs The quantile cutoffs for the partition. Default are the quartiles: \code{c(0.25, 0.5, 0.75)}.
-#' @param names_quantile Logical. If \code{TRUE}, then the column names of the returned matrix are the quantiles as in \code{cutoffs}. If \code{FALSE}, the names are the numeric intervals that constitute the grouping.
 #'
-#' @return An object of the class \code{quantile_group}, which is a logical matrix indicating group membership
+#' @return A logical matrix indicating group membership
 #'
 #' @export
 quantile_group <- function(x,
-                           cutoffs = c(0.25, 0.5, 0.75),
-                           names_quantile = TRUE){
+                           cutoffs = c(0.25, 0.5, 0.75)){
   # cutoffs are the quantile cutoffs (like c(0.25, 0.5, 0.75))
-  
   # get quatiles
   q         <- stats::quantile(x, cutoffs)
   q         <- c(-Inf, q, Inf)
-  
   # check if breaks are unique: if x exhibits low variation, there might be empty quantile bins, which can cause an error in the cut() function. In this case, we add random noise to x to induce variation. NB: this bug has been spotted and fixed by Lucas Kitzmueller. All credits for this fix go to him!
   if(length(unique(q)) != length(q)){
-    
     # specify standard deviation of the noise (x may have zero variation)
     sd <- ifelse(stats::var(x) == 0, 0.001, sqrt(stats::var(x) / 20))
-    
     # add noise and updare quantiles
     x <- x + stats::rnorm(length(x), mean = 0, sd = sd)
     q <- stats::quantile(x, cutoffs)
     q <- c(-Inf, q, Inf)
-    
   } # IF
-  
   groups    <- as.character(cut(x, breaks = q, include.lowest = TRUE, right = FALSE, dig.lab = 3))
   group.nam <- unique(groups)
   group.nam <- group.nam[order(
     as.numeric(substr(sub("\\,.*", "", group.nam), 2, stop = 1e8L)),
     decreasing = FALSE)] # ensure the order is correct
-  group.mat <- matrix(NA, length(x), length(group.nam))
-  nam       <- rep(NA, length(group.nam))
   
-  for(j in 1:length(group.nam)){
-    if(j == 1){
-      nam[j] <- paste0("<", 100*cutoffs[j], "% quantile")
-    } else if (j == length(group.nam)){
-      nam[j] <- paste0(">=", 100*cutoffs[j-1], "% quantile")
-    } else{
-      nam[j] <- paste0("[", 100*cutoffs[j-1], ",", 100*cutoffs[j], ")% quantile")
-    }
-    group.mat[,j] <- groups == group.nam[j]
-  }
+  # get the grouping matrix
+  group.mat <- sapply(1:length(group.nam), function(j) groups == group.nam[j])
+  colnames(group.mat) <- gsub(",", ", ", gsub(" ", "", group.nam))
   
-  if(names_quantile){
-    colnames(group.mat) <- nam
-  } else{
-    colnames(group.mat) <- group.nam
-  }
+  # return
   return(structure(group.mat, type = "quantile_group"))
 } # FUN
+
+
+intervals.quantile <- function(cutoffs){
+  K   <- length(cutoffs) + 1
+  nam <- rep(NA_character_, K)
+  
+  for(j in 1:K){
+    if(j == 1){
+      nam[j] <- paste0("<", 100*cutoffs[j], "%")
+    } else if (j == K){
+      nam[j] <- paste0(">=", 100*cutoffs[j-1], "%")
+    } else{
+      nam[j] <- paste0("[", 100*cutoffs[j-1], ",", 100*cutoffs[j], ")%")
+    }
+  } # FOR
+  
+  nam
+  
+} # FOR
 
 
 #' calculates the absolute observed benefit, which corresponds to the difference in \code{mean(y[W=w])}, and the associated confidence interval.
@@ -205,7 +203,7 @@ get.benefits <- function(pred.model.obj,
   # initialize
   rel.obs.ben.mat           <- as.data.frame(matrix(NA_real_, ncol(quantile.groups), 5))
   colnames(rel.obs.ben.mat) <- c("quantile", "estimate", "ci.lower", "ci.upper", "stderr")
-  rel.obs.ben.mat$quantile  <- gsub(" .*$", "", colnames(quantile.groups))
+  rel.obs.ben.mat$quantile  <- intervals.quantile(cutoffs)
   abs.obs.ben.mat  <- rel.obs.ben.mat
   abs.pred.ben.mat <- rel.obs.ben.mat
   rel.pred.ben.mat <- rel.obs.ben.mat
@@ -242,7 +240,7 @@ get.benefits <- function(pred.model.obj,
               relative.predicted.benefit = rel.pred.ben.mat, 
               odds.ratio = or.mat,
               significance.level = significance.level,
-              quantile.cutoff.points = cutoffs,
+              quantile.cutoff.points = colnames(quantile.groups),
               group.membership = quantile.groups))
 } # FUN
 
@@ -271,7 +269,7 @@ get.benefits.grf <- function(grf.model.obj,
   # initialize
   abs.obs.ben.mat           <- as.data.frame(matrix(NA_real_, ncol(quantile.groups), 5))
   colnames(abs.obs.ben.mat) <- c("quantile", "estimate", "ci.lower", "ci.upper", "stderr")
-  abs.obs.ben.mat$quantile  <- gsub(" .*$", "", colnames(quantile.groups))
+  abs.obs.ben.mat$quantile  <- intervals.quantile(cutoffs)
   abs.pred.ben.mat <- abs.obs.ben.mat
   
   for(i in 1:ncol(quantile.groups)){
@@ -300,7 +298,7 @@ get.benefits.grf <- function(grf.model.obj,
   return(list(absolute.observed.benefit = abs.obs.ben.mat, 
               absolute.predicted.benefit = abs.pred.ben.mat, 
               significance.level = significance.level,
-              quantile.cutoff.points = cutoffs,
+              quantile.cutoff.points = colnames(quantile.groups),
               group.membership = quantile.groups))
 } # FUN
 

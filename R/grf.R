@@ -32,7 +32,7 @@ grf.modeling <- function(X, y, w,
   predicted.absolute.benefit <- as.numeric(cf$predictions)
   
   # variance estimates 
-  predicted.absolute.benefit_variance <- grf::predict.causal_forest(cf, estimate.variance = TRUE)$variance.estimates
+  predicted.absolute.benefit_variance <- predict(cf, estimate.variance = TRUE)$variance.estimates
   
   # baseline risk
   risk.baseline <- as.numeric(cf$Y.hat)
