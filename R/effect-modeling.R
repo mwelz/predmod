@@ -177,3 +177,92 @@ effect.modeling <- function(X, y, w, alpha = 1,
   ))
   
 } # FUN
+
+
+effect.modeling_imputation.accounter <- function(predictive.model.imputed){
+  
+  # initialize
+  pred.model.imp.adj <- list()
+  m <- length(predictive.model.imputed)
+  
+  # ATE
+  pred.model.imp.adj$average.treatment.effect <- 
+    imputation.accounter_location(lapply(1:m, function(i) predictive.model.imputed[[i]]$average.treatment.effect))
+  
+  # baseline model
+  pred.model.imp.adj$baseline.model <- imputation.accounter_location(
+    lapply(1:m, function(i){
+      
+      # get names of all variables (pre-selection)
+      nam.all.variables <- c("(Intercept)", colnames(predictive.model.imputed[[i]]$inputs$X))
+      
+      # initialize long array with zeros for unselected variables
+      selected.variables.long <- rep(0.0, length(nam.all.variables))
+      names(selected.variables.long) <- nam.all.variables
+      
+      # assign values to long array
+      selected.variables.short <- predictive.model.imputed[[i]]$baseline.model$coefficients
+      selected.variables.long[names(selected.variables.short)] <- selected.variables.short
+      selected.variables.long
+      
+    }))
+  
+  # effect model
+  pred.model.imp.adj$effect.model <- imputation.accounter_location(
+    lapply(1:m, function(i){
+      
+      # get names of all variables (pre-selection)
+      nam.all.variables <- 
+        names(predictive.model.imputed[[i]]$effect.model$model.selection$design.matrix_pre.selection)
+      
+      # initialize long array with zeros for unselected variables
+      selected.variables.long <- rep(0.0, length(nam.all.variables))
+      names(selected.variables.long) <- nam.all.variables
+      
+      # assign values to long array
+      selected.variables.short <- predictive.model.imputed[[i]]$effect.model$summary[,1]
+      selected.variables.long[names(selected.variables.short)] <- selected.variables.short
+      selected.variables.long
+      
+    }))
+  
+  # risk regular w
+  pred.model.imp.adj$risk$risk.regular.w <- 
+    imputation.accounter_location(lapply(1:m, function(i) predictive.model.imputed[[i]]$risk$risk.regular.w))
+  
+  # risk flipped w
+  pred.model.imp.adj$risk$risk.flipped.w <- 
+    imputation.accounter_location(lapply(1:m, function(i) predictive.model.imputed[[i]]$risk$risk.flipped.w))
+  
+  # risk baseline
+  pred.model.imp.adj$risk$risk.baseline <- 
+    imputation.accounter_location(lapply(1:m, function(i) predictive.model.imputed[[i]]$risk$risk.baseline))
+  
+  # predicted absolute benefit
+  pred.model.imp.adj$benefits$predicted.absolute.benefit <- 
+    imputation.accounter_location(lapply(1:m, function(i) predictive.model.imputed[[i]]$benefits$predicted.absolute.benefit))
+  
+  # predicted relative benefit
+  pred.model.imp.adj$benefits$predicted.relative.benefit <- 
+    imputation.accounter_location(lapply(1:m, function(i) predictive.model.imputed[[i]]$benefits$predicted.relative.benefit))
+  
+  # predicted absolute benefit raw
+  pred.model.imp.adj$benefits$predicted.absolute.benefit.raw <- 
+    imputation.accounter_location(lapply(1:m, function(i) predictive.model.imputed[[i]]$benefits$predicted.absolute.benefit.raw))
+  
+  # predicted relative benefit raw
+  pred.model.imp.adj$benefits$predicted.relative.benefit.raw <- 
+    imputation.accounter_location(lapply(1:m, function(i) predictive.model.imputed[[i]]$benefits$predicted.relative.benefit.raw))
+  
+  # C index outcome
+  pred.model.imp.adj$C.statistics$c.index.outcome <- 
+    imputation.accounter_scalar.location.stderr(lapply(1:m, function(i) predictive.model.imputed[[i]]$C.statistics$c.index.outcome))
+  
+  # C index benefit
+  pred.model.imp.adj$C.statistics$c.index.benefit <- 
+    imputation.accounter_scalar.location.stderr(lapply(1:m, function(i) predictive.model.imputed[[i]]$C.statistics$c.index.benefit))
+  
+  # return
+  return(pred.model.imp.adj)
+  
+} # FUN

@@ -370,7 +370,7 @@ get.benefits_imputation.accounter <- function(pred.model.objs_imputed,
   
   # initialize 
   m                         <- length(pred.model.objs_imputed)
-  group.names               <- gsub(" .*$", "", colnames(quantile_group(seq(0, 1, by = 0.001), cutoffs = cutoffs)))
+  group.names               <- intervals.quantile(cutoffs)
   rel.obs.ben.arr           <- array(NA_real_, dim = c(length(group.names), 4, m))
   colnames(rel.obs.ben.arr) <- c("estimate", "ci.lower", "ci.upper", "stderr")
   rownames(rel.obs.ben.arr) <- paste0("group.", 1:length(group.names))
@@ -378,6 +378,8 @@ get.benefits_imputation.accounter <- function(pred.model.objs_imputed,
   abs.pred.ben.arr          <- rel.obs.ben.arr
   rel.pred.ben.arr          <- rel.obs.ben.arr
   or.arr                    <- rel.obs.ben.arr
+  
+  
   
   ## loop over the imputed datasets and account for the imputation uncertainty
   for(j in 1:m){
@@ -465,8 +467,8 @@ get.benefits.grf_imputation.accounter <- function(grf.model.obj_imputed,
                                                   significance.level = 0.05){
   
   # initialize 
-  m                         <- length(grf.model.obj_imputed)
-  group.names               <- gsub(" .*$", "", colnames(quantile_group(seq(0, 1, by = 0.001), cutoffs = cutoffs)))
+  m                         <- length(pred.model.objs_imputed)
+  group.names               <- intervals.quantile(cutoffs)
   abs.obs.ben.arr           <- array(NA_real_, dim = c(length(group.names), 4, m))
   colnames(abs.obs.ben.arr) <- c("estimate", "ci.lower", "ci.upper", "stderr")
   rownames(abs.obs.ben.arr) <- paste0("group.", 1:length(group.names))
