@@ -118,3 +118,26 @@ grf.modeling.multiple.imputation <- function(X, y, w,
   # return 
   return(grf.model.imputed)
 } # FUN
+
+
+# imp.list is a list of regression outputs
+impaccount_regression <- function(imp.list){
+  
+  # get the relevant statistics
+  m     <- length(imp.list)
+  T.hat <- rowMeans(sapply(1:m, function(i) imp.list[[i]][,"Estimate"]))
+  W.hat <- rowMeans(sapply(1:m, function(i) imp.list[[i]][,"Std. Error"]^2))
+  B.hat <- rowSums(sapply(1:m, function(i) (imp.list[[i]][,"Estimate"] - T.hat)^2))/(m-1)
+  V.hat <- W.hat + (m+1)/m * B.hat
+  
+  # inference
+  stderr <- sqrt(V.hat)
+  z <- T.hat / stderr
+  p <- 2 * pnorm(abs(z), lower.tail = FALSE)
+  
+  out <- cbind(T.hat, stderr, z, p)
+  rownames(out) <- rownames(imp.list[[1]])
+  colnames(out) <- c("Estimate", "Std. Error", "z value", "Pr(>|z|)")
+  out
+  
+} # FUN
