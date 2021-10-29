@@ -181,19 +181,26 @@ predicted.benefit.inference <- function(predicted.benefits, significance.level =
 #' 
 #' @param pred.model.obj prediction model object
 #' @param cutoffs the quantile cutoff points. Default is c(0.25, 0.5, 0.75), which yields the quartiles.
+#' @param risk.baseline The baseline risk that shall be used for grouping. If \code{NULL} (default), then the baseline risk in \code{pred.model.obj} is used.
 #' @param significance.level the significance level. Default is 0.05.
 #' 
 #' @export
 get.benefits <- function(pred.model.obj, 
                          cutoffs = c(0.25, 0.5, 0.75),
+                         risk.baseline = NULL,
                          significance.level = 0.05){
   
   # extract outcome and treatment status
   y <- pred.model.obj$inputs$y.prediction.timeframe
   w <- pred.model.obj$inputs$w
   
+  # specify baseline risk that shall be used for grouping
+  if(is.null(risk.baseline)){
+    risk.baseline <- pred.model.obj$risk$risk.baseline
+  } # IF
+  
   # group observations by their quantile of predicted baseline risk
-  quantile.groups <- quantile_group(pred.model.obj$risk$risk.baseline, cutoffs)
+  quantile.groups <- quantile_group(risk.baseline, cutoffs)
   
   # get predicted benefit (relative and absolute)
   rel.pred.ben <- pred.model.obj$benefits$predicted.relative.benefit
@@ -250,11 +257,13 @@ get.benefits <- function(pred.model.obj,
 #' 
 #' @param grf.model.obj GRF model object
 #' @param cutoffs the quantile cutoff points. Default is c(0.25, 0.5, 0.75), which yields the quartiles.
+#' @param risk.baseline The baseline risk that shall be used for grouping. If \code{NULL} (default), then the baseline risk in \code{grf.model.obj} is used.
 #' @param significance.level the significance level. Default is 0.05.
 #' 
 #' @export
 get.benefits.grf <- function(grf.model.obj, 
                              cutoffs = c(0.25, 0.5, 0.75),
+                             risk.baseline = NULL,
                              significance.level = 0.05){
   # calculates the observed and predicted absolute benefits along the associated confidence intervals for the GRF (relative effects cannot be computed)
   
@@ -262,8 +271,13 @@ get.benefits.grf <- function(grf.model.obj,
   y <- grf.model.obj$inputs$y.prediction.timeframe
   w <- grf.model.obj$inputs$w
   
+  # specify baseline risk that shall be used for grouping
+  if(is.null(risk.baseline)){
+    risk.baseline <- grf.model.obj$risk$risk.baseline
+  } # IF
+  
   # group observations by their quantile of predicted baseline risk
-  quantile.groups <- quantile_group(grf.model.obj$risk$risk.baseline, cutoffs)
+  quantile.groups <- quantile_group(risk.baseline, cutoffs)
   
   ## calculate observed benefit and predicted benefit for each quantile group
   # initialize
@@ -361,11 +375,13 @@ benefits.imputed <- function(x, group.names, significance.level = 0.05, relative
 #' 
 #' @param pred.model.objs_imputed list of prediction model objects
 #' @param cutoffs the quantile cutoff points. Default is c(0.25, 0.5, 0.75), which yields the quartiles.
+#' @param risk.baseline A list of baseline risk that shall be used for grouping. If \code{NULL} (default), then the baseline risk in \code{pred.model.objs_imputed} is used.
 #' @param significance.level the significance level. Default is 0.05.
 #' 
 #' @export
 get.benefits_imputation.accounter <- function(pred.model.objs_imputed, 
                                               cutoffs = c(0.25, 0.5, 0.75),
+                                              risk.baseline = NULL,
                                               significance.level = 0.05){
   
   # initialize 
@@ -391,8 +407,15 @@ get.benefits_imputation.accounter <- function(pred.model.objs_imputed,
     y <- pred.model.obj$inputs$y.prediction.timeframe
     w <- pred.model.obj$inputs$w
     
+    # specify baseline risk that shall be used for grouping
+    if(is.null(risk.baseline)){
+      br <- pred.model.obj$risk$risk.baseline
+    } else{
+      br <- risk.baseline[[j]]
+    }
+    
     # group observations by their quantile of predicted baseline risk
-    quantile.groups <- quantile_group(pred.model.obj$risk$risk.baseline, cutoffs)
+    quantile.groups <- quantile_group(br, cutoffs)
     
     # get predicted benefit (relative and absolute)
     rel.pred.ben <- pred.model.obj$benefits$predicted.relative.benefit
@@ -459,15 +482,17 @@ get.benefits_imputation.accounter <- function(pred.model.objs_imputed,
 #' 
 #' @param grf.model.obj_imputed list of GRF model objects
 #' @param cutoffs the quantile cutoff points. Default is c(0.25, 0.5, 0.75), which yields the quartiles.
+#' @param risk.baseline A list of baseline risk that shall be used for grouping. If \code{NULL} (default), then the baseline risk in \code{grf.model.obj_imputed} is used.
 #' @param significance.level the significance level. Default is 0.05.
 #' 
-#' @export
+#' @export 
 get.benefits.grf_imputation.accounter <- function(grf.model.obj_imputed, 
                                                   cutoffs = c(0.25, 0.5, 0.75),
+                                                  risk.baseline = NULL,
                                                   significance.level = 0.05){
   
   # initialize 
-  m                         <- length(pred.model.objs_imputed)
+  m                         <- length(grf.model.obj_imputed)
   group.names               <- intervals.quantile(cutoffs)
   abs.obs.ben.arr           <- array(NA_real_, dim = c(length(group.names), 4, m))
   colnames(abs.obs.ben.arr) <- c("estimate", "ci.lower", "ci.upper", "stderr")
@@ -484,8 +509,15 @@ get.benefits.grf_imputation.accounter <- function(grf.model.obj_imputed,
     y <- grf.model.obj$inputs$y.prediction.timeframe
     w <- grf.model.obj$inputs$w
     
+    # specify baseline risk that shall be used for grouping
+    if(is.null(risk.baseline)){
+      br <- grf.model.obj$risk$risk.baseline
+    } else{
+      br <- risk.baseline[[j]]
+    }
+    
     # group observations by their quantile of predicted baseline risk
-    quantile.groups <- quantile_group(grf.model.obj$risk$risk.baseline, cutoffs)
+    quantile.groups <- quantile_group(br, cutoffs)
     
     # get predicted benefit (absolute)
     abs.pred.ben <- grf.model.obj$benefits$predicted.absolute.benefit

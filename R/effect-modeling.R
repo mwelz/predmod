@@ -77,6 +77,7 @@ effect.model.predicted.benefits <- function(final.model, X, kept.vars, interacte
 #' @param prediction.timeframe vector of the prediction time frame. Default is NULL.
 #' @param interacted.variables character vector of variables that are to be interacted with \code{w}
 #' @param retained character vector of variables that shall not be regularized
+#' @param risk.baseline The baseline risk that shall be used for grouping. If \code{NULL} (default), then the baseline risk in \code{pred.model.obj} is used.
 #' @param retain_w Logical. Shall \code{w} be retained?
 #' 
 #' @export
@@ -85,6 +86,7 @@ effect.modeling <- function(X, y, w, alpha = 1,
                             prediction.timeframe = NULL,
                             interacted.variables = NULL,
                             retained = FALSE,
+                            risk.baseline = NULL,
                             retain_w = TRUE){
   
   # truncate y if necessary
@@ -151,8 +153,12 @@ effect.modeling <- function(X, y, w, alpha = 1,
   risk.regular.w <- ben.obj$risk.regular.w
   
   # fit baseline model
-  baseline.mod  <- baseline.risk(X = X, y = y, alpha = alpha)
-  baseline.risk <- baseline.mod$response 
+  if(is.null(risk.baseline)){
+    baseline.mod  <- baseline.risk(X = X, y = y, alpha = alpha)
+    risk.baseline <- baseline.mod$response 
+  } else{
+    baseline.mod <- NULL
+  }
   
   # return
   return(list(
@@ -160,14 +166,15 @@ effect.modeling <- function(X, y, w, alpha = 1,
                   lifeyears = lifeyears, 
                   prediction.timeframe = prediction.timeframe, 
                   y.prediction.timeframe = y),
-    models = list(glmnet.object = mod,
+    models = list(baseline.mod = baseline.mod,
+                  glmnet.object = mod,
                   final.model = final.model,
                   coefficients.glmnet = structure(as.numeric(coefs.obj), names = c("(Intercept)", colnames(Z))),
                   coefficients.final = final.model$coefficients),
     average.treatment.effect = mean(pred.ben.abs),
     risk = list(risk.regular.w = risk.regular.w,
                 risk.flipped.w = risk.flipped.w,
-                risk.baseline = baseline.risk),
+                risk.baseline = risk.baseline),
     benefits = list(predicted.absolute.benefit = pred.ben.abs,
                     predicted.relative.benefit = pred.ben.rel,
                     predicted.absolute.benefit.raw = pred.ben.abs.raw,

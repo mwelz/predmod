@@ -8,6 +8,7 @@ The returned benefits are the observed and predicted relative and absolute benef
 get.benefits.grf(
   grf.model.obj,
   cutoffs = c(0.25, 0.5, 0.75),
+  risk.baseline = NULL,
   significance.level = 0.05
 )
 }
@@ -15,6 +16,8 @@ get.benefits.grf(
 \item{grf.model.obj}{GRF model object}
 
 \item{cutoffs}{the quantile cutoff points. Default is c(0.25, 0.5, 0.75), which yields the quartiles.}
+
+\item{risk.baseline}{The baseline risk that shall be used for grouping. If \code{NULL} (default), then the baseline risk in \code{grf.model.obj} is used.}
 
 \item{significance.level}{the significance level. Default is 0.05.}
 }

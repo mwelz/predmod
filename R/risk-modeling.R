@@ -94,15 +94,14 @@ risk.modeling <- function(X, y, w, alpha = 1,
     y         <- ifelse(lifeyears <= prediction.timeframe, y, 0)
   } # IF
   
-  # make X a matrix
-  X <- as.matrix(X)
-  
   ## stage 1
   if(is.null(z)){
     stage1 <- baseline.risk(X = X, y = y, alpha = alpha)
     z <- stage1$linear.predictor
+    c.index.outcome.stage1 <-  C.index.outcome(y = y, risk.prediction = stage1$response)
   } else{
     stage1 <- NULL
+    c.index.outcome.stage1 <- NULL
   } # IF
   
   
@@ -137,7 +136,7 @@ risk.modeling <- function(X, y, w, alpha = 1,
                     predicted.relative.benefit = pred.ben.rel,
                     predicted.absolute.benefit.raw = pred.ben.abs.raw,
                     predicted.relative.benefit.raw = pred.ben.rel.raw),
-    C.statistics = list(c.index.outcome.stage1 = C.index.outcome(y = y, risk.prediction = stage1$response),
+    C.statistics = list(c.index.outcome.stage1 = c.index.outcome.stage1,
                         c.index.outcome.stage2 = C.index.outcome(y = y, risk.prediction = stage2$risk.regular.w),
                         c.index.benefit = C.index.benefit(y = y, w = w, predicted.benefit = pred.ben.abs)),
     z = stage2$z

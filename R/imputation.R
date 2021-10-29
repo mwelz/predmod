@@ -133,7 +133,7 @@ impaccount_regression <- function(imp.list){
   # inference
   stderr <- sqrt(V.hat)
   z <- T.hat / stderr
-  p <- 2 * pnorm(abs(z), lower.tail = FALSE)
+  p <- 2 * stats::pnorm(abs(z), lower.tail = FALSE)
   
   out <- cbind(T.hat, stderr, z, p)
   rownames(out) <- rownames(imp.list[[1]])

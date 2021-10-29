@@ -13,6 +13,7 @@ effect.modeling(
   prediction.timeframe = NULL,
   interacted.variables = NULL,
   retained = FALSE,
+  risk.baseline = NULL,
   retain_w = TRUE
 )
 }
@@ -32,6 +33,8 @@ effect.modeling(
 \item{interacted.variables}{character vector of variables that are to be interacted with \code{w}}
 
 \item{retained}{character vector of variables that shall not be regularized}
+
+\item{risk.baseline}{The baseline risk that shall be used for grouping. If \code{NULL} (default), then the baseline risk in \code{pred.model.obj} is used.}
 
 \item{retain_w}{Logical. Shall \code{w} be retained?}
 }

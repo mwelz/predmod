@@ -8,6 +8,7 @@ The returned benefits are the observed and predicted relative and absolute benef
 get.benefits_imputation.accounter(
   pred.model.objs_imputed,
   cutoffs = c(0.25, 0.5, 0.75),
+  risk.baseline = NULL,
   significance.level = 0.05
 )
 }
@@ -15,6 +16,8 @@ get.benefits_imputation.accounter(
 \item{pred.model.objs_imputed}{list of prediction model objects}
 
 \item{cutoffs}{the quantile cutoff points. Default is c(0.25, 0.5, 0.75), which yields the quartiles.}
+
+\item{risk.baseline}{A list of baseline risk that shall be used for grouping. If \code{NULL} (default), then the baseline risk in \code{pred.model.objs_imputed} is used.}
 
 \item{significance.level}{the significance level. Default is 0.05.}
 }
