@@ -51,6 +51,7 @@ order.intervals <- function(intervals, quantile.nam){
 #' @param pred.model.obj prediction model object, as returned by risk.modeling() or effect.modeling()
 #' @param cutoffs the cutoff points of quantiles that shall be used for GATES grouping. Default is `c(0.25, 0.5, 0.75)`, which corresponds to the quartiles.
 #' @param relative logical. If `TRUE`, then relative benefits will be plotted. Default is `FALSE`
+#' @param risk.baseline The baseline risk that shall be used for grouping. If \code{NULL} (default), then the baseline risk in \code{pred.model.obj} is used.
 #' @param significance.level significance level for the confidence intervals. Default is 0.05
 #' @param title optional title of the plot
 #' @param xlim limits of x-axis
@@ -63,6 +64,7 @@ order.intervals <- function(intervals, quantile.nam){
 calibration.plot <- function( pred.model.obj,
                               cutoffs = c(0.25, 0.5, 0.75), 
                               relative = FALSE,
+                              risk.baseline = NULL,
                               significance.level = 0.05,
                               title = NULL,
                               xlim = NULL,
@@ -73,15 +75,14 @@ calibration.plot <- function( pred.model.obj,
   pb.means <- ob.means <- ob.means.ci.lo <- ob.means.ci.up <- NULL
   
   # get observed and predicted benefit by quantile group
-  benefits <- get.benefits(pred.model.obj, 
-                           cutoffs = cutoffs, 
+  benefits <- get.benefits(pred.model.obj = pred.model.obj, 
+                           cutoffs = cutoffs,
+                           risk.baseline = risk.baseline,
                            significance.level = significance.level)
   
   # make sure risk quantile is in correct order
-  risk.quantile <- factor(benefits$absolute.observed.benefit$quantile)
-  lv <- levels(risk.quantile)
-  lv <- lv[order.intervals(lv, quantile.nam = TRUE)]
-  risk.quantile <- factor(risk.quantile, levels = lv)
+  risk.quantile <- factor(benefits$absolute.observed.benefit$quantile,
+                          levels = benefits$absolute.observed.benefit$quantile)
   
   # adjust for relative and absolute benefit
   if(relative){
@@ -140,6 +141,7 @@ calibration.plot <- function( pred.model.obj,
 #' 
 #' @param grf.model.obj GRF model oobject as returned by grf.modeling()
 #' @param cutoffs the cutoff points of quantiles that shall be used for GATES grouping. Default is `c(0.25, 0.5, 0.75)`, which corresponds to the quartiles.
+#' @param risk.baseline The baseline risk that shall be used for grouping. If \code{NULL} (default), then the baseline risk in \code{pred.model.obj} is used.
 #' @param significance.level significance level for the confidence intervals. Default is 0.05
 #' @param title optional title of the plot
 #' @param xlim limits of x-axis
@@ -151,6 +153,7 @@ calibration.plot <- function( pred.model.obj,
 #' @export
 calibration.plot.grf <- function(grf.model.obj,
                                  cutoffs = c(0.25, 0.5, 0.75), 
+                                 risk.baseline = NULL,
                                  significance.level = 0.05,
                                  title = NULL,
                                  xlim = NULL,
@@ -162,16 +165,14 @@ calibration.plot.grf <- function(grf.model.obj,
   
   # get observed and predicted benefit by quantile group
   benefits <- get.benefits.grf(grf.model.obj, 
-                               cutoffs = cutoffs, 
+                               cutoffs = cutoffs,
+                               risk.baseline = risk.baseline,
                                significance.level = significance.level)
   
   # make sure risk quantile is in correct order
-  risk.quantile <- factor(benefits$absolute.observed.benefit$quantile)
-  lv <- levels(risk.quantile)
-  lv <- lv[order.intervals(lv, quantile.nam = TRUE)]
-  risk.quantile <- factor(risk.quantile, levels = lv)
-  
-  
+  risk.quantile <- factor(benefits$absolute.observed.benefit$quantile,
+                          levels = benefits$absolute.observed.benefit$quantile)
+
   # retrieve data
   if(!flip.sign.of.absolute.benefit){
     
@@ -303,6 +304,7 @@ subgroup.plot <- function(pred.model.obj, x,
 #' @param pred.model.objs_imputed prediction model object, as returned by risk.modeling() or effect.modeling() TODO: use name of imputation functions
 #' @param cutoffs the cutoff points of quantiles that shall be used for GATES grouping. Default is c(0.25, 0.5, 0.75), which corresponds to the quartiles.
 #' @param relative logical. If TRUE, then relative benefits will be plotted. Default is FALSE
+#' @param risk.baseline A list of baseline risk that shall be used for grouping. If \code{NULL} (default), then the baseline risk in \code{pred.model.objs_imputed} is used.
 #' @param significance.level significance level for the confidence intervals. Default is 0.05
 #' @param title optional title of the plot
 #' @param xlim limits of x-axis
@@ -313,6 +315,7 @@ subgroup.plot <- function(pred.model.obj, x,
 calibration.plot_imputation.accounter <- function(pred.model.objs_imputed,
                                                   cutoffs = c(0.25, 0.5, 0.75), 
                                                   relative = FALSE,
+                                                  risk.baseline = NULL,
                                                   significance.level = 0.05,
                                                   title = NULL,
                                                   xlim = NULL,
@@ -324,14 +327,31 @@ calibration.plot_imputation.accounter <- function(pred.model.objs_imputed,
   
   # get observed and predicted benefit by quantile group
   benefits <- get.benefits_imputation.accounter(pred.model.objs_imputed, 
-                                                cutoffs = cutoffs, 
+                                                cutoffs = cutoffs,
+                                                risk.baseline = risk.baseline,
                                                 significance.level = significance.level)
   
-  # make sure risk quantile is in correct order
-  risk.quantile <- factor(benefits$absolute.observed.benefit$quantile)
-  lv <- levels(risk.quantile)
-  lv <- lv[order.intervals(lv, quantile.nam = TRUE)]
-  risk.quantile <- factor(risk.quantile, levels = lv)
+  # get average risk quantile 
+  if(is.null(risk.baseline)){
+    
+    rb <- rowMeans(sapply(1:length(pred.model.objs_imputed), function(i){
+      
+      pred.model.objs_imputed[[i]]$risk$risk.baseline
+      
+    }))
+    
+  } else{
+    
+    rb <- rowMeans(sapply(1:length(pred.model.objs_imputed), function(i){
+      
+      risk.baseline[[i]]
+      
+    }))
+    
+  } # IF
+  
+  qg <- quantile_group(rb, cutoffs = cutoffs)
+  risk.quantile <- factor(colnames(qg), levels = colnames(qg))
   
   # adjust for relative and absolute benefit
   if(relative){
@@ -390,6 +410,7 @@ calibration.plot_imputation.accounter <- function(pred.model.objs_imputed,
 #' 
 #' @param grf.model.obj_imputed GRF model object, as returned by risk.modeling() or effect.modeling() TODO: use name of imputation functions
 #' @param cutoffs the cutoff points of quantiles that shall be used for GATES grouping. Default is `c(0.25, 0.5, 0.75)`, which corresponds to the quartiles.
+#' @param risk.baseline A list of baseline risk that shall be used for grouping. If \code{NULL} (default), then the baseline risk in \code{pred.model.objs_imputed} is used.
 #' @param relative logical. If `TRUE`, then relative benefits will be plotted. Default is `FALSE`
 #' @param significance.level significance level for the confidence intervals. Default is 0.05
 #' @param title optional title of the plot
@@ -400,6 +421,7 @@ calibration.plot_imputation.accounter <- function(pred.model.objs_imputed,
 #' @export
 calibration.plot.grf_imputation.accounter <- function(grf.model.obj_imputed,
                                                       cutoffs = c(0.25, 0.5, 0.75), 
+                                                      risk.baseline = NULL,
                                                       relative = FALSE,
                                                       significance.level = 0.05,
                                                       title = NULL,
@@ -413,13 +435,30 @@ calibration.plot.grf_imputation.accounter <- function(grf.model.obj_imputed,
   # get observed and predicted benefit by quantile group
   benefits <- get.benefits.grf_imputation.accounter(grf.model.obj_imputed, 
                                                     cutoffs = cutoffs, 
+                                                    risk.baseline = risk.baseline,
                                                     significance.level = significance.level)
   
-  # make sure risk quantile is in correct order
-  risk.quantile <- factor(benefits$absolute.observed.benefit$quantile)
-  lv <- levels(risk.quantile)
-  lv <- lv[order.intervals(lv, quantile.nam = TRUE)]
-  risk.quantile <- factor(risk.quantile, levels = lv)
+  # get average risk quantile 
+  if(is.null(risk.baseline)){
+    
+    rb <- rowMeans(sapply(1:length(grf.model.obj_imputed), function(i){
+      
+      grf.model.obj_imputed[[i]]$risk$risk.baseline
+      
+    }))
+    
+  } else{
+    
+    rb <- rowMeans(sapply(1:length(grf.model.obj_imputed), function(i){
+      
+      risk.baseline[[i]]
+      
+    }))
+    
+  } # IF
+  
+  qg <- quantile_group(rb, cutoffs = cutoffs)
+  risk.quantile <- factor(colnames(qg), levels = colnames(qg))
   
   # adjust for relative and absolute benefit
   if(!flip.sign.of.absolute.benefit){

@@ -210,7 +210,7 @@ get.benefits <- function(pred.model.obj,
   # initialize
   rel.obs.ben.mat           <- as.data.frame(matrix(NA_real_, ncol(quantile.groups), 5))
   colnames(rel.obs.ben.mat) <- c("quantile", "estimate", "ci.lower", "ci.upper", "stderr")
-  rel.obs.ben.mat$quantile  <- intervals.quantile(cutoffs)
+  rel.obs.ben.mat$quantile  <- colnames(quantile.groups)
   abs.obs.ben.mat  <- rel.obs.ben.mat
   abs.pred.ben.mat <- rel.obs.ben.mat
   rel.pred.ben.mat <- rel.obs.ben.mat
@@ -283,7 +283,7 @@ get.benefits.grf <- function(grf.model.obj,
   # initialize
   abs.obs.ben.mat           <- as.data.frame(matrix(NA_real_, ncol(quantile.groups), 5))
   colnames(abs.obs.ben.mat) <- c("quantile", "estimate", "ci.lower", "ci.upper", "stderr")
-  abs.obs.ben.mat$quantile  <- intervals.quantile(cutoffs)
+  abs.obs.ben.mat$quantile  <- colnames(quantile.groups)
   abs.pred.ben.mat <- abs.obs.ben.mat
   
   for(i in 1:ncol(quantile.groups)){

@@ -8,6 +8,7 @@ calibration.plot_imputation.accounter(
   pred.model.objs_imputed,
   cutoffs = c(0.25, 0.5, 0.75),
   relative = FALSE,
+  risk.baseline = NULL,
   significance.level = 0.05,
   title = NULL,
   xlim = NULL,
@@ -21,6 +22,8 @@ calibration.plot_imputation.accounter(
 \item{cutoffs}{the cutoff points of quantiles that shall be used for GATES grouping. Default is c(0.25, 0.5, 0.75), which corresponds to the quartiles.}
 
 \item{relative}{logical. If TRUE, then relative benefits will be plotted. Default is FALSE}
+
+\item{risk.baseline}{A list of baseline risk that shall be used for grouping. If \code{NULL} (default), then the baseline risk in \code{pred.model.objs_imputed} is used.}
 
 \item{significance.level}{significance level for the confidence intervals. Default is 0.05}
 

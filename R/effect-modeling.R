@@ -156,8 +156,10 @@ effect.modeling <- function(X, y, w, alpha = 1,
   if(is.null(risk.baseline)){
     baseline.mod  <- baseline.risk(X = X, y = y, alpha = alpha)
     risk.baseline <- baseline.mod$response 
+    c.index.outcome <- C.index.outcome(y = y, risk.prediction = risk.baseline)
   } else{
     baseline.mod <- NULL
+    c.index.outcome <- NULL
   }
   
   # return
@@ -179,7 +181,7 @@ effect.modeling <- function(X, y, w, alpha = 1,
                     predicted.relative.benefit = pred.ben.rel,
                     predicted.absolute.benefit.raw = pred.ben.abs.raw,
                     predicted.relative.benefit.raw = pred.ben.rel.raw),
-    C.statistics = list(c.index.outcome = C.index.outcome(y = y, risk.prediction = baseline.risk),
+    C.statistics = list(c.index.outcome = c.index.outcome,
                         c.index.benefit = C.index.benefit(y = y, w = w, predicted.benefit = pred.ben.abs))
   ))
   
