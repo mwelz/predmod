@@ -156,11 +156,13 @@ effect.modeling <- function(X, y, w, alpha = 1,
   if(is.null(risk.baseline)){
     baseline.mod  <- baseline.risk(X = X, y = y, alpha = alpha)
     risk.baseline <- baseline.mod$response 
-    c.index.outcome <- C.index.outcome(y = y, risk.prediction = risk.baseline)
   } else{
     baseline.mod <- NULL
-    c.index.outcome <- NULL
   }
+  
+  # C index outcome
+  c.index.outcome <- C.index.outcome(y = y, risk.prediction = risk.baseline)
+  
   
   # return
   return(list(
