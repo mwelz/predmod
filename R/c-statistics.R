@@ -2,15 +2,15 @@
 #' 
 #' @param y binary response vector
 #' @param w binary treatment assignment vector
-#' @param predicted.benefit vector of predicted benefits
+#' @param pred_ben vector of predicted benefits
 #' 
 #' @return point estimate and standard error of C index for benefit
 #' 
 #' @export
-C.index.benefit <- function(y, w, predicted.benefit){
+C_benefit <- function(y, w, pred_ben){
   
   # match cases based on observed benefit
-  matched <- suppressWarnings(MatchIt::matchit(w ~ pb, data = data.frame(w = w, pb = predicted.benefit)))
+  matched <- suppressWarnings(MatchIt::matchit(w ~ pb, data = data.frame(w = w, pb = pred_ben)))
   match.treated <- as.numeric(rownames(matched$match.matrix))
   match.control <- as.numeric(matched$match.matrix[,1])
   
@@ -23,8 +23,8 @@ C.index.benefit <- function(y, w, predicted.benefit){
   
   # calculate C for benefit by using predicted risk (with regular w)
   obs.ben             <- y[match.control] - y[match.treated]
-  pred.ben.abs.paired <- (predicted.benefit[match.control] +
-                            predicted.benefit[match.treated]) / 2
+  pred.ben.abs.paired <- (pred_ben[match.control] +
+                            pred_ben[match.treated]) / 2
   c.index.benefit.arr <- Hmisc::rcorr.cens(pred.ben.abs.paired, obs.ben)
   
   # return
@@ -36,11 +36,11 @@ C.index.benefit <- function(y, w, predicted.benefit){
 #' calculates C index outcome
 #' 
 #' @param y binary response vector
-#' @param risk.prediction vector of risk predictions (i.e. Pr(y = 1))
+#' @param risk vector of risk predictions (i.e. Pr(y = 1))
 #' @return point estimate and standard error of C index outcome
 #' 
 #' @export
-C.index.outcome <- function(y, risk.prediction){
+C_outcome <- function(y, risk){
   
   hmisc.obj <- Hmisc::rcorr.cens(risk.prediction, y)
   return(list(estimate = unname(hmisc.obj["C Index"]),
