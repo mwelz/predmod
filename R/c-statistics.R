@@ -42,7 +42,7 @@ C_benefit <- function(y, w, pred_ben){
 #' @export
 C_outcome <- function(y, risk){
   
-  hmisc.obj <- Hmisc::rcorr.cens(risk.prediction, y)
+  hmisc.obj <- Hmisc::rcorr.cens(risk, y)
   return(list(estimate = unname(hmisc.obj["C Index"]),
               stderr   = unname(hmisc.obj["S.D."])))
 } # FUN

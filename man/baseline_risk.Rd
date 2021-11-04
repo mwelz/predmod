@@ -4,15 +4,17 @@
 \alias{baseline_risk}
 \title{baseline risk prediction via penalized logistic regression (treatment assignment is not used)}
 \usage{
-baseline_risk(X, status, alpha = 1, ...)
+baseline_risk(X, status, alpha = 1, failcode = 1, ...)
 }
 \arguments{
-\item{X}{Matrix of covariates}
+\item{X}{Matrix of fixed covariates.}
 
-\item{status}{Vector of binary responses}
+\item{status}{Numeric vector with a unique code for each failure type. Code 0 denotes a censored observation.}
 
 \item{alpha}{The elasticnet mixing parameter for regularization, with \eqn{0\le\alpha\le 1}.
 The penalty is defined as \deqn{(1-\alpha)/2||\beta||_2^2+\alpha||\beta||_1.} \code{alpha=1} (default) is the lasso penalty, and \code{alpha=0} the ridge penalty. If \code{NULL}, no regularization is used.}
+
+\item{failcode}{Code of status that denotes the failure type of interest. Default is one.}
 
 \item{...}{Additional arguments to be passed}
 }

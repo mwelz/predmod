@@ -57,6 +57,36 @@ intervals.quantile <- function(cutoffs){
 } # FOR
 
 
+#' (For internal use only.) Returns predicted benefits (absolute and relative) based on risk estimates.
+#' 
+#' @param risk_reg Risk estimates based on regular treatment assignment.
+#' @param risk_rev Risk estimates based on reversed treatment assignment
+#' @param w Binary treatment assignment.
+#' 
+#' @noRd
+get_predicted_benefits <- function(risk_reg, risk_rev, w){
+  
+  # check for equal length
+  InputChecks_equal.length3(risk_reg, risk_rev, w)
+  
+  # absolute predicted benefit
+  absolute <- risk_reg - risk_rev
+  
+  # adjust for signs
+  absolute[w == 0] <- -absolute[w == 0]
+  
+  # relative predicted benefit
+  relative <- risk_reg / risk_rev
+  
+  # adjust for signs
+  relative[w == 0] <- 1 / relative[w == 0]
+  
+  # return
+  return(list(absolute = absolute, relative = relative))
+  
+} # FUN
+
+
 #' calculates the absolute observed benefit, which corresponds to the difference in \code{mean(y[W=w])}, and the associated confidence interval.
 #' 
 #' @param y vector of binary outcomes
