@@ -26,7 +26,7 @@ baseline_survival(
 \item{alpha}{The elasticnet mixing parameter for regularization, with \eqn{0\le\alpha\le 1}.
 The penalty is defined as \deqn{(1-\alpha)/2||\beta||_2^2+\alpha||\beta||_1.} \code{alpha=1} (default) is the lasso penalty, and \code{alpha=0} the ridge penalty. If \code{NULL}, no regularization is used.}
 
-\item{failcode}{Code of status that denotes the failure type of interest}
+\item{failcode}{Code of status that denotes the failure type of interest. The code 0 indicates censoring.}
 
 \item{...}{Additional arguments to be passed}
 }

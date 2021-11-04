@@ -31,10 +31,13 @@ get_lambda_path <- function(x, time, status, failcode = 1, alpha = 1, m = 100){
   # make status binary: one if failure due to cause of interest
   status.failcode <- ifelse(status == failcode, 1, 0)
   
+  # get unexported function 'get_cox_lambda_max'
+  fnc <- utils::getFromNamespace("get_cox_lambda_max", "glmnet")
+  
   # get lambda.max by using standardized design matrix
-  lambda.max <- glmnet:::get_cox_lambda_max(x = scale(x, TRUE, TRUE),
-                                            y = survival::Surv(time, status.failcode),
-                                            alpha = alpha)
+  lambda.max <- fnc(x = scale(x, TRUE, TRUE),
+                    y = survival::Surv(time, status.failcode),
+                    alpha = alpha)
   
   # get the lambda path as suggested in Simon et al. (2011, JSS)
   eps <- ifelse(nrow(x) < ncol(x), 0.05, 0.0001)

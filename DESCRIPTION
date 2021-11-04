@@ -27,6 +27,7 @@ RoxygenNote: 7.1.1
 Depends: ggplot2
 Imports: 
     glmnet,
+    utils,
     stats,
     MatchIt,
     Hmisc,
@@ -39,4 +40,5 @@ Imports:
     DoubleML,
     rateratio.test,
     VIM,
+    fastcmprsk,
     Matrix

@@ -101,14 +101,14 @@ prep_predict <- function(time, status, k = 1){
 
 
 # estimates Fine-Gray Breslow baseline hazard function
-basehaz_cmprsk <- function(time, status, lp, time_eval, prep_predict_object = NULL, k = 1){
+basehaz_cmprsk <- function(time, status, lp, time_eval, prep_predict_object = NULL, failcode = 1){
   
   # we can only evaluate at one time (for simplicity)
   stopifnot(length(time_eval) == 1)
   
   # prepare prediction
   if(is.null(prep_predict_object)){
-    prep <- prep_predict(time = time, status = status, k = k)
+    prep <- prep_predict(time = time, status = status, k = failcode)
   } else{
     prep <- prep_predict_object
   }
@@ -150,7 +150,7 @@ survival_cmprsk <- function(time, status, lp, prep_predict_object = NULL, failco
     
     H0k <- basehaz_cmprsk(time = time, status = status, lp = lp, 
                           time_eval = time_eval, 
-                          prep_predict_object = prep_predict_object, k = failcode)
+                          prep_predict_object = prep_predict_object, failcode = failcode)
     exp(-H0k) 
     
   } # FUN
