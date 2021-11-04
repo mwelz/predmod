@@ -38,4 +38,5 @@ Imports:
     mlr3,
     DoubleML,
     rateratio.test,
-    VIM
+    VIM,
+    Matrix

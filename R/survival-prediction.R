@@ -13,18 +13,18 @@ survival <- function(time, status, lp, center = FALSE){
   
   
   # Breslow baseline survival function 
-  basesurv <- function(time.eval){
+  basesurv <- function(time_eval){
     
-    stopifnot(length(time.eval) == 1)
+    stopifnot(length(time_eval) == 1)
     hdnom::glmnet_basesurv(time = time, event = status, lp = lp, 
-                           times.eval = time.eval, centered = center)
+                           times.eval = time_eval, centered = center)
     
   } # FUN
   
   # returns survival probability
-  surv <- function(time.eval){
+  surv <- function(time_eval){
     
-    basesurv_point <- basesurv(time.eval = time.eval)
+    basesurv_point <- basesurv(time_eval = time_eval)
     exp( -exp(lp) * basesurv_point$cumulative_base_hazard)
     
   } # FUN
@@ -139,26 +139,26 @@ basehaz_cmprsk <- function(time, status, lp, time_eval, prep_predict_object = NU
 #' @param time A vector of times that was used to fit a cmprsk model
 #' @param status A vector of mortality status that was used to fit a cmprsk model
 #' @param lp A linear predictor, obtained from a cmprsk model
-#' @param k The failure typr of interest that was used to fit a cmprsk model
+#' @param failcode The failure typr of interest that was used to fit a cmprsk model
 #' @param prep_predict_object Output of \code{\link{prep_predict}}.
 #' 
 #' @noRd
-survival_cmprsk <- function(time, status, lp, prep_predict_object = NULL, k = 1){
+survival_cmprsk <- function(time, status, lp, prep_predict_object = NULL, failcode = 1){
   
   # Fine-Gray Breslow baseline survival function
-  basesurv <- function(time.eval){
+  basesurv <- function(time_eval){
     
     H0k <- basehaz_cmprsk(time = time, status = status, lp = lp, 
-                          time_eval = time.eval, 
-                          prep_predict_object = prep_predict_object, k = k)
+                          time_eval = time_eval, 
+                          prep_predict_object = prep_predict_object, k = failcode)
     exp(-H0k) 
     
   } # FUN
   
   # function that returns survival probability at cause k
-  surv <- function(time.eval){
+  surv <- function(time_eval){
     
-    basesurv(time.eval = time.eval)^exp(lp)
+    basesurv(time_eval = time_eval)^exp(lp)
     
   } # FUN
   
