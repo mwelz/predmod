@@ -1,229 +1,277 @@
 #' baseline risk prediction via penalized logistic regression (treatment assignment is not used)
 #' 
-#' @param X matrix of data frame of covariates
-#' @param y vector of binary responses
-#' @param alpha the alpha as in glmnet. Defauly is 1 (= Lasso). If NULL, no penalty is applied.
+#' @param X Matrix of fixed covariates.
+#' @param status Numeric vector with a unique code for each failure type. Code 0 denotes a censored observation.
+#' @param alpha The elasticnet mixing parameter for regularization, with \eqn{0\le\alpha\le 1}.
+#' The penalty is defined as \deqn{(1-\alpha)/2||\beta||_2^2+\alpha||\beta||_1.} \code{alpha=1} (default) is the lasso penalty, and \code{alpha=0} the ridge penalty. If \code{NULL}, no regularization is used.
+#' @param failcode Code of status that denotes the failure type of interest. Default is one.
+#' @param ... Additional arguments to be passed
 #' 
 #' @export
-baseline.risk <- function(X, y, alpha = 1){
+baseline_risk <- function(X,
+                          status, 
+                          alpha = 1,
+                          failcode = 1,
+                          ...)
+{
+  
+  # input checks
+  InputChecks_NA(list(X, status))
+  CheckInputs_X(X)
+  InputChecks_equal.length2(X, status)
+  
+  # response needs to be binary, so recode status to be binary with 1 = failure due to cause of interest
+  status_bin <- ifelse(status == failcode, 1, 0)
+  
+  # assign variable names if there are none
+  if(is.null(colnames(X))) colnames(X) <- paste0("V", 1:ncol(X)) 
   
   if(is.null(alpha)){
     
+    ## case 1: no regularization
+    
     # fit the model
-    model.obj <- stats::glm(y~., 
+    model.obj <- stats::glm(status_bin~., 
                             family = stats::binomial(link = "logit"), 
-                            data = data.frame(y, X))
+                            data = data.frame(status_bin, X), ...)
     
-    # get liner predictor etc.
-    lp        <- as.numeric(cbind(1,X) %*% model.obj$coefficients)
-    kept.vars <- 1:ncol(X)
+    # store coefficient matrix as sparse matrix (for consistency with glmnet)
+    coefs <- Matrix::Matrix(model.obj$coefficients, sparse = TRUE, 
+                            dimnames = list(c("(Intercept)", colnames(X)), "Estimate"))
     
-    coefs            <- matrix(model.obj$coefficients)
-    rownames(coefs)  <- c("(Intercept)", colnames(X)[kept.vars])
-    colnames(coefs)  <- "Estimate"
-    lambda           <- NULL
+    # get linear predictor 
+    lp  <- as.numeric(cbind(1,X) %*% coefs)
+    
+    # empty lambda parameter (no regularization)
+    lambda.min <- NULL
     
   } else{
     
-    X             <- as.matrix(X)
-    if(is.null(colnames(X))) colnames(X) <- paste0("X", 1:ncol(X))
-    model.obj    <- glmnet::cv.glmnet(X, y, family = "binomial", alpha = alpha)
-    lambda        <- model.obj$lambda.min # minimizing lambda (needs to be fixed in second stage)
-    coefs.obj     <- glmnet::coef.glmnet(model.obj, s = "lambda.min")
-    kept.vars     <- coefs.obj@i
-    if(0 %in% kept.vars) kept.vars <- kept.vars[-which(kept.vars == 0)] # intercept is not a variable
-    coefs            <- as.matrix(coefs.obj@x)
-    rownames(coefs)  <- c("(Intercept)", colnames(X)[kept.vars])
-    colnames(coefs)  <- "Estimate"
-    X.retained       <- cbind(intercept = 1, X[,kept.vars,drop = FALSE])
-    lp               <- as.numeric(X.retained %*% coefs) # linear predictor
+    ## case 2: regularization
+  
+    # fit model
+    model.obj     <- glmnet::cv.glmnet(x = X, y = status_bin, 
+                                       family = "binomial", 
+                                       alpha = alpha, ...)
+    
+    # get coefficients at best lambda
+    coefs <- glmnet::coef.glmnet(model.obj, s = "lambda.min")
+    colnames(coefs) <- "Estimate"
+    
+    # get indices of kept variables (account for zero indexing)
+    kept.vars     <- coefs@i + 1
+    
+    # get linear predictor 
+    lp  <- as.numeric(cbind(1,X)[,kept.vars,drop = FALSE] %*% coefs[kept.vars])
+    
+    # get minimizing lambda
+    lambda.min <- model.obj$lambda.min
     
   } # IF
   
   
-  
-  return(list(
-    model.obj = model.obj,
-    lambda.min = lambda,
-    linear.predictor = lp,
-    response = stats::plogis(lp),
-    coefficients = coefs,
-    retained.variables = colnames(X)[kept.vars]
-  ))
-} # FUN
-
-
-#' baseline survival w/o competing risks, with penalty
-#' 
-#' @param X covariate matrix
-#' @param status binary status. 1 if failure, 0 if survived
-#' @param time right-censored time at risk
-#' @param alpha Alpha in glmnet
-#' @param center Shall baseline survival be centered? Default is \code{FALSE}.
-#' @param ... Additional parameters to be passed to \code{\link[glmnet]{cv.glmnet}}
-#' 
-#' @noRd
-baseline.risk.surv.NoCmprsk.penalized <- function(X, status, time, 
-                                                  alpha = 1, center = FALSE,
-                                                  ...){
-  
-  # prepare dependent variable
-  y <- survival::Surv(time = time, event = status)
-  
-  # fit models
-  model.obj <- glmnet::cv.glmnet(x = X, y = y,
-                                 family = "cox",
-                                 type.measure = "deviance",
-                                 alpha = alpha, ...) 
-  
-  # get linear predictor at best lambda: x'b
-  #lp <- as.numeric(glmnet::predict.glmnet(
-  #  model.obj,
-  #  newx = data.matrix(X),
-  #  s = "lambda.min", type = "link"
-  #)) # throws cryptic error, so workaround required
-  
-  coef.obj <- glmnet::coef.glmnet(model.obj, s = "lambda.min")
-  lp <- as.numeric(X[,coef.obj@i+1, drop = FALSE] %*% coef.obj@x) 
-  
-  # estimate survival 
-  surv <- survival(time = time, status = status, lp = lp, center = center)
-  
-  # get coefficients
-  coefs.obj        <- glmnet::coef.glmnet(model.obj, s = "lambda.min")
-  kept.vars        <- coefs.obj@i
-  coefs            <- as.matrix(coefs.obj)
-  colnames(coefs)  <- "Estimate"
-  
-  return(list(
-    model.obj = model.obj,
-    lambda.min = model.obj$lambda,
-    linear.predictor = lp,
-    response = surv$surv,
-    coefficients = coefs,
-    retained.variables = colnames(X)[kept.vars],
-    basesurv = surv$basesurv
-  ))
-  
-} # FUN
-
-
-
-#' baseline survival w/o competing risks, no penalty
-#' 
-#' @param X covariate matrix
-#' @param status binary status. 1 if failure, 0 if survived
-#' @param time right-censored time at risk
-#' @param center Shall baseline survival be centered? Default is \code{FALSE}.
-#' @param ... Additional parameters to be passed to \code{\link[glmnet]{cv.glmnet}}
-#' 
-#' @noRd
-baseline.risk.surv.NoCmprsk.ordinary <- function(X, status, time, center, ...){
-  
-  # fit Cox PH model
-  model.obj <- survival::coxph(survival::Surv(time = time, event = status)~.,
-                               data = data.frame(time, status, X), ...)
-  
-  # get linear predictor
-  lp <- as.numeric(X %*% model.obj$coefficients)
-  
-  # estimate survival with Breslow baseline. A function here 
-  surv <- survival(time = time, status = status, lp = lp, center = center)$surv
-  #as.numeric(summary(survival::survfit(model.obj, newdata = data.frame(X)), time = time)$surv)
-  
-
-  # coefficients
-  coefs            <- matrix(model.obj$coefficients)
-  rownames(coefs)  <- colnames(X)
-  colnames(coefs)  <- "Estimate"
-  
   # return
-  return(list(
-    model.obj = model.obj,
-    lambda.min = NULL,
-    linear.predictor = lp,
-    response = surv,
+  return(structure(list(
+    risk = stats::plogis(lp),
+    linear_predictor = lp,
     coefficients = coefs,
-    retained.variables = colnames(X)
-  ))
+    model = model.obj,
+    lambda = lambda.min
+  ), class = "baseline_risk"))
   
 } # FUN
 
 
 
-#' baseline survival w/ competing risks (Fine-Gray), no penalty
+#' baseline risk prediction via penalized logistic regression (treatment assignment is not used)
 #' 
-#' @param X covariate matrix
-#' @param status binary status. 1 if failure, 0 if survived
-#' @param time right-censored time at risk
-#' @param failcode k
-#' @param ... Additional parameters to be passed to \code{\link[glmnet]{cv.glmnet}}
-#' 
-#' @noRd
-baseline.risk.surv.cmprsk.ordinary <- function(X, status, time, failcode = 1, ...){
-  
-  # fit Cox PH model
-  model.obj <- cmprsk::crr(ftime = time, fstatus = status, 
-                           cov1 = X, failcode = failcode, cencode = 0)
-  
-  # get linear predictor
-  lp <- as.numeric(X %*% model.obj$coef)
-  
-  # estimate survival. returns a function
-  surv <- survival_cmprsk(time = time, status = status, lp = lp,
-                          prep_predict_object = NULL, k = failcode)$surv
-  
-  # coefficients
-  coefs            <- matrix(model.obj$coef)
-  rownames(coefs)  <- colnames(X)
-  colnames(coefs)  <- "Estimate"
-  
-  # return
-  return(list(
-    model.obj = model.obj,
-    lambda.min = NULL,
-    linear.predictor = lp,
-    response = surv,
-    coefficients = coefs,
-    retained.variables = colnames(X)
-  ))
-  
-} # FUN
-
-
-#' baseline survival 
-#' 
-#' @param X covariate matrix
-#' @param status binary status. 1 if failure, 0 if survived
-#' @param time right-censored time at risk
-#' @param alpha penalty
+#' @param X Matrix of fixed covariates.
+#' @param status Numeric vector with a unique code for each failure type. Code 0 denotes a censored observation.
+#' @param time vector of failure/censoring times.
+#' @param time_eval Time at at which survival shall be evaluated.
+#' @param alpha The elasticnet mixing parameter for regularization, with \eqn{0\le\alpha\le 1}.
+#' The penalty is defined as \deqn{(1-\alpha)/2||\beta||_2^2+\alpha||\beta||_1.} \code{alpha=1} (default) is the lasso penalty, and \code{alpha=0} the ridge penalty. If \code{NULL}, no regularization is used.
+#' @param failcode Code of status that denotes the failure type of interest.
+#' @param ... Additional arguments to be passed
 #' 
 #' @export
-baseline.risk.survival <- function(X, status, time, alpha = NULL){
+baseline_survival <- function(X, 
+                              status,
+                              time,
+                              time_eval = max(time),
+                              alpha = 1, 
+                              failcode = 1, ...)
+{
   
-  if(length(unique(status)) > 2){
-    # competing risks
+  # input checks
+  InputChecks_NA(list(X, status))
+  CheckInputs_X(X)
+  InputChecks_equal.length3(X, status, time)
+  stopifnot(length(time_eval) == 1)
+  
+  # assign variable names if there are none
+  if(is.null(colnames(X))) colnames(X) <- paste0("V", 1:ncol(X))
+  
+  # decide whether or not competing risk modeling should be used
+  cmpr <- ifelse(length(unique(status)) == 2, 
+                 yes = "baseline_survival_nocmprsk", 
+                 no = "baseline_survival_cmprsk")
+  
+  # call correct main function
+  do.call(what = get(cmpr),
+          args = list(X = X, 
+                      status = status,
+                      time = time,
+                      time_eval = time_eval,
+                      alpha = alpha,
+                      failcode = failcode,
+                      ... = ...))
+  
+} # FUN
+
+
+baseline_survival_cmprsk <- function(X, 
+                                     status,
+                                     time,
+                                     time_eval = max(time),
+                                     alpha = 1,
+                                     failcode = 1,
+                                     ...){
+  
+  if(!is.null(alpha)){
     
-    if(is.null(alpha)){
-      
-      baseline.risk.surv.cmprsk.ordinary(X = X, status = status, time = time, failcode = 1)
-      
-    } else stop("Penalized cmprsk not yet implemented")
+    # get the lambda grid TODO: make user choose path
+    lambda.path <- get_lambda_path(x = X, time = time, 
+                                   status = status, 
+                                   failcode = failcode, 
+                                   alpha = alpha,
+                                   m = 100)
+    
+    # fit competing risk model with elastic net penalty along the lambda path
+    model.obj <- fastcmprsk::fastCrrp(fastcmprsk::Crisk(time, status, failcode = failcode) ~.,
+                                      data = data.frame(time, status, X),
+                                      penalty = "ENET",
+                                      alpha = alpha,
+                                      lambda = lambda.path,...)
+    
+    # get unexported function 'AIC.fcrrp'
+    fnc <- utils::getFromNamespace("AIC.fcrrp", "fastcmprsk")
+    
+    # choose the penalty that minimizes AIC
+    s <- unname(which.min(fnc(model.obj)))
+    
+    # store it
+    lambda.min <- lambda.path[s]
+    
+    # store coefficient matrix as sparse matrix (for consistency with glmnet)
+    coefs <- Matrix::Matrix(model.obj$coef[,s,drop=FALSE], sparse = TRUE, 
+                            dimnames = list(colnames(X), "Estimate"))
+    
+    # get indices of kept variables (account for zero indexing)
+    kept.vars     <- coefs@i + 1
+    
+    # get linear predictor 
+    lp  <- as.numeric(cbind(1,X)[,kept.vars,drop = FALSE] %*% coefs[kept.vars])
     
   } else{
-    # no competing risks
     
-    if(is.null(alpha)){
-      
-      baseline.risk.surv.NoCmprsk.ordinary(X = X, status = status, time = time, center = FALSE)
-      
-    } else{
-      
-      baseline.risk.surv.NoCmprsk.penalized(X = X, status = status, 
-                                            time = time, alpha = alpha, center = FALSE)
-      
-    } # IF
+    # fit competing risk model without penalty
+    model.obj <- cmprsk::crr(ftime = time, fstatus = status, 
+                             cov1 = X, failcode = failcode,...)
+    
+    # store coefficient matrix as sparse matrix (for consistency with glmnet)
+    coefs <- Matrix::Matrix(model.obj$coef, sparse = TRUE, 
+                            dimnames = list(colnames(X), "Estimate"))
+    
+    # get linear predictor 
+    lp  <- as.numeric(X %*% coefs)
+    
+    # empty lambda (no regularization)
+    lambda.min <- NULL
     
   } # IF
+    
+  
+  # get the survival functions    
+  surv.obj <- survival_cmprsk(time = time, status = status, lp = lp, 
+                  prep_predict_object = NULL,
+                  failcode = failcode)
+  
+  # return
+  return(structure(list(
+    risk = 1.0 - surv.obj$surv(time_eval = time_eval),
+    linear_predictor = lp,
+    coefficients = coefs,
+    model = model.obj,
+    lambda = lambda.min,
+    funs = surv.obj
+  ), class = "baseline_survival"))
+  
+} # FUN
+
+
+baseline_survival_nocmprsk <- function(X, 
+                                       status,
+                                       time,
+                                       time_eval = max(time),
+                                       alpha = 1,
+                                       failcode = 1, # dead argument here
+                                       ...)
+{
+  
+  if(!is.null(alpha)){
+    
+    # prepare dependent variable
+    y <- survival::Surv(time = time, event = status)
+    
+    # fit models
+    model.obj <- glmnet::cv.glmnet(x = X, y = y,
+                                   family = "cox",
+                                   type.measure = "deviance",
+                                   alpha = alpha,...) 
+    
+    # get the coefficients
+    coefs <- glmnet::coef.glmnet(model.obj, s = "lambda.min")
+    colnames(coefs) <- "Estimate"
+    
+    # get indices of kept variables (account for zero indexing)
+    kept.vars     <- coefs@i + 1
+    
+    # get linear predictor 
+    lp  <- as.numeric(X[,kept.vars,drop = FALSE] %*% coefs[kept.vars])
+    
+    # get minimizing lambda
+    lambda.min <- model.obj$lambda.min
+  
+  } else{
+    
+    # fit Cox PH model
+    model.obj <- survival::coxph(survival::Surv(time = time, event = status)~.,
+                                 data = data.frame(time, status, X), ...)
+    
+    # store coefficient matrix as sparse matrix (for consistency with glmnet)
+    coefs <- Matrix::Matrix(model.obj$coefficients, sparse = TRUE, 
+                            dimnames = list(colnames(X), "Estimate"))
+    
+    # get linear predictor 
+    lp  <- as.numeric(X %*% coefs)
+    
+    # empty lambda parameter (no regularization)
+    lambda.min <- NULL
+    
+  } # IF
+  
+  # get the survival functions    
+  surv.obj <- survival(time = time, status = status, lp = lp, center = FALSE)
+  
+  # return
+  return(structure(list(
+    risk = 1.0 - surv.obj$surv(time_eval = time_eval),
+    linear_predictor = lp,
+    coefficients = coefs,
+    model = model.obj,
+    lambda = lambda.min,
+    funs = surv.obj
+  ), class = "baseline_survival"))
   
 } # FUN
