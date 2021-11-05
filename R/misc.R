@@ -44,3 +44,11 @@ get_lambda_path <- function(x, time, status, failcode = 1, alpha = 1, m = 100){
   lambda.max * sapply(0:m, function(j) eps^(j/m))
   
 } # FUN
+
+
+# Taken from https://github.com/grf-labs/grf/blob/bf691429b5714385da5f41f6b5db1525184b300d/experiments/csf/comparison_estimators.R#L8 , credits to to the authors of the grf package!
+expected_survival <- function(S.hat, Y.grid) {
+  grid.diff <- diff(c(0, Y.grid, max(Y.grid)))
+  
+  c(cbind(1, S.hat) %*% grid.diff)
+}
