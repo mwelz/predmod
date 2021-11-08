@@ -155,6 +155,70 @@ risk_model_stage2 <- function(status_bin, w, z,
 
 
 
+
+#' Performs risk modeling with a competing risk model.
+#' 
+#' The linear predictor of the competing risk model is defined as 
+#' \deqn{\alpha + \beta_1 w + \beta_2 z + \beta_3 z * w ,}
+#' where \eqn{z} is the typically equal to the linear predictor of a baseline risk model. If \code{constant = TRUE}, it is enforced that \eqn{\beta_3 = 0}. 
+#' 
+#' @param X Matrix of fixed covariates.
+#' @param status Numeric vector with a unique code for each failure type. Code 0 denotes a censored observation.
+#' @param time vector of failure/censoring times.
+#' @param w Binary vector of treatment assignment status. Equal to 1 for treatment group and 0 for control group.
+#' @param z The \code{z} to be used in the logistic regression model above. If \code{NULL} (default), then the linear predictor of a baseline risk model is used as \code{z}.
+#' @param time_eval Time at at which survival shall be evaluated.
+#' @param alpha The elasticnet mixing parameter for regularization in a potential baseline risk model to obtain the linear predictor to be used as \code{z}. Only applicable if \code{z = NULL}. See \code{\link{baseline_risk}} for details.
+#' @param failcode Code of status that denotes the failure type of interest. Default is one.
+#' @param constant Shall \eqn{\beta_3 = 0} be enforced in the logistic regression model above? If \code{TRUE}, then this is equivalent to assuming that there is a constant treatment effect. Default is \code{FALSE}.
+#' @param ... Additional arguments to be passed.
+#' 
+#' @return A \code{predmod_ordinary} object.
+#' 
+#' @export
+risk_model_survival <- function(X, 
+                                status, 
+                                time,
+                                w, 
+                                z = NULL, 
+                                time_eval = max(time),
+                                alpha = 1,
+                                failcode = 1,
+                                constant = FALSE,
+                                ...)
+{
+  
+  # input checks
+  InputChecks_NA(list(X, status))
+  CheckInputs_X(X)
+  InputChecks_equal.length3(X, status, time)
+  stopifnot(length(time_eval) == 1)
+  
+  # assign variable names if there are none
+  if(is.null(colnames(X))) colnames(X) <- paste0("V", 1:ncol(X))
+  
+  # decide whether or not competing risk modeling should be used
+  cmpr <- ifelse(length(unique(status)) == 2, 
+                 yes = "risk_model_survival_nocmprisk", 
+                 no = "risk_model_survival_cmprisk")
+  
+  # call correct main function
+  do.call(what = get(cmpr),
+          args = list(X = X, 
+                      status = status, 
+                      time = time,
+                      w = w, 
+                      z = z, 
+                      time_eval = time_eval,
+                      alpha = alpha,
+                      failcode = failcode,
+                      constant = constant,
+                      ... = ...))
+  
+} # FUN
+
+
+
 risk_model_survival_nocmprisk <- function(X, 
                                           status, 
                                           time,
@@ -232,10 +296,19 @@ risk_model_survival_nocmprisk <- function(X,
                                           risk_rev = risk_rev,
                                           w = w)
   
+  # coefficient summary
+  temp <- summary(stage2$model)$coefficients
+  est  <- temp[, "coef"]
+  se   <- temp[, "se(coef)"]
+  t    <- est / se
+  p    <-  2 * pnorm(abs(t), lower.tail = FALSE)
+  cf   <- cbind(est, se, t, p)
+  colnames(cf) <- c("Estimate", "Std. Error", "z", "Pr(>|z|)")
+  
 
   # return
   return(structure(list(benefits = benefits,
-                        coefficients = summary(stage2$model)$coefficients,
+                        coefficients = cf,
                         risk = list(baseline = baseline.risk,
                                     regular = risk_reg,
                                     counterfactual = risk_rev),
@@ -251,7 +324,7 @@ risk_model_survival_nocmprisk <- function(X,
                                       w = w, failcode = failcode, z = z, 
                                       constant = constant, alpha = alpha)
   ), 
-  class = "predmod_surv"))
+  class = "predmod_survival"))
   
   
 } # FUN
@@ -299,7 +372,7 @@ risk_model_stage2_nocmprsk <- function(status, time, w, z,
   surv_curve_reg <- sapply(time_unique, function(t) surv_obj_reg$surv(t))
   surv_curve_rev <- sapply(time_unique, function(t) surv_obj_rev$surv(t))
   
-  # use survival 
+  # use survival curves to estimate potential failure times
   fail_reg <- expected_survival(S.hat = surv_curve_reg, Y.grid = time_unique)
   fail_rev <- expected_survival(S.hat = surv_curve_rev, Y.grid = time_unique)
   
@@ -365,14 +438,12 @@ risk_model_survival_cmprisk <- function(X,
   
   
   ## stage 2
-  
-  ####### edit everything below!
-  stage2 <- risk_model_stage2_nocmprsk(status = status_bin, 
-                                       time = time, 
-                                       w = w, z = z, 
-                                       w_flipped = ifelse(w == 1, 0, 1), 
-                                       constant = constant)
-  
+  stage2 <- risk_model_stage2_cmprsk(status = status_bin, 
+                                     time = time, 
+                                     w = w, z = z, 
+                                     w_flipped = ifelse(w == 1, 0, 1), 
+                                     constant = constant)
+
   # extract failure time estimates
   fail_reg <- stage2$failure$regular
   fail_rev <- stage2$failure$counterfactual
@@ -380,7 +451,7 @@ risk_model_survival_cmprisk <- function(X,
   # calculate predicted benefits
   benefits <- get_predicted_benefits(risk_reg = fail_reg, 
                                      risk_rev = fail_rev,
-                                     w = w)
+                                    w = w)
   
   # get failure risk at the time of interest
   risk_reg <- 1.0 - stage2$funs$regular$surv(time_eval)
@@ -391,10 +462,18 @@ risk_model_survival_cmprisk <- function(X,
                                           risk_rev = risk_rev,
                                           w = w)
   
+  # coefficient summary
+  est <- stage2$model$coef
+  se  <- sqrt(diag(stage2$model$var))
+  t   <- est / se
+  p   <-  2 * pnorm(abs(t), lower.tail = FALSE)
+  cf  <- cbind(est, se, t, p)
+  colnames(cf) <- c("Estimate", "Std. Error", "z", "Pr(>|z|)")
+  
   
   # return
   return(structure(list(benefits = benefits,
-                        coefficients = summary(stage2$model)$coefficients,
+                        coefficients = cf,
                         risk = list(baseline = baseline.risk,
                                     regular = risk_reg,
                                     counterfactual = risk_rev),
@@ -410,7 +489,7 @@ risk_model_survival_cmprisk <- function(X,
                                       w = w, failcode = failcode, z = z, 
                                       constant = constant, alpha = alpha)
   ), 
-  class = "predmod_surv"))
+  class = "predmod_survival"))
   
 } # FUN
 
@@ -443,23 +522,30 @@ risk_model_stage2_cmprsk <- function(status, time, w, z,
   # fit the model
   model <- cmprsk::crr(ftime = time, 
                        fstatus = status, 
-                       cov1 = X_stage2, 
-                       failcode = failcode,...)
+                       cov1 = X_stage2, variance = TRUE,
+                       failcode = failcode,... = ...)
   
   # get linear predictor with regular and reversed treatment assignment 
   lp_reg  <- as.numeric(X_stage2 %*% model$coef)
   lp_rev  <- as.numeric(X_stage2_rev %*% model$coef)
   
-  # get the survival functions CONTINUE AS OF HERE
-  surv_obj_reg <- survival(time = time, status = status, lp = lp_reg, center = FALSE)
-  surv_obj_rev <- survival(time = time, status = status, lp = lp_rev, center = FALSE)
+  # prepare the predict object
+  prep.pred <- prep_predict(time = time, status = status, k = failcode)
+  
+  # get the survival functions
+  surv_obj_reg <- survival_cmprsk(time = time, status = status, 
+                                  lp = lp_reg, prep_predict_object = prep.pred, 
+                                  failcode = failcode)
+  surv_obj_rev <- survival_cmprsk(time = time, status = status, 
+                                  lp = lp_rev, prep_predict_object = prep.pred, 
+                                  failcode = failcode)
   
   # get sorted unique failure times to obtain survival curves
   time_unique <- sort(unique(time), decreasing = FALSE)
   surv_curve_reg <- sapply(time_unique, function(t) surv_obj_reg$surv(t))
   surv_curve_rev <- sapply(time_unique, function(t) surv_obj_rev$surv(t))
   
-  # use survival 
+  # use survival curves to estimate potential failure times
   fail_reg <- expected_survival(S.hat = surv_curve_reg, Y.grid = time_unique)
   fail_rev <- expected_survival(S.hat = surv_curve_rev, Y.grid = time_unique)
   
