@@ -84,7 +84,9 @@ risk_model <- function(X,
                         risk = list(baseline = baseline.risk,
                                     regular = risk_reg,
                                     counterfactual = risk_rev),
-                        concordance = list(outcome = C_outcome_stage1,
+                        concordance = list(outcome_baseline = C_outcome_stage1,
+                                           outcome = C_outcome(y = status_bin,
+                                                               risk = benefits$absolute),
                                            benefit = C_benefit(y = status_bin, 
                                                                w = w,
                                                                pred_ben = benefits$absolute)),
@@ -303,7 +305,7 @@ risk_model_survival_nocmprisk <- function(X,
   t    <- est / se
   p    <-  2 * stats::pnorm(abs(t), lower.tail = FALSE)
   cf   <- cbind(est, se, t, p)
-  colnames(cf) <- c("Estimate", "Std. Error", "z", "Pr(>|z|)")
+  colnames(cf) <- c("Estimate", "Std. Error", "z value", "Pr(>|z|)")
   
 
   # return
@@ -314,7 +316,9 @@ risk_model_survival_nocmprisk <- function(X,
                                     counterfactual = risk_rev),
                         failure = list(regular = fail_reg, 
                                        counterfactual = fail_rev),
-                        concordance = list(outcome = C_outcome_stage1,
+                        concordance = list(outcome_baseline = C_outcome_stage1,
+                                           outcome = C_outcome(y = status_bin,
+                                                               risk = benefits_risk$absolute),
                                            benefit = C_benefit(y = status_bin, 
                                                                w = w,
                                                                pred_ben = benefits_risk$absolute)),
@@ -468,7 +472,7 @@ risk_model_survival_cmprisk <- function(X,
   t   <- est / se
   p   <-  2 * stats::pnorm(abs(t), lower.tail = FALSE)
   cf  <- cbind(est, se, t, p)
-  colnames(cf) <- c("Estimate", "Std. Error", "z", "Pr(>|z|)")
+  colnames(cf) <- c("Estimate", "Std. Error", "z value", "Pr(>|z|)")
   
   
   # return
@@ -479,7 +483,9 @@ risk_model_survival_cmprisk <- function(X,
                                     counterfactual = risk_rev),
                         failure = list(regular = fail_reg, 
                                        counterfactual = fail_rev),
-                        concordance = list(outcome = C_outcome_stage1,
+                        concordance = list(outcome_baseline = C_outcome_stage1,
+                                           outcome = C_outcome(y = status_bin,
+                                                               risk = benefits_risk$absolute),
                                            benefit = C_benefit(y = status_bin, 
                                                                w = w,
                                                                pred_ben = benefits_risk$absolute)),
