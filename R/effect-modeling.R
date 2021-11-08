@@ -1,279 +1,190 @@
-#' get the matrix \code{"w * X[, interactions]}"
-#' 
-#' @param X design matrix
-#' @param w vector of binary treatment assignments
-#' @param interacted.variables array of strings of the variables in X that shall be interacted with w. If equal to "all", all variables in X are interacted with _w_.
-#' 
-#' @noRd
-get.interaction.terms.matrix <- function(X, w, interacted.variables){
+interacted_matrix <- function(X, w, interacted){
   
-  if(is.null(interacted.variables)) return(NULL)
+  X.nam <- colnames(X)
   
-  if("w" %in% interacted.variables) stop("w cannot be interacted with itself!")
+  if(is.character(interacted)){
+    logic <- interacted %in% X.nam
+    idx   <- which(logic)
+    stopifnot(all(logic))
+  } else if(is.numeric(interacted)){
+    idx <- interacted
+    stopifnot(max(interacted) <= ncol(X))
+  } else stop("Indices must be either numeric or character")
   
-  # add interaction variables
-  interaction.terms.matrix <- sapply(which(colnames(X) %in% interacted.variables),
-                                     function(j) ifelse(w == 1, X[,j], 0))
+  # make the matrix
+  intmat <- sapply(idx, function(j) w * X[, j, drop = FALSE] )
+  out <- cbind(X, w, intmat)
+  colnames(out) <- c(X.nam, "w", paste0("w.", X.nam[idx]))
+  out
   
-  colnames(interaction.terms.matrix) <- paste0("w.", interacted.variables)
-  
-  return(interaction.terms.matrix)
-  
-} # FUN
+} # FOR
 
 
-# interacted.variables is either NULL or variable names (not indices!)
-effect.model.predicted.benefits <- function(final.model, X, kept.vars, interacted.variables){
-  
-  # predict risk with ordinary W, Pr(Y=1 |W,X)
-  response <- unname(stats::predict.glm(final.model, type = "response"))
-  
-  # flip w
-  w <- final.model$data$w
-  w.flipped   <- ifelse(w == 1, 0, 1)
-  
-  # get temporary Z matrix
-  Z.temp <- cbind(X, w = w.flipped,
-                  get.interaction.terms.matrix(X = X, w = w.flipped, 
-                                               interacted.variables = interacted.variables))
-  
-  # keep Z with flipped W
-  Z.flipped <- Z.temp[,kept.vars, drop = FALSE]
-  
-  # predict risk with flipped W
-  response_w.flipped <- unname(stats::predict.glm(final.model,
-                                                  newdata = as.data.frame(Z.flipped), 
-                                                  type = "response"))
-  
-  # get absolute predicted benefit
-  pred.ben.abs.raw <- response - response_w.flipped
-  pred.ben.abs     <- ifelse(w == 1, pred.ben.abs.raw, -pred.ben.abs.raw)
-  
-  # get relative predicted benefit
-  pred.ben.rel.raw <- response / response_w.flipped
-  pred.ben.rel     <- ifelse(w == 1, pred.ben.rel.raw, 1 / pred.ben.rel.raw)
-  
-  # return
-  return(list(pred.ben.abs.raw = pred.ben.abs.raw, 
-              pred.ben.abs = pred.ben.abs,
-              pred.ben.rel.raw = pred.ben.rel.raw,
-              pred.ben.rel = pred.ben.rel,
-              risk.regular.w = response,
-              risk.flipped.w = response_w.flipped))
-  
-} # FUN
-
-
-#' performs effect modeling by penalized logistic regression
+#' Effect model
 #' 
-#' TODO: make argument to pass baseline risk as argument
-#' TODO: pass all arguments of baselinerisk() and allow for different alpha
+#' @param X Matrix of fixed covariates.
+#' @param status Numeric vector with a unique code for each failure type. Code 0 denotes a censored observation.
+#' @param w Binary vector of treatment assignment status. Equal to 1 for treatment group and 0 for control group.
+#' @param interacted Variables that are to be interacted with \code{w}. Either numeric or character.
+#' @param alpha The elasticnet mixing parameter for regularization in the effect model. The penalty is defined as \deqn{(1-\alpha)/2||\beta||_2^2+\alpha||\beta||_1.} \code{alpha=1} (default) is the lasso penalty, and \code{alpha=0} the ridge penalty.
+#' @param failcode Code of status that denotes the failure type of interest. Default is one.
+#' @param retained Character vector of variables that shall not be regularized. Start names with \code{w.} to indicate interacted variables.
+#' @param retain_w Logical. Shall treatment assignment \code{w} be retained? Defalt is \code{TRUE}.
+#' @param baseline_risk User-defined baseline risk. If \code{NULL} (default), then baseline risk if estimated with \code{(X, status)} using \code{\link{baseline_risk}}.
+#' @param alpha_baseline The elasticnet mixing parameter for regularization in a potential baseline risk model to obtain baseline risk. Only applicable if \code{z = NULL}. See \code{\link{baseline_risk}} for details.
+#' @param ... Additional arguments to be passed.
 #' 
-#' @param X design matrix or data frame 
-#' @param y a binary response vector
-#' @param w a binary treatment assignment vector
-#' @param alpha the alpha as in glmnet. Default is 1 (= Lasso)
-#' @param lifeyears vector of life years. Default is NULL.
-#' @param prediction.timeframe vector of the prediction time frame. Default is NULL.
-#' @param interacted.variables character vector of variables that are to be interacted with \code{w}
-#' @param retained character vector of variables that shall not be regularized
-#' @param risk.baseline The baseline risk that shall be used for grouping. If \code{NULL} (default), then the baseline risk in \code{pred.model.obj} is used.
-#' @param retain_w Logical. Shall \code{w} be retained?
+#' @return A \code{predmod_ordinary} object.
 #' 
 #' @export
-effect.modeling <- function(X, y, w, alpha = 1, 
-                            lifeyears = NULL,
-                            prediction.timeframe = NULL,
-                            interacted.variables = NULL,
-                            retained = FALSE,
-                            risk.baseline = NULL,
-                            retain_w = TRUE){
+effect_model <- function(X, 
+                         status, 
+                         w, 
+                         interacted = NULL, 
+                         alpha = 1,
+                         failcode = 1,
+                         retained = NULL, # needs to be character!
+                         retain_w = TRUE,
+                         baseline_risk = NULL,
+                         alpha_baseline = 1,
+                         ...){
   
-  # truncate y if necessary
-  y.orig    <- y
+  # input checks
+  InputChecks_NA(list(X, status, w))
+  CheckInputs_X(X)
+  InputChecks_W(w)
+  InputChecks_equal.length2(X, status)
   
-  if(!is.null(lifeyears) & !is.null(prediction.timeframe)){
-    lifeyears <- ifelse(lifeyears <= prediction.timeframe, lifeyears, prediction.timeframe) 
-    y         <- ifelse(lifeyears <= prediction.timeframe, y, 0)
-  } # IF
+  # response needs to be binary, so recode status to be binary with 1 = failure due to cause of interest
+  status_bin <- ifelse(status == failcode, 1, 0)
   
-  # make X a matrix
-  X <- as.matrix(X)
+  # assign variable names if there are none
+  if(is.null(colnames(X))) colnames(X) <- paste0("V", 1:ncol(X))
   
-  # get matrix of interaction effects
-  Z <- cbind(X, w,
-             get.interaction.terms.matrix(X = X, w = w, interacted.variables = interacted.variables))
-  
-  # get index of W
-  idx.w <- which(colnames(Z) %in% "w")
-  
-  # binary penalty factor. Zero means that corresponding variable isn't shrunk
-  penalty.factor <- rep(1, ncol(Z))
-  
-  if(!is.null(retained)){
-    retained.idx   <- which(colnames(Z) %in% retained)
-    penalty.factor[retained.idx] <- 0
-  } # IF
-  
-  
-  if(retain_w){
-    penalty.factor[idx.w] <- 0 
-  } # IF
-  
-  
-  # fit penalized regression
-  mod <- glmnet::cv.glmnet(x = Z, y = y, 
-                           family = "binomial",
-                           alpha = alpha, 
-                           penalty.factor = penalty.factor)
-  
-  # extract retained variables
-  coefs.obj <- glmnet::coef.glmnet(mod, s = "lambda.min")
-  kept.vars <- coefs.obj@i
-  
-  # intercept isn't a covariate
-  if(0 %in% kept.vars){ 
-    kept.vars <- kept.vars[-which(kept.vars == 0)]
-  } # IF
-  
-  # fit final model
-  Z.retained  <- Z[,kept.vars, drop = FALSE]
-  final.model <- stats::glm(y~., data = data.frame(y = y, Z.retained),
-                            family =  stats::binomial(link = "logit"))
-  
-  # calculate benefits
-  ben.obj <- effect.model.predicted.benefits(final.model, X, kept.vars, interacted.variables)
-  
-  # extract benefits
-  pred.ben.abs.raw <- ben.obj$pred.ben.abs.raw
-  pred.ben.abs <- ben.obj$pred.ben.abs
-  pred.ben.rel <- ben.obj$pred.ben.rel
-  pred.ben.rel.raw <- ben.obj$pred.ben.rel.raw
-  risk.flipped.w <- ben.obj$risk.flipped.w
-  risk.regular.w <- ben.obj$risk.regular.w
-  
-  # fit baseline model
-  if(is.null(risk.baseline)){
-    baseline.mod  <- baseline.risk(X = X, y = y, alpha = alpha)
-    risk.baseline <- baseline.mod$response 
+  # get interacted variables
+  if(is.null(interacted)){
+    intr <- 1:ncol(X)
   } else{
-    baseline.mod <- NULL
+    intr <- interacted
   }
   
-  # C index outcome
-  c.index.outcome <- C.index.outcome(y = y, risk.prediction = risk.baseline)
+  # get full matrix
+  X_full <- interacted_matrix(X = X, w = w, interacted = intr)
   
+  # prepare regressor matrix with reversed X
+  X_full_rev <- interacted_matrix(X = X, w = ifelse(w == 1, 0, 1), interacted = intr)
+  
+  # get index of W
+  idx_w <- which(colnames(X_full) %in% "w")
+  
+  # binary penalty factor. Zero means that corresponding variable isn't shrunk
+  penalty.factor <- rep(1, ncol(X_full))
+  
+  # optional penalization of further covariates
+  if(!is.null(retained)){
+    
+    # error checks
+    stopifnot(is.character(retained))
+    stopifnot(all(retained %in% colnames(X_full)))
+    
+    # adjust penalty factors
+    retained.idx <- which(colnames(X_full) %in% retained)
+    penalty.factor[retained.idx] <- 0
+    
+  } # IF
+  
+  # optional penalization of w
+  if(retain_w){
+    penalty.factor[idx_w] <- 0 
+  } # IF
+  
+  # fit models
+  fits <- effect_model_fit(X = X_full, 
+                           status = status_bin, 
+                           alpha = alpha,
+                           penalty.factor = penalty.factor)
+  
+  # obtain risk estimates
+  risk_reg <- stats::plogis(as.numeric(
+    cbind(1, X_full[,fits$kept_vars, drop = FALSE]) %*% fits$coefficients$reduced))
+  
+  risk_rev <- stats::plogis(as.numeric(
+    cbind(1, X_full_rev[,fits$kept_vars, drop = FALSE]) %*% fits$coefficients$reduced))
+  
+  # calculate predicted benefits
+  benefits <- get_predicted_benefits(risk_reg = risk_reg, 
+                                     risk_rev = risk_rev,
+                                     w = w)
+  
+  # fit baseline risk if necessary
+  if(is.null(baseline_risk)){
+    
+    mod_baseline <- baseline_risk(X = X, status = status,
+                                  alpha = alpha_baseline, 
+                                  failcode = failcode,...)
+    br <- mod_baseline$risk
+    
+  } else{
+    br <- baseline_risk
+    mod_baseline <- NULL
+  } # IF
+  
+  # estimate concordance on 1st stage
+  C_outcome_stage1 <- C_outcome(y = status_bin, risk = br)
   
   # return
-  return(list(
-    inputs = list(X = X, w = w, y = y.orig, 
-                  lifeyears = lifeyears, 
-                  prediction.timeframe = prediction.timeframe, 
-                  y.prediction.timeframe = y),
-    models = list(baseline.mod = baseline.mod,
-                  glmnet.object = mod,
-                  final.model = final.model,
-                  coefficients.glmnet = structure(as.numeric(coefs.obj), names = c("(Intercept)", colnames(Z))),
-                  coefficients.final = final.model$coefficients),
-    average.treatment.effect = mean(pred.ben.abs),
-    risk = list(risk.regular.w = risk.regular.w,
-                risk.flipped.w = risk.flipped.w,
-                risk.baseline = risk.baseline),
-    benefits = list(predicted.absolute.benefit = pred.ben.abs,
-                    predicted.relative.benefit = pred.ben.rel,
-                    predicted.absolute.benefit.raw = pred.ben.abs.raw,
-                    predicted.relative.benefit.raw = pred.ben.rel.raw),
-    C.statistics = list(c.index.outcome = c.index.outcome,
-                        c.index.benefit = C.index.benefit(y = y, w = w, predicted.benefit = pred.ben.abs))
-  ))
+  return(structure(list(benefits = benefits,
+                        coefficients = list(baseline = mod_baseline$coefficients,
+                                            full = fits$coefficients$full,
+                                            reduced = summary(fits$models$reduced)$coefficients),
+                        risk = list(baseline = br,
+                                    regular = risk_reg,
+                                    counterfactual = risk_rev),
+                        concordance = list(outcome_baseline = C_outcome_stage1,
+                                           outcome = C_outcome(y = status, risk = risk_reg),
+                                           benefit = C_benefit(y = status_bin, 
+                                                               w = w,
+                                                               pred_ben = benefits$absolute)),
+                        models = list(baseline = mod_baseline, 
+                                      full = fits$models$full,
+                                      reduced = fits$models$reduced),
+                        inputs = list(status = status, status_bin = status_bin,
+                                      w = w, failcode = failcode, alpha = alpha, 
+                                      alpha_baseline = alpha_baseline)
+  ), 
+  class = "predmod_ordinary"))
   
+
 } # FUN
 
 
-effect.modeling_imputation.accounter <- function(predictive.model.imputed){
+effect_model_fit <- function(X, status, alpha, penalty.factor){
   
-  # initialize
-  pred.model.imp.adj <- list()
-  m <- length(predictive.model.imputed)
+  # fit penalized regression for full model
+  model_full <- glmnet::cv.glmnet(x = X, y = status, 
+                                   family = "binomial",
+                                   alpha = alpha, 
+                                   penalty.factor = penalty.factor)
   
-  # ATE
-  pred.model.imp.adj$average.treatment.effect <- 
-    imputation.accounter_location(lapply(1:m, function(i) predictive.model.imputed[[i]]$average.treatment.effect))
+  # extract retained variables
+  coefs_full <- glmnet::coef.glmnet(model_full, s = "lambda.min")
+  colnames(coefs_full) <- "Estimate"
   
-  # baseline model
-  pred.model.imp.adj$baseline.model <- imputation.accounter_location(
-    lapply(1:m, function(i){
-      
-      # get names of all variables (pre-selection)
-      nam.all.variables <- c("(Intercept)", colnames(predictive.model.imputed[[i]]$inputs$X))
-      
-      # initialize long array with zeros for unselected variables
-      selected.variables.long <- rep(0.0, length(nam.all.variables))
-      names(selected.variables.long) <- nam.all.variables
-      
-      # assign values to long array
-      selected.variables.short <- predictive.model.imputed[[i]]$baseline.model$coefficients
-      selected.variables.long[names(selected.variables.short)] <- selected.variables.short
-      selected.variables.long
-      
-    }))
+  # get indices of kept variables 
+  # the 0-th index in @i here corresponds to the intercept, so drop it
+  kept.vars  <- setdiff(coefs_full@i, 0)
   
-  # effect model
-  pred.model.imp.adj$effect.model <- imputation.accounter_location(
-    lapply(1:m, function(i){
-      
-      # get names of all variables (pre-selection)
-      nam.all.variables <- 
-        names(predictive.model.imputed[[i]]$effect.model$model.selection$design.matrix_pre.selection)
-      
-      # initialize long array with zeros for unselected variables
-      selected.variables.long <- rep(0.0, length(nam.all.variables))
-      names(selected.variables.long) <- nam.all.variables
-      
-      # assign values to long array
-      selected.variables.short <- predictive.model.imputed[[i]]$effect.model$summary[,1]
-      selected.variables.long[names(selected.variables.short)] <- selected.variables.short
-      selected.variables.long
-      
-    }))
+  # fit final model
+  X_reduced     <- X[,kept.vars, drop = FALSE]
+  model_reduced <- stats::glm(y~., data = data.frame(y = status, X_reduced),
+                                   family =  stats::binomial(link = "logit"))
   
-  # risk regular w
-  pred.model.imp.adj$risk$risk.regular.w <- 
-    imputation.accounter_location(lapply(1:m, function(i) predictive.model.imputed[[i]]$risk$risk.regular.w))
+  # store coefficient matrix as sparse matrix (for consistency with glmnet)
+  coefs_reduced <- Matrix::Matrix(model_reduced$coefficients, sparse = TRUE, 
+                                  dimnames = list(c("(Intercept)", colnames(X_reduced)), "Estimate"))
   
-  # risk flipped w
-  pred.model.imp.adj$risk$risk.flipped.w <- 
-    imputation.accounter_location(lapply(1:m, function(i) predictive.model.imputed[[i]]$risk$risk.flipped.w))
-  
-  # risk baseline
-  pred.model.imp.adj$risk$risk.baseline <- 
-    imputation.accounter_location(lapply(1:m, function(i) predictive.model.imputed[[i]]$risk$risk.baseline))
-  
-  # predicted absolute benefit
-  pred.model.imp.adj$benefits$predicted.absolute.benefit <- 
-    imputation.accounter_location(lapply(1:m, function(i) predictive.model.imputed[[i]]$benefits$predicted.absolute.benefit))
-  
-  # predicted relative benefit
-  pred.model.imp.adj$benefits$predicted.relative.benefit <- 
-    imputation.accounter_location(lapply(1:m, function(i) predictive.model.imputed[[i]]$benefits$predicted.relative.benefit))
-  
-  # predicted absolute benefit raw
-  pred.model.imp.adj$benefits$predicted.absolute.benefit.raw <- 
-    imputation.accounter_location(lapply(1:m, function(i) predictive.model.imputed[[i]]$benefits$predicted.absolute.benefit.raw))
-  
-  # predicted relative benefit raw
-  pred.model.imp.adj$benefits$predicted.relative.benefit.raw <- 
-    imputation.accounter_location(lapply(1:m, function(i) predictive.model.imputed[[i]]$benefits$predicted.relative.benefit.raw))
-  
-  # C index outcome
-  pred.model.imp.adj$C.statistics$c.index.outcome <- 
-    imputation.accounter_scalar.location.stderr(lapply(1:m, function(i) predictive.model.imputed[[i]]$C.statistics$c.index.outcome))
-  
-  # C index benefit
-  pred.model.imp.adj$C.statistics$c.index.benefit <- 
-    imputation.accounter_scalar.location.stderr(lapply(1:m, function(i) predictive.model.imputed[[i]]$C.statistics$c.index.benefit))
-  
-  # return
-  return(pred.model.imp.adj)
+  return(list(models = list(full = model_full, reduced = model_reduced),
+              coefficients = list(full = coefs_full, reduced = coefs_reduced),
+              kept_vars = kept.vars))
   
 } # FUN
