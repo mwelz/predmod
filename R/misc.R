@@ -52,3 +52,48 @@ expected_survival <- function(S.hat, Y.grid) {
   
   c(cbind(1, S.hat) %*% grid.diff)
 }
+
+
+#' computes the average treatment effect (ATE) of a predmod object
+#' 
+#' @param predmod A predmod object
+#' @param subset The indices of the subgroup of interest
+#' 
+#' @export
+average_treatment_effect <- function(predmod, subset = NULL){
+  
+  if(!is.null(subset)) stopifnot(is.numeric(subset))
+  clss <- class(predmod)
+  
+  if(clss == "predmod_survival"){
+    
+    x_reg <- predmod$failure$regular
+    x_rev <- predmod$failure$counterfactual
+    
+  } else if(clss == "predmod_ordinary"){
+    
+    x_reg <- predmod$risk$regular
+    x_rev <- predmod$risk$counterfactual
+    
+  } else stop("This function is only impplemented for classes 'predmod_ordinary' and 'predmod_survival'.")
+  
+  w <- predmod$inputs$w
+  
+  if(is.null(subset)){
+    idx <- 1:length(w)
+  } else{
+    idx <- subset
+  }
+  
+  # adjust signs to ensure that x_reg - x_rev = (predicted absolute benefit) 
+  x_reg[w == 0] <- -x_reg[w == 0]
+  x_rev[w == 0] <- -x_rev[w == 0]
+  
+  # perform t-test
+  t <- stats::t.test(x = x_reg[idx], y = x_rev[idx], paired = FALSE, var.equal = FALSE)
+  ate <- unname(t$estimate[1] - t$estimate[2])
+  
+  # return
+  return(structure(c(ate, t$stderr), names = c("ATE", "Std. Error")))
+
+} # FOR

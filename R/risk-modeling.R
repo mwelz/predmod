@@ -301,7 +301,7 @@ risk_model_survival_nocmprisk <- function(X,
   est  <- temp[, "coef"]
   se   <- temp[, "se(coef)"]
   t    <- est / se
-  p    <-  2 * pnorm(abs(t), lower.tail = FALSE)
+  p    <-  2 * stats::pnorm(abs(t), lower.tail = FALSE)
   cf   <- cbind(est, se, t, p)
   colnames(cf) <- c("Estimate", "Std. Error", "z", "Pr(>|z|)")
   
@@ -466,7 +466,7 @@ risk_model_survival_cmprisk <- function(X,
   est <- stage2$model$coef
   se  <- sqrt(diag(stage2$model$var))
   t   <- est / se
-  p   <-  2 * pnorm(abs(t), lower.tail = FALSE)
+  p   <-  2 * stats::pnorm(abs(t), lower.tail = FALSE)
   cf  <- cbind(est, se, t, p)
   colnames(cf) <- c("Estimate", "Std. Error", "z", "Pr(>|z|)")
   
