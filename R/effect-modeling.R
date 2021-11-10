@@ -395,8 +395,8 @@ effect_model_fit_nocmprsk <- function(X, X_rev, status, time, alpha,
   
   # get sorted unique failure times to obtain survival curves
   time_unique    <- sort(unique(time), decreasing = FALSE)
-  surv_curve_reg <- sapply(time_unique, function(t) surv_obj_reg$surv(t))
-  surv_curve_rev <- sapply(time_unique, function(t) surv_obj_rev$surv(t))
+  surv_curve_reg <- surv_obj_reg$surv(time_unique)
+  surv_curve_rev <- surv_obj_rev$surv(time_unique)
   
   # use survival curves to estimate potential failure times
   fail_reg <- expected_survival(S.hat = surv_curve_reg, Y.grid = time_unique)

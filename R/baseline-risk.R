@@ -266,7 +266,7 @@ baseline_survival_nocmprsk <- function(X,
   
   # return
   return(structure(list(
-    risk = 1.0 - surv.obj$surv(time_eval = time_eval),
+    risk = as.numeric(1.0 - surv.obj$surv(time_eval = time_eval)),
     linear_predictor = lp,
     coefficients = coefs,
     model = model.obj,
