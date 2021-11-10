@@ -1,116 +1,101 @@
-
-#' applies GRF modeling. Note that risk modeling is not possible here
+#' GRF modeling
 #' 
-#' @param X design matrix, can also be a data frame
-#' @param y vector of binary responses. 
-#' @param w vector of binary treatment assignments
-#' @param lifeyears vector of life years. Default is NULL.
-#' @param prediction.timeframe vector of the prediction time frame. Default is NULL.
-#' @param store.causal.forest.object TODO
-#' @param num.trees number of trees
-#' @param ... Add arguments
+#' @param X Matrix of fixed covariates.
+#' @param status Numeric vector with a unique code for each failure type. Code 0 denotes a censored observation.
+#' @param w Binary vector of treatment assignment status. Equal to 1 for treatment group and 0 for control group.
+#' @param num_trees number of trees
+#' @param failcode Code of status that denotes the failure type of interest. Default is one.
+#' @param ... Additional arguments
 #' 
 #' @export
-grf.modeling <- function(X, y, w,
-                         lifeyears = NULL, 
-                         prediction.timeframe = NULL,
-                         store.causal.forest.object = TRUE,
-                         num.trees = 2000, ...){
+grf_model <- function(X, 
+                      status, 
+                      w,
+                      failcode = 1,
+                      num_trees = 2000,
+                      ...){
   
-  # truncate y if necessary
-  y.orig    <- y
-  
-  if(!is.null(lifeyears) & !is.null(prediction.timeframe)){
-    lifeyears <- ifelse(lifeyears <= prediction.timeframe, lifeyears, prediction.timeframe) 
-    y         <- ifelse(lifeyears <= prediction.timeframe, y, 0)
-  } # IF
+  # response needs to be binary, so recode status to be binary with 1 = failure due to cause of interest
+  status_bin <- ifelse(status == failcode, 1, 0)
   
   # get causal forest (for predicted benefit)
-  cf <- grf::causal_forest(X = X, Y = y, W = w, num.trees = num.trees, ...)
+  cf <- grf::causal_forest(X = X, 
+                           Y = status_bin,
+                           W = w,
+                           num.trees = num_trees, ...)
   
   # causal forest's individual treatment effect estimates are predicted absolute benefit
-  predicted.absolute.benefit <- as.numeric(cf$predictions)
-  
-  # variance estimates 
-  predicted.absolute.benefit_variance <- predict(cf, estimate.variance = TRUE)$variance.estimates
+  benefits <- list(absolute = as.numeric(cf$predictions), relative = NULL)
   
   # baseline risk
-  risk.baseline <- as.numeric(cf$Y.hat)
+  br <- as.numeric(cf$Y.hat)
+ 
+  # return
+  return(structure(list(benefits = benefits,
+                        risk = list(baseline = br,
+                                    regular = NULL,
+                                    counterfactual = NULL),
+                        concordance = list(outcome_baseline = C_outcome(y = status_bin, risk = br),
+                                           outcome = NULL,
+                                           benefit = C_benefit(y = status_bin, 
+                                                               w = w,
+                                                               pred_ben = benefits$absolute)),
+                        models = cf,
+                        inputs = list(status = status, status_bin = status_bin,
+                                      w = w, failcode = failcode)
+  ), 
+  class = "grf_ordinary"))
   
-  # ATE
-  ate.obj <- grf::average_treatment_effect(cf)
+} # FUN
+
+
+
+
+#' GRF modeling
+#' 
+#' @param X Matrix of fixed covariates.
+#' @param status Numeric vector with a unique code for each failure type. Code 0 denotes a censored observation.
+#' @param time Vector of failure/censoring times.
+#' @param w Binary vector of treatment assignment status. Equal to 1 for treatment group and 0 for control group.
+#' @param num_trees number of trees
+#' @param failcode Code of status that denotes the failure type of interest. Default is one.
+#' @param ... Additional arguments
+#' 
+#' @export
+grf_model_survival <- function(X, 
+                               status, 
+                               time,
+                               w,
+                               failcode = 1,
+                               num_trees = 2000,
+                               ...){
   
-  if(!store.causal.forest.object) cf <- NULL
+  # response needs to be binary, so recode status to be binary with 1 = failure due to cause of interest
+  status_bin <- ifelse(status == failcode, 1, 0)
+  
+  cf <- grf::causal_survival_forest(X = X, 
+                                    Y = time,
+                                    W = w,
+                                    D = status_bin,
+                                    num.trees = num_trees)
+  
+  # causal forest's individual treatment effect estimates are predicted absolute benefit
+  benefits <- list(absolute = as.numeric(cf$predictions), relative = NULL)
+  
+  # TODO: how to predict survival here? Amend output
   
   # return
-  return(list(inputs = list(X = X, w = w, y = y.orig, 
-                            lifeyears = lifeyears, 
-                            prediction.timeframe = prediction.timeframe, 
-                            y.prediction.timeframe = y),
-              causal.forest.obj = cf,
-              average.treatment.effect = list(estimate = unname(ate.obj["estimate"]),
-                                              stderr = unname(ate.obj["std.err"])),
-              risk = list(risk.baseline = risk.baseline),
-              benefits = list(predicted.absolute.benefit = predicted.absolute.benefit,
-                              predicted.absolute.benefit_variance = predicted.absolute.benefit_variance),
-              C.statistics = list(c.index.outcome = C.index.outcome(y = y, risk.prediction = risk.baseline),
-                                  c.index.benefit = C.index.benefit(y = y, w = w, 
-                                                                    predicted.benefit = predicted.absolute.benefit))))
-} # FUN
-
-
-## helper function for imputation uncertainty in GRF estimates of the absolute benefits
-## @param grf.ate.objects = lapply(1:m, function(i) grf.model.imputed[[i]]$benefits)
-imputation.accounter_grf.benefits <- function(grf.benefits){
-  
-  m <- length(grf.benefits)
-  
-  # location estimates
-  T.hat <- rowMeans(sapply(1:m, function(i) grf.benefits[[i]]$predicted.absolute.benefit))
-  
-  # within-imputation variance estimates
-  W.hat <- rowMeans(sapply(1:m, function(i) grf.benefits[[i]]$predicted.absolute.benefit_variance))
-  
-  # between-imputation variance estimates
-  B.hat <- rowMeans(sapply(1:m, function(i) grf.benefits[[i]]$predicted.absolute.benefit - T.hat)^2) / (m-1)
-  
-  return(list(predicted.absolute.benefit = T.hat,
-              predicted.absolute.benefit_variance = W.hat + (m+1)/m * B.hat))
-  
-} # FUN
-
-
-# TODO: write documentation
-grf.modeling_imputation.accounter <- function(grf.model.imputed){
-  
-  # initialize
-  grf.model.imp.adj <- list()
-  m <- length(grf.model.imputed)
-  
-  # ATE
-  grf.model.imp.adj$average.treatment.effect <- 
-    imputation.accounter_scalar.location.stderr(lapply(1:m, function(i) grf.model.imputed[[i]]$average.treatment.effect))
-  
-  # risk
-  grf.model.imp.adj$risk$risk.baseline <- 
-    imputation.accounter_location(lapply(1:m, function(i) grf.model.imputed[[i]]$risk$risk.baseline))
-  
-  # benefits
-  benefits.ls <- imputation.accounter_grf.benefits(lapply(1:m, function(i) grf.model.imputed[[i]]$benefits))
-  
-  grf.model.imp.adj$benefits$predicted.absolute.benefit <- 
-    benefits.ls$predicted.absolute.benefit
-  
-  grf.model.imp.adj$benefits$predicted.absolute.benefit_variance <- 
-    benefits.ls$predicted.absolute.benefit_variance
-  
-  # C statistics
-  grf.model.imp.adj$C.statistics$c.index.outcome <-
-    imputation.accounter_scalar.location.stderr(lapply(1:m, function(i) grf.model.imputed[[i]]$C.statistics$c.index.outcome))
-  
-  grf.model.imp.adj$C.statistics$c.index.benefit <- 
-    imputation.accounter_scalar.location.stderr(lapply(1:m, function(i) grf.model.imputed[[i]]$C.statistics$c.index.benefit))
-  
-  return(grf.model.imp.adj)
+  return(structure(list(benefits = benefits,
+                        risk = list(baseline = NULL,
+                                    regular = NULL,
+                                    counterfactual = NULL),
+                        concordance = list(outcome_baseline = NULL,
+                                           outcome = NULL,
+                                           benefit = NULL),
+                        models = cf,
+                        inputs = list(status = status, status_bin = status_bin,
+                                      w = w, failcode = failcode)
+  ), 
+  class = "grf_survival"))
   
 } # FUN

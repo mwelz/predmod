@@ -1,25 +1,3 @@
-interacted_matrix <- function(X, w, interacted){
-  
-  X.nam <- colnames(X)
-  
-  if(is.character(interacted)){
-    logic <- interacted %in% X.nam
-    idx   <- which(logic)
-    stopifnot(all(logic))
-  } else if(is.numeric(interacted)){
-    idx <- interacted
-    stopifnot(max(interacted) <= ncol(X))
-  } else stop("Indices must be either numeric or character")
-  
-  # make the matrix
-  intmat <- sapply(idx, function(j) w * X[, j, drop = FALSE] )
-  out <- cbind(X, w, intmat)
-  colnames(out) <- c(X.nam, "w", paste0("w.", X.nam[idx]))
-  out
-  
-} # FOR
-
-
 #' Effect model
 #' 
 #' @param X Matrix of fixed covariates.
@@ -152,7 +130,7 @@ effect_model <- function(X,
                                     regular = risk_reg,
                                     counterfactual = risk_rev),
                         concordance = list(outcome_baseline = C_outcome_baseline,
-                                           outcome = C_outcome(y = status, risk = risk_reg),
+                                           outcome = C_outcome(y = status_bin, risk = risk_reg),
                                            benefit = C_benefit(y = status_bin, 
                                                                w = w,
                                                                pred_ben = benefits$absolute)),
@@ -533,3 +511,25 @@ effect_model_fit_cmprsk <- function(X, X_rev,
               lambda_min = lambda_min))
   
 } # FUN
+
+
+interacted_matrix <- function(X, w, interacted){
+  
+  X.nam <- colnames(X)
+  
+  if(is.character(interacted)){
+    logic <- interacted %in% X.nam
+    idx   <- which(logic)
+    stopifnot(all(logic))
+  } else if(is.numeric(interacted)){
+    idx <- interacted
+    stopifnot(max(interacted) <= ncol(X))
+  } else stop("Indices must be either numeric or character")
+  
+  # make the matrix
+  intmat <- sapply(idx, function(j) w * X[, j, drop = FALSE] )
+  out <- cbind(X, w, intmat)
+  colnames(out) <- c(X.nam, "w", paste0("w.", X.nam[idx]))
+  out
+  
+} # FOR
