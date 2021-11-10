@@ -448,7 +448,8 @@ risk_model_survival_cmprisk <- function(X,
                                      time = time, 
                                      w = w, z = z, 
                                      w_flipped = ifelse(w == 1, 0, 1), 
-                                     constant = constant)
+                                     constant = constant,
+                                     failcode = failcode)
 
   # extract failure time estimates
   fail_reg <- stage2$failure$regular
@@ -507,6 +508,7 @@ risk_model_survival_cmprisk <- function(X,
 risk_model_stage2_cmprsk <- function(status, time, w, z,
                                      w_flipped = ifelse(w == 1, 0, 1), 
                                      constant = FALSE,
+                                     failcode = 1,
                                      ...)
 {
   if(constant){
