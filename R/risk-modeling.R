@@ -457,7 +457,7 @@ risk_model_survival_cmprisk <- function(X,
   # calculate predicted benefits
   benefits <- get_predicted_benefits(risk_reg = fail_reg, 
                                      risk_rev = fail_rev,
-                                    w = w)
+                                     w = w)
   
   # get failure risk at the time of interest
   risk_reg <- 1.0 - stage2$funs$regular$surv(time_eval)
