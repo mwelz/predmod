@@ -102,9 +102,6 @@ prep_predict <- function(time, status, k = 1){
 # estimates Fine-Gray Breslow baseline hazard function
 basehaz_cmprsk <- function(time, status, lp, time_eval, prep_predict_object = NULL, failcode = 1){
   
-  # we can only evaluate at one time (for simplicity)
-  stopifnot(length(time_eval) == 1)
-  
   # prepare prediction
   if(is.null(prep_predict_object)){
     prep <- prep_predict(time = time, status = status, k = failcode)
@@ -117,20 +114,22 @@ basehaz_cmprsk <- function(time, status, lp, time_eval, prep_predict_object = NU
   Rk_list <- prep$Rk_list
   
   # get w_i(T_i)*N_{i,k}(t) for all i
-  wn <- 1 * (time <= time_eval)
-  wn[setdiff(1:length(time), Ik)] <- NA_real_ # unobserved at these times! 
+  wn_mat <- 1L * outer(time, time_eval, FUN = "<=")
   
   # get exp(lp) on all samples
   explp <- exp(as.numeric(lp))
   
-  # predict baseline survival 
-  sum(sapply(Ik, function(i){
+  # predict baseline survival
+  mat <- matrix(sapply(Ik, function(i){
     
     zw  <- Rk_list[[paste0("idx",i)]]$zw
     Rk  <- Rk_list[[paste0("idx",i)]]$Rk
-    wn[i] / sum(zw * explp[Rk])
+    wn_mat[i,,drop = FALSE] / sum(zw * explp[Rk])
     
-  })) # SAPPLY
+  }), nrow = length(time_eval)) # SAPPLY
+  
+  rowSums(mat)
+  
 } # FUN
 
 #' estimates survival in subdistributional hazard models
@@ -154,11 +153,11 @@ survival_cmprsk <- function(time, status, lp, prep_predict_object = NULL, failco
     
   } # FUN
   
-  # function that returns survival probability at cause k
+  # function that returns survival curve of cause k
   surv <- function(time_eval){
     
-    basesurv(time_eval = time_eval)^exp(lp)
-    
+    t(outer(basesurv(time_eval = time_eval), exp(lp), FUN = "^"))
+
   } # FUN
   
   # return

@@ -552,13 +552,14 @@ risk_model_stage2_cmprsk <- function(status, time, w, z,
                                   failcode = failcode)
   
   # get sorted unique failure times to obtain survival curves
-  time_unique <- sort(unique(time), decreasing = FALSE)
-  surv_curve_reg <- sapply(time_unique, function(t) surv_obj_reg$surv(t))
-  surv_curve_rev <- sapply(time_unique, function(t) surv_obj_rev$surv(t))
+  time_unique    <- sort(unique(time), decreasing = FALSE)
+  surv_curve_reg <- surv_obj_reg$surv(time_unique)
+  surv_curve_rev <- surv_obj_rev$surv(time_unique)
   
   # use survival curves to estimate potential failure times
   fail_reg <- expected_survival(S.hat = surv_curve_reg, Y.grid = time_unique)
   fail_rev <- expected_survival(S.hat = surv_curve_rev, Y.grid = time_unique)
+  
   
   # return
   return(list(model = model,
