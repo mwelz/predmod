@@ -4,12 +4,14 @@
 \alias{average_treatment_effect}
 \title{computes the average treatment effect (ATE) of a predmod object}
 \usage{
-average_treatment_effect(predmod, subset = NULL)
+average_treatment_effect(predmod, subset = NULL, relative = FALSE)
 }
 \arguments{
 \item{predmod}{A predmod object}
 
 \item{subset}{The indices of the subgroup of interest}
+
+\item{relative}{Shall relative ATE be calculated?}
 }
 \description{
 computes the average treatment effect (ATE) of a predmod object
