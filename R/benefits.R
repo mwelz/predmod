@@ -37,8 +37,8 @@ get_predicted_benefits <- function(risk_reg, risk_rev, w){
 #' @export
 observed_benefit_absolute <- function(status, w, significance_level = 0.05){
   
-  if(var(status) == 0){
-    status <- status + rnorm(length(status), 0, sqrt(0.001))
+  if(stats::var(status) == 0){
+    status <- status + stats::rnorm(length(status), 0, sqrt(0.001))
     warning("There is zero variation in 'status', so we added Gaussian noise with variance 0.001")
   } # IF
   
@@ -168,12 +168,16 @@ predicted_benefit_inference <- function(predmod, subset = NULL,
 #' @param x prediction model object
 #' @param cutoffs the quantile cutoff points. Default is c(0.25, 0.5, 0.75), which yields the quartiles.
 #' @param baseline_risk The baseline risk that shall be used for grouping. If \code{NULL} (default), then the baseline risk in \code{pred.model.obj} is used.
+#' @param benefits_risk Logical. If \code{TRUE}, then the risk-based benefits are used (only applicable to survival models). Default is \code{FALSE}.
+#' @param time_eval Only applicable if \code{benefits_risk = TRUE}. Time at which we evaluate the risk predictions.
 #' @param significance_level the significance level. Default is 0.05.
 #' 
 #' @export
 get_benefits <- function(x, 
                          cutoffs = c(0.25, 0.5, 0.75),
                          baseline_risk = NULL,
+                         benefits_risk = FALSE,
+                         time_eval = NULL,
                          significance_level = 0.05){
   
   # extract outcome and treatment status
@@ -182,15 +186,46 @@ get_benefits <- function(x,
   
   # specify baseline risk that shall be used for grouping
   if(is.null(baseline_risk)){
-    baseline_risk <- x$risk$baseline
+    baseline_risk <- as.numeric(x$risk$baseline)
   } # IF
   
   # group observations by their quantile of predicted baseline risk
   quantile.groups <- quantile_group_NoChecks(baseline_risk, cutoffs)
   
   # get predicted benefit (relative and absolute)
-  rel.pred.ben <- x$benefits$relative
-  abs.pred.ben <- x$benefits$absolute
+  if(!benefits_risk){
+    
+    rel.pred.ben <- x$benefits$relative
+    abs.pred.ben <- x$benefits$absolute
+    
+  } else{
+    
+    stopifnot(class(x) == "predmod_survival")
+    
+    if(is.null(time_eval)){
+      
+      # if no time is supplied, take evaluation time of model
+      rel.pred.ben <- x$benefits_risk$relative
+      abs.pred.ben <- x$benefits_risk$absolute
+      
+    } else{
+      
+      stopifnot(length(time_eval) == 1L)
+      
+      # get failure risk at the time of interest
+      risk_reg <- 1.0 - x$funs$regular$surv(time_eval)
+      risk_rev <- 1.0 - x$funs$counterfactual$surv(time_eval)
+      
+      # get benefits of risk
+      benefits_risk <- get_predicted_benefits(risk_reg = risk_reg, 
+                                              risk_rev = risk_rev,
+                                              w = x$inputs$w)
+      rel.pred.ben <- benefits_risk$relative
+      abs.pred.ben <- benefits_risk$absolute
+      
+    } # IF
+  } # IF
+  
   
   ## calculate observed benefit and predicted benefit for each quantile group
   # initialize

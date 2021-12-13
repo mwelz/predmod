@@ -48,66 +48,66 @@ order.intervals <- function(intervals, quantile.nam){
 
 #' makes a calibration plot for a prediction model
 #' 
-#' @param pred.model.obj prediction model object, as returned by risk.modeling() or effect.modeling()
+#' @param x prediction model object, as returned by risk.modeling() or effect.modeling()
 #' @param cutoffs the cutoff points of quantiles that shall be used for GATES grouping. Default is `c(0.25, 0.5, 0.75)`, which corresponds to the quartiles.
 #' @param relative logical. If `TRUE`, then relative benefits will be plotted. Default is `FALSE`
-#' @param risk.baseline The baseline risk that shall be used for grouping. If \code{NULL} (default), then the baseline risk in \code{pred.model.obj} is used.
-#' @param significance.level significance level for the confidence intervals. Default is 0.05
+#' @param baseline_risk The baseline risk that shall be used for grouping. If \code{NULL} (default), then the baseline risk in \code{pred.model.obj} is used.
+#' @param significance_level significance level for the confidence intervals. Default is 0.05
 #' @param title optional title of the plot
 #' @param xlim limits of x-axis
 #' @param ylim limits of y-xcis
-#' @param flip.sign.of.absolute.benefit logical. Shall the sign of the benefits be flipped?
+#' @param flip_sign logical. Shall the sign of the benefits be flipped?
 #' 
 #' @import ggplot2
 #' 
 #' @export
-calibration.plot <- function( pred.model.obj,
+calibration_plot <- function( x,
                               cutoffs = c(0.25, 0.5, 0.75), 
                               relative = FALSE,
-                              risk.baseline = NULL,
-                              significance.level = 0.05,
+                              baseline_risk = NULL,
+                              significance_level = 0.05,
                               title = NULL,
                               xlim = NULL,
                               ylim = NULL,
-                              flip.sign.of.absolute.benefit = FALSE){
+                              flip_sign = FALSE){
   
   # appease the check (TODO: come up with better solution)
   pb.means <- ob.means <- ob.means.ci.lo <- ob.means.ci.up <- NULL
   
   # get observed and predicted benefit by quantile group
-  benefits <- get.benefits(pred.model.obj = pred.model.obj, 
+  benefits <- get_benefits(x = x,
                            cutoffs = cutoffs,
-                           risk.baseline = risk.baseline,
-                           significance.level = significance.level)
+                           baseline_risk = baseline_risk, 
+                           significance_level = significance_level)
   
   # make sure risk quantile is in correct order
-  risk.quantile <- factor(benefits$absolute.observed.benefit$quantile,
-                          levels = benefits$absolute.observed.benefit$quantile)
+  risk.quantile <- factor(benefits$quantiles,
+                          levels = benefits$quantiles)
   
   # adjust for relative and absolute benefit
   if(relative){
     
-    df <- data.frame(pb.means = benefits$relative.predicted.benefit$estimate,
-                     ob.means = benefits$relative.observed.benefit$estimate,
-                     ob.means.ci.lo = benefits$relative.observed.benefit$ci.lower,
-                     ob.means.ci.up = benefits$relative.observed.benefit$ci.upper,
+    df <- data.frame(pb.means = benefits$predicted_benefit$relative[,"estimate"],
+                     ob.means = benefits$observed_benefit$relative[,"estimate"],
+                     ob.means.ci.lo = benefits$observed_benefit$relative[,"ci_lower"],
+                     ob.means.ci.up = benefits$observed_benefit$relative[,"ci_upper"],
                      risk.quantile = risk.quantile)
   } else{
     
-    if(!flip.sign.of.absolute.benefit){
+    if(!flip_sign){
       
-      df <- data.frame(pb.means = benefits$absolute.predicted.benefit$estimate,
-                       ob.means = benefits$absolute.observed.benefit$estimate,
-                       ob.means.ci.lo = benefits$absolute.observed.benefit$ci.lower,
-                       ob.means.ci.up = benefits$absolute.observed.benefit$ci.upper,
+      df <- data.frame(pb.means = benefits$predicted_benefit$absolute[,"estimate"],
+                       ob.means = benefits$observed_benefit$absolute[,"estimate"],
+                       ob.means.ci.lo = benefits$observed_benefit$absolute[,"ci_lower"],
+                       ob.means.ci.up = benefits$observed_benefit$absolute[,"ci_upper"],
                        risk.quantile = risk.quantile)
       
     } else{
       
-      df <- data.frame(pb.means = -benefits$absolute.predicted.benefit$estimate,
-                       ob.means = -benefits$absolute.observed.benefit$estimate,
-                       ob.means.ci.lo = -benefits$absolute.observed.benefit$ci.lower,
-                       ob.means.ci.up = -benefits$absolute.observed.benefit$ci.upper,
+      df <- data.frame(pb.means = -benefits$predicted_benefit$absolute[,"estimate"],
+                       ob.means = -benefits$observed_benefit$absolute[,"estimate"],
+                       ob.means.ci.lo = -benefits$observed_benefit$absolute[,"ci_lower"],
+                       ob.means.ci.up = -benefits$observed_benefit$absolute[,"ci_upper"],
                        risk.quantile = risk.quantile)
       
     }
