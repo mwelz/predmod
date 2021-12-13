@@ -58,9 +58,10 @@ expected_survival <- function(S.hat, Y.grid) {
 #' 
 #' @param predmod A predmod object
 #' @param subset The indices of the subgroup of interest
+#' @param relative Shall relative ATE be calculated?
 #' 
 #' @export
-average_treatment_effect <- function(predmod, subset = NULL){
+average_treatment_effect <- function(predmod, subset = NULL, relative = FALSE){
   
   if(!is.null(subset)) stopifnot(is.numeric(subset))
   clss <- class(predmod)
@@ -85,15 +86,118 @@ average_treatment_effect <- function(predmod, subset = NULL){
     idx <- subset
   }
   
-  # adjust signs to ensure that x_reg - x_rev = (predicted absolute benefit) 
-  x_reg[w == 0] <- -x_reg[w == 0]
-  x_rev[w == 0] <- -x_rev[w == 0]
+  if(relative){
+    
+    # get relative effects and rewrite them as difference
+    relative_reg <- x_reg / x_rev
+    relative_rev <- -x_rev / x_reg
+    relative_reg[w == 0] <- 0.0
+    relative_rev[w == 1] <- 0.0
+    
+    # perform t-test
+    t <- stats::t.test(x = relative_reg[idx], y = relative_rev[idx], 
+                       paired = FALSE, var.equal = FALSE)
+    
+  } else{
+    
+    # adjust signs to ensure that x_reg - x_rev = (predicted absolute benefit) 
+    x_reg[w == 0] <- -x_reg[w == 0]
+    x_rev[w == 0] <- -x_rev[w == 0]
+    
+    # perform t-test
+    t <- stats::t.test(x = x_reg[idx], y = x_rev[idx], paired = FALSE, var.equal = FALSE)
+
+  } # IF
   
-  # perform t-test
-  t <- stats::t.test(x = x_reg[idx], y = x_rev[idx], paired = FALSE, var.equal = FALSE)
+  # get ATE
   ate <- unname(t$estimate[1] - t$estimate[2])
+  
   
   # return
   return(structure(c(ate, t$stderr), names = c("ATE", "Std. Error")))
 
+} # FOR
+
+#' Partition a vector into quantile groups
+#'
+#' Partitions a vector into quantile groups and returns a logical matrix indicating group membership.
+#'
+#' @param x A numeric vector to be partitioned.
+#' @param cutoffs A numeric vector denoting the quantile cutoffs for the partition. Default are the quartiles: \code{c(0.25, 0.5, 0.75)}.
+#'
+#' @return
+#' An object of type \code{quantile_group}, which is a logical matrix indicating group membership.
+#'
+#' @examples
+#' set.seed(1)
+#' x <- runif(100)
+#' cutoffs <- c(0.25, 0.5, 0.75)
+#' quantile_group(x, cutoffs)
+#'
+#' @export
+quantile_group <- function(x,
+                           cutoffs = c(0.25, 0.5, 0.75)){
+  
+  
+  # input checks
+  stopifnot(is.numeric(x))
+  stopifnot(is.numeric(cutoffs))
+  stopifnot(0 < min(cutoffs) & max(cutoffs) < 1)
+  
+  # return
+  quantile_group_NoChecks(x = x, cutoffs = cutoffs)
+  
+  
+} # FUN
+
+
+# same as above, just w/o input checks
+quantile_group_NoChecks <- function(x = x,
+                                    cutoffs = cutoffs){
+  
+  # get quantiles
+  q         <- stats::quantile(x, cutoffs)
+  q         <- c(-Inf, q, Inf)
+  
+  # check if breaks are unique: if x exhibits low variation, there might be empty quantile bins, which can cause an error in the cut() function. In this case, we add random noise to x to induce variation. NB: this bug has been spotted and fixed by Lucas Kitzmueller. All credits for this fix go to him!
+  if(length(unique(q)) != length(q)){
+    # specify standard deviation of the noise (x may have zero variation)
+    sd <- ifelse(stats::var(x) == 0, 0.001, sqrt(stats::var(x) / 20))
+    # add noise and updare quantiles
+    x <- x + stats::rnorm(length(x), mean = 0, sd = sd)
+    q <- stats::quantile(x, cutoffs)
+    q <- c(-Inf, q, Inf)
+  } # IF
+  
+  groups    <- as.character(cut(x, breaks = q, include.lowest = TRUE, right = FALSE, dig.lab = 3))
+  group.nam <- unique(groups)
+  group.nam <- group.nam[order(
+    as.numeric(substr(sub("\\,.*", "", group.nam), 2, stop = 1e8L)),
+    decreasing = FALSE)] # ensure the order is correct
+  
+  # get the grouping matrix
+  group.mat <- sapply(1:length(group.nam), function(j) groups == group.nam[j])
+  colnames(group.mat) <- gsub(",", ", ", gsub(" ", "", group.nam))
+  
+  # return
+  return(structure(group.mat, type = "quantile_group"))
+  
+} # FUN
+
+intervals.quantile <- function(cutoffs){
+  K   <- length(cutoffs) + 1
+  nam <- rep(NA_character_, K)
+  
+  for(j in 1:K){
+    if(j == 1){
+      nam[j] <- paste0("<", 100*cutoffs[j], "%")
+    } else if (j == K){
+      nam[j] <- paste0(">=", 100*cutoffs[j-1], "%")
+    } else{
+      nam[j] <- paste0("[", 100*cutoffs[j-1], ",", 100*cutoffs[j], ")%")
+    }
+  } # FOR
+  
+  nam
+  
 } # FOR

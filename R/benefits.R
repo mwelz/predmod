@@ -1,62 +1,3 @@
-#' Partition a vector into groups based on its quantiles.
-#'
-#' Partitions a vector into quantile groups and returns a logical matrix indicating group membership.
-#'
-#' @param x The vector to be partitioned
-#' @param cutoffs The quantile cutoffs for the partition. Default are the quartiles: \code{c(0.25, 0.5, 0.75)}.
-#'
-#' @return A logical matrix indicating group membership
-#'
-#' @export
-quantile_group <- function(x,
-                           cutoffs = c(0.25, 0.5, 0.75)){
-  # cutoffs are the quantile cutoffs (like c(0.25, 0.5, 0.75))
-  # get quatiles
-  q         <- stats::quantile(x, cutoffs)
-  q         <- c(-Inf, q, Inf)
-  # check if breaks are unique: if x exhibits low variation, there might be empty quantile bins, which can cause an error in the cut() function. In this case, we add random noise to x to induce variation. NB: this bug has been spotted and fixed by Lucas Kitzmueller. All credits for this fix go to him!
-  if(length(unique(q)) != length(q)){
-    # specify standard deviation of the noise (x may have zero variation)
-    sd <- ifelse(stats::var(x) == 0, 0.001, sqrt(stats::var(x) / 20))
-    # add noise and updare quantiles
-    x <- x + stats::rnorm(length(x), mean = 0, sd = sd)
-    q <- stats::quantile(x, cutoffs)
-    q <- c(-Inf, q, Inf)
-  } # IF
-  groups    <- as.character(cut(x, breaks = q, include.lowest = TRUE, right = FALSE, dig.lab = 3))
-  group.nam <- unique(groups)
-  group.nam <- group.nam[order(
-    as.numeric(substr(sub("\\,.*", "", group.nam), 2, stop = 1e8L)),
-    decreasing = FALSE)] # ensure the order is correct
-  
-  # get the grouping matrix
-  group.mat <- sapply(1:length(group.nam), function(j) groups == group.nam[j])
-  colnames(group.mat) <- gsub(",", ", ", gsub(" ", "", group.nam))
-  
-  # return
-  return(structure(group.mat, type = "quantile_group"))
-} # FUN
-
-
-intervals.quantile <- function(cutoffs){
-  K   <- length(cutoffs) + 1
-  nam <- rep(NA_character_, K)
-  
-  for(j in 1:K){
-    if(j == 1){
-      nam[j] <- paste0("<", 100*cutoffs[j], "%")
-    } else if (j == K){
-      nam[j] <- paste0(">=", 100*cutoffs[j-1], "%")
-    } else{
-      nam[j] <- paste0("[", 100*cutoffs[j-1], ",", 100*cutoffs[j], ")%")
-    }
-  } # FOR
-  
-  nam
-  
-} # FOR
-
-
 #' (For internal use only.) Returns predicted benefits (absolute and relative) based on risk estimates.
 #' 
 #' @param risk_reg Risk estimates based on regular treatment assignment.
@@ -89,44 +30,51 @@ get_predicted_benefits <- function(risk_reg, risk_rev, w){
 
 #' calculates the absolute observed benefit, which corresponds to the difference in \code{mean(y[W=w])}, and the associated confidence interval.
 #' 
-#' @param y vector of binary outcomes
+#' @param status vector of binary outcomes
 #' @param w vector of binary treatment status
-#' @param significance.level the significance level. Default is 0.05.
+#' @param significance_level the significance level. Default is 0.05.
 #'
 #' @export
-absolute.observed.benefit <- function(y, w, significance.level = 0.05){
+observed_benefit_absolute <- function(status, w, significance_level = 0.05){
   
-  ttest  <- stats::t.test(y[w==1], y[w==0], paired = FALSE, var.equal = FALSE) 
+  if(var(status) == 0){
+    status <- status + rnorm(length(status), 0, sqrt(0.001))
+    warning("There is zero variation in 'status', so we added Gaussian noise with variance 0.001")
+  } # IF
+  
+  ttest  <- stats::t.test(status[w==1], status[w==0], 
+                          paired = FALSE, 
+                          var.equal = FALSE) 
   aob    <- unname(ttest$estimate[1] - ttest$estimate[2])
   se.aob <- unname(ttest$stderr) 
   
   # quantile of the standard normal distribution
-  z <- stats::qnorm(1 - significance.level/2)
+  z <- stats::qnorm(1 - significance_level/2)
   
   return(c(estimate = aob, 
-           ci.lower = aob - z * se.aob,
-           ci.upper = aob + z * se.aob,
+           ci_lower = aob - z * se.aob,
+           ci_upper = aob + z * se.aob,
            stderr   = se.aob))
 } # FUN
 
 
 #' calculates the relative observed benefit, which corresponds to a risk ratio, and the associated confidence interval
 #' 
-#' @param y vector of binary outcomes
+#' @param status vector of binary outcomes
 #' @param w vector of binary treatment status
-#' @param significance.level the significance level. Default is 0.05.
+#' @param significance_level the significance level. Default is 0.05.
 #'
 #' @export
-relative.observed.benefit <- function(y, w, significance.level = 0.05){
+observed_benefit_relative <- function(status, w, significance_level = 0.05){
   
   # contingency table with the following structure
   #      Y=1 Y=0
   #  W=1  a   b
   #  W=0  c   d
-  a <- sum(w == 1 & y == 1)
-  b <- sum(w == 1 & y == 0)
-  c <- sum(w == 0 & y == 1)
-  d <- sum(w == 0 & y == 0)
+  a <- sum(w == 1 & status == 1)
+  b <- sum(w == 1 & status == 0)
+  c <- sum(w == 0 & status == 1)
+  d <- sum(w == 0 & status == 0)
   
   # estimates for the probabilities
   p1.hat <- a / (a + b) # estimates Pr(Y = 1 | W = 1)
@@ -137,11 +85,11 @@ relative.observed.benefit <- function(y, w, significance.level = 0.05){
   se.rob <- sqrt(b / (a * (a + b)) + d / (c * (c + d)))
   
   # quantile of the standard normal distribution
-  z <- stats::qnorm(1 - significance.level/2)
+  z <- stats::qnorm(1 - significance_level/2)
   
   return(c(estimate = rob, 
-           ci.lower = rob * exp(-z * se.rob),
-           ci.upper = rob * exp(z * se.rob),
+           ci_lower = rob * exp(-z * se.rob),
+           ci_upper = rob * exp(z * se.rob),
            stderr   = se.rob))
 } # FUN
 
@@ -149,21 +97,25 @@ relative.observed.benefit <- function(y, w, significance.level = 0.05){
 
 #' calculates the odds ratio, and the associated confidence interval. 
 #' 
-#' @param y vector of binary outcomes
+#' @param status vector of binary outcomes
 #' @param w vector of binary treatment status
-#' @param significance.level the significance level. Default is 0.05.
+#' @param significance_level the significance level. Default is 0.05.
 #'
 #' @export
-odds.ratio <- function(y, w, significance.level = 0.05){
+odds_ratio <- function(status, w, significance_level = 0.05){
   
   # contingency table with the following structure
   #      Y=1 Y=0
   #  W=1  a   b
   #  W=0  c   d
-  a <- sum(w == 1 & y == 1)
-  b <- sum(w == 1 & y == 0)
-  c <- sum(w == 0 & y == 1)
-  d <- sum(w == 0 & y == 0)
+  a <- sum(w == 1 & status == 1)
+  b <- sum(w == 1 & status == 0)
+  c <- sum(w == 0 & status == 1)
+  d <- sum(w == 0 & status == 0)
+  
+  if(any(a == 0 | b == 0 | c == 0 | d == 0)){
+    stop("There are zero-valued entries in the contingency table")
+  }
   
   # estimates for the probabilities
   p1.hat <- a / (a + b) # estimates Pr(Y = 1 | W = 1)
@@ -174,11 +126,11 @@ odds.ratio <- function(y, w, significance.level = 0.05){
   se.or <- sqrt(1/a + 1/b + 1/c + 1/d)
   
   # quantile of the standard normal distribution
-  z <- stats::qnorm(1 - significance.level/2)
+  z <- stats::qnorm(1 - significance_level/2)
   
   return(c(estimate = or, 
-           ci.lower = or * exp(-z * se.or),
-           ci.upper = or * exp(z * se.or),
+           ci_lower = or * exp(-z * se.or),
+           ci_upper = or * exp(z * se.or),
            stderr   = se.or))
 } # FUN
 
@@ -186,99 +138,104 @@ odds.ratio <- function(y, w, significance.level = 0.05){
 
 #' performs inference on the per-individual predicted benefits
 #' 
-#' @param predicted.benefits a vector of per-individual predicted benefits (either absolute of relative)
-#' @param significance.level the significance level. Default is 0.05.
+#' @param predmod a predmod object
+#' @param significance_level the significance level. Default is 0.05.
+#' @param subset The indices of the subgroup of interest
+#' @param relative Relative effect?
 #' 
 #' @export
-predicted.benefit.inference <- function(predicted.benefits, significance.level = 0.05){
+predicted_benefit_inference <- function(predmod, subset = NULL, 
+                                        relative = FALSE,
+                                        significance_level = 0.05){
   
-  ttest <- stats::t.test(predicted.benefits)
-  pb    <- unname(ttest$estimate)
-  se.pb <- unname(ttest$stderr)
-  
+  ate_obj <- average_treatment_effect(predmod, subset = subset, relative = relative)
+  se  <- unname(ate_obj["Std. Error"])
+  ate <- unname(ate_obj["ATE"])
+
   # quantile of the standard normal distribution
-  z <- stats::qnorm(1 - significance.level/2)
+  z <- stats::qnorm(1 - significance_level/2)
   
-  return(c(estimate = pb, 
-           ci.lower = pb - z * se.pb,
-           ci.upper = pb + z * se.pb,
-           stderr   = se.pb))
+  return(c(estimate = ate, 
+           ci_lower = ate - z * se,
+           ci_upper = ate + z * se,
+           stderr   = se))
 } # FUN
 
 
 #' Calculates group-level benefits from a prediction model, and the associated confidence intervals.
 #' The returned benefits are the observed and predicted relative and absolute benefits as well as the odds ratio
 #' 
-#' @param pred.model.obj prediction model object
+#' @param x prediction model object
 #' @param cutoffs the quantile cutoff points. Default is c(0.25, 0.5, 0.75), which yields the quartiles.
-#' @param risk.baseline The baseline risk that shall be used for grouping. If \code{NULL} (default), then the baseline risk in \code{pred.model.obj} is used.
-#' @param significance.level the significance level. Default is 0.05.
+#' @param baseline_risk The baseline risk that shall be used for grouping. If \code{NULL} (default), then the baseline risk in \code{pred.model.obj} is used.
+#' @param significance_level the significance level. Default is 0.05.
 #' 
 #' @export
-get.benefits <- function(pred.model.obj, 
+get_benefits <- function(x, 
                          cutoffs = c(0.25, 0.5, 0.75),
-                         risk.baseline = NULL,
-                         significance.level = 0.05){
+                         baseline_risk = NULL,
+                         significance_level = 0.05){
   
   # extract outcome and treatment status
-  y <- pred.model.obj$inputs$y.prediction.timeframe
-  w <- pred.model.obj$inputs$w
+  status <- x$inputs$status_bin
+  w      <- x$inputs$w
   
   # specify baseline risk that shall be used for grouping
-  if(is.null(risk.baseline)){
-    risk.baseline <- pred.model.obj$risk$risk.baseline
+  if(is.null(baseline_risk)){
+    baseline_risk <- x$risk$baseline
   } # IF
   
   # group observations by their quantile of predicted baseline risk
-  quantile.groups <- quantile_group(risk.baseline, cutoffs)
+  quantile.groups <- quantile_group_NoChecks(baseline_risk, cutoffs)
   
   # get predicted benefit (relative and absolute)
-  rel.pred.ben <- pred.model.obj$benefits$predicted.relative.benefit
-  abs.pred.ben <- pred.model.obj$benefits$predicted.absolute.benefit
+  rel.pred.ben <- x$benefits$relative
+  abs.pred.ben <- x$benefits$absolute
   
   ## calculate observed benefit and predicted benefit for each quantile group
   # initialize
-  rel.obs.ben.mat           <- as.data.frame(matrix(NA_real_, ncol(quantile.groups), 5))
-  colnames(rel.obs.ben.mat) <- c("quantile", "estimate", "ci.lower", "ci.upper", "stderr")
-  rel.obs.ben.mat$quantile  <- colnames(quantile.groups)
+  rel.obs.ben.mat           <- matrix(NA_real_, ncol(quantile.groups), 4)
+  colnames(rel.obs.ben.mat) <- c("estimate", "ci_lower", "ci_upper", "stderr")
+  rownames(rel.obs.ben.mat) <- colnames(quantile.groups)
   abs.obs.ben.mat  <- rel.obs.ben.mat
   abs.pred.ben.mat <- rel.obs.ben.mat
   rel.pred.ben.mat <- rel.obs.ben.mat
   or.mat           <- rel.obs.ben.mat
   
   for(i in 1:ncol(quantile.groups)){
-    group <- quantile.groups[,i]
+    
+    group <- which(quantile.groups[,i])
     
     # absolute observed benefit
-    abs.obs.ben.mat[i, 2:5] <- 
-      absolute.observed.benefit(y[group], w[group], significance.level = significance.level)
+    abs.obs.ben.mat[i, ] <- 
+      observed_benefit_absolute(status[group], w[group], significance_level = significance_level)
     
     # absolute predicted benefit
-    abs.pred.ben.mat[i, 2:5] <- 
-      predicted.benefit.inference(abs.pred.ben[group], significance.level = significance.level)
+    abs.pred.ben.mat[i, ] <- 
+      predicted_benefit_inference(x, subset = group, relative = FALSE, significance_level = significance_level)
     
     # relative observed benefit
-    rel.obs.ben.mat[i, 2:5] <- 
-      relative.observed.benefit(y[group], w[group], significance.level = significance.level)
+    rel.obs.ben.mat[i, ] <- 
+      observed_benefit_relative(status[group], w[group], significance_level = significance_level)
     
     # relative predicted benefit
-    rel.pred.ben.mat[i, 2:5] <- 
-      predicted.benefit.inference(rel.pred.ben[group], significance.level = significance.level)
+    rel.pred.ben.mat[i, ] <- 
+      predicted_benefit_inference(x, subset = group, relative = TRUE, significance_level = significance_level)
     
     # odds ratio
-    or.mat[i, 2:5] <- 
-      odds.ratio(y[group], w[group], significance.level = significance.level)
+    or.mat[i, ] <- 
+      odds_ratio(status[group], w[group], significance_level = significance_level)
     
   } # FOR
   
-  return(list(absolute.observed.benefit = abs.obs.ben.mat, 
-              absolute.predicted.benefit = abs.pred.ben.mat, 
-              relative.observed.benefit = rel.obs.ben.mat, 
-              relative.predicted.benefit = rel.pred.ben.mat, 
-              odds.ratio = or.mat,
-              significance.level = significance.level,
-              quantile.cutoff.points = colnames(quantile.groups),
-              group.membership = quantile.groups))
+  return(list(predicted_benefit = list(absolute = abs.pred.ben.mat,
+                                       relative = rel.pred.ben.mat),
+              observed_benefit = list(absolute = abs.obs.ben.mat,
+                                      relative = rel.obs.ben.mat),
+              odds_ratio = or.mat,
+              significance_level = significance_level,
+              quantiles = colnames(quantile.groups),
+              membership = quantile.groups))
 } # FUN
 
 
