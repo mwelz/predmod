@@ -56,65 +56,122 @@ expected_survival <- function(S.hat, Y.grid) {
 
 #' computes the average treatment effect (ATE) of a predmod object
 #' 
-#' @param predmod A predmod object
+#' @param x A predmod object
 #' @param subset The indices of the subgroup of interest
 #' @param relative Shall relative ATE be calculated?
+#' @param benefits_risk Logical. If \code{TRUE}, then the failure-risk-based benefits are used (only applicable to survival models). Default is \code{FALSE}.
+#' @param time_eval Only applicable if \code{benefits_risk = TRUE}. Time at which to evaluate the failure risk predictions.
 #' 
 #' @export
-average_treatment_effect <- function(predmod, subset = NULL, relative = FALSE){
+average_treatment_effect <- function(x, 
+                                     subset = NULL, 
+                                     relative = FALSE,
+                                     benefits_risk = FALSE,
+                                     time_eval = NULL){
   
-  if(!is.null(subset)) stopifnot(is.numeric(subset))
-  clss <- class(predmod)
+  clss <- class(x)
+  w    <- x$inputs$w
+  stopifnot(clss %in% c("predmod_ordinary", "predmod_survival"))
   
-  if(clss == "predmod_survival"){
-    
-    x_reg <- predmod$failure$regular
-    x_rev <- predmod$failure$counterfactual
-    
-  } else if(clss == "predmod_ordinary"){
-    
-    x_reg <- predmod$risk$regular
-    x_rev <- predmod$risk$counterfactual
-    
-  } else stop("This function is only impplemented for classes 'predmod_ordinary' and 'predmod_survival'.")
-  
-  w <- predmod$inputs$w
-  
-  if(is.null(subset)){
-    idx <- 1:length(w)
-  } else{
-    idx <- subset
-  }
-  
-  if(relative){
-    
-    # get relative effects (and adjust for treatment assignment)
-    rr <- x_reg / x_rev
-    rr[w == 0] <- 1 / rr[w == 0]
-    
-    # take average over all individuals in subgroup
-    ate <- mean(rr[idx])
-    sderr <- NA_real_ # TODO: check if we can boostrap SE here (unlikely though...)
-    
-  } else{
-    
-    # adjust signs to ensure that x_reg - x_rev = (predicted absolute benefit) 
-    x_reg[w == 0] <- -x_reg[w == 0]
-    x_rev[w == 0] <- -x_rev[w == 0]
-    
-    # perform t-test
-    t <- stats::t.test(x = x_reg[idx], y = x_rev[idx], paired = FALSE, var.equal = FALSE)
-    
-    # get ATE
-    ate <- unname(t$estimate[1] - t$estimate[2])
-    sderr <- t$stderr
-
+  # prepare subset object
+  if(!is.null(subset)){
+    stopifnot(is.numeric(subset))
+  } else {
+    subset <- 1:length(w)
   } # IF
   
+  # prepare time_eval object
+  if(!is.null(time_eval)){
+    
+    stopifnot(length(time_eval) == 1L)
+    
+  } else {
+    
+    # if no time_eval provided, use the one used in model fitting
+    if(clss != "predmod_survival") stop("time_eval can only be used in survival models")
+    time_eval <- x$input$time_eval
+    
+  } # IF
+  
+  
+  if(!relative){
+    
+    # in case of absolute effect, we need to decompose the effect
+    # so that we can apply a two-sample test
+    
+    if(clss == "predmod_ordinary"){
+      
+      # case 1: predmod_ordinary
+      x_reg <- x$risk$regular
+      x_rev <- x$risk$counterfactual
+      
+    } else{
+      
+      # case 2: predmod_survival
+      if(benefits_risk){
+        
+        # case 2.1: benefits concern risk at time of interest
+        x_reg <- 1.0 - x$funs$regular$surv(time_eval)
+        x_rev <- 1.0 - x$funs$counterfactual$surv(time_eval)
+        
+      } else{
+        
+        # case 2.2: benefits concern failure times
+        x_reg <- x$failure$regular
+        x_rev <- x$failure$counterfactual
+        
+      } # IF benefits_risk
+      
+      
+      # adjust signs to ensure that x_reg - x_rev = (predicted absolute benefit) 
+      x_reg[w == 0] <- -x_reg[w == 0]
+      x_rev[w == 0] <- -x_rev[w == 0]
+      
+      # perform t-test
+      t <- stats::t.test(x = x_reg[subset], y = x_rev[subset], paired = FALSE, var.equal = FALSE)
+      
+      # get ATE
+      ate <- unname(t$estimate[1] - t$estimate[2])
+      sderr <- t$stderr
+      
+    } # IF class
+    
+  } else {
+    
+    # relative effect: here we can simply use the direct estimated benefits
+    if(clss == "predmod_ordinary"){
+      
+      # case 1: benefits concern risk in cross-sectional model
+      ate <- mean(x$benefits$relative[subset])
+      
+    } else{
+      
+      if(benefits_risk){
+        
+        # case 2.1: benefits concern risk at time of interest
+        x_reg      <- 1.0 - x$funs$regular$surv(time_eval)
+        x_rev      <- 1.0 - x$funs$counterfactual$surv(time_eval)
+        rr         <- x_reg / x_rev
+        rr[w == 0] <- 1 / rr[w == 0]
+        ate        <- mean(rr[subset])
+        
+      } else{
+        
+        # case 2.2: benefits concern failure time
+        ate <- mean(x$benefits$relative[subset])
+        
+      } # IF benefits_risk
+      
+      # no SE can be computed for relative risk TODO: maybe via bootstrap
+      sderr <- NA_real_
+      
+    } # IF clss
+  } # IF !relative
+ 
   # return
   return(structure(c(ate, sderr), names = c("ATE", "Std. Error")))
 
-} # FOR
+} # FUN
 
 
 #' Partition a vector into quantile groups
