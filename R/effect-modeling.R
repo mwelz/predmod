@@ -346,7 +346,7 @@ effect_model_survival <- function(X,
                                       full = fits$models$full,
                                       reduced = fits$models$reduced),
                         inputs = list(status = status, status_bin = status_bin,
-                                      time = time, w = w, failcode = failcode, 
+                                      time = time, time_eval = time_eval, w = w, failcode = failcode, 
                                       alpha = alpha, alpha_baseline = alpha_baseline)
   ), 
   class = "predmod_survival"))
