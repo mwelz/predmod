@@ -88,15 +88,13 @@ average_treatment_effect <- function(predmod, subset = NULL, relative = FALSE){
   
   if(relative){
     
-    # get relative effects and rewrite them as difference
-    relative_reg <- x_reg / x_rev
-    relative_rev <- -x_rev / x_reg
-    relative_reg[w == 0] <- 0.0
-    relative_rev[w == 1] <- 0.0
+    # get relative effects (and adjust for treatment assignment)
+    rr <- x_reg / x_rev
+    rr[w == 0] <- 1 / rr[w == 0]
     
-    # perform t-test
-    t <- stats::t.test(x = relative_reg[idx], y = relative_rev[idx], 
-                       paired = FALSE, var.equal = FALSE)
+    # take average over all individuals in subgroup
+    ate <- mean(rr[idx])
+    sderr <- NA_real_ # TODO: check if we can boostrap SE here (unlikely though...)
     
   } else{
     
@@ -106,17 +104,18 @@ average_treatment_effect <- function(predmod, subset = NULL, relative = FALSE){
     
     # perform t-test
     t <- stats::t.test(x = x_reg[idx], y = x_rev[idx], paired = FALSE, var.equal = FALSE)
+    
+    # get ATE
+    ate <- unname(t$estimate[1] - t$estimate[2])
+    sderr <- t$stderr
 
   } # IF
   
-  # get ATE
-  ate <- unname(t$estimate[1] - t$estimate[2])
-  
-  
   # return
-  return(structure(c(ate, t$stderr), names = c("ATE", "Std. Error")))
+  return(structure(c(ate, sderr), names = c("ATE", "Std. Error")))
 
 } # FOR
+
 
 #' Partition a vector into quantile groups
 #'
