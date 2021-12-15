@@ -52,6 +52,8 @@ order.intervals <- function(intervals, quantile.nam){
 #' @param cutoffs the cutoff points of quantiles that shall be used for GATES grouping. Default is `c(0.25, 0.5, 0.75)`, which corresponds to the quartiles.
 #' @param relative logical. If `TRUE`, then relative benefits will be plotted. Default is `FALSE`
 #' @param baseline_risk The baseline risk that shall be used for grouping. If \code{NULL} (default), then the baseline risk in \code{pred.model.obj} is used.
+#' @param benefits_risk Logical. If \code{TRUE}, then the risk-based benefits are used (only applicable to survival models). Default is \code{FALSE}.
+#' @param time_eval Only applicable if \code{benefits_risk = TRUE}. Time at which we evaluate the risk predictions.
 #' @param significance_level significance level for the confidence intervals. Default is 0.05
 #' @param title optional title of the plot
 #' @param xlim limits of x-axis
@@ -65,6 +67,8 @@ calibration_plot <- function( x,
                               cutoffs = c(0.25, 0.5, 0.75), 
                               relative = FALSE,
                               baseline_risk = NULL,
+                              benefits_risk = FALSE,
+                              time_eval = NULL,
                               significance_level = 0.05,
                               title = NULL,
                               xlim = NULL,
@@ -75,9 +79,11 @@ calibration_plot <- function( x,
   pb.means <- ob.means <- ob.means.ci.lo <- ob.means.ci.up <- NULL
   
   # get observed and predicted benefit by quantile group
-  benefits <- get_benefits(x = x,
-                           cutoffs = cutoffs,
-                           baseline_risk = baseline_risk, 
+  benefits <- get_benefits(x                  = x,
+                           cutoffs            = cutoffs,
+                           baseline_risk      = baseline_risk,
+                           benefits_risk      = benefits_risk,
+                           time_eval          = time_eval,
                            significance_level = significance_level)
   
   # make sure risk quantile is in correct order

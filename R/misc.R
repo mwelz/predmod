@@ -81,17 +81,18 @@ average_treatment_effect <- function(x,
   } # IF
   
   # prepare time_eval object
-  if(!is.null(time_eval)){
+  if(is.null(time_eval)){
     
-    stopifnot(length(time_eval) == 1L)
+    # if no value provided, take time_eval used in model fitting
+    if(clss == "predmod_survival"){
+      time_eval <- x$input$time_eval
+    } # IF clss
     
   } else {
     
-    # if no time_eval provided, use the one used in model fitting
-    if(clss != "predmod_survival") stop("time_eval can only be used in survival models")
-    time_eval <- x$input$time_eval
+    stopifnot(length(time_eval) == 1L)
     
-  } # IF
+  } # IF time_eval
   
   
   if(!relative){
@@ -121,20 +122,19 @@ average_treatment_effect <- function(x,
         x_rev <- x$failure$counterfactual
         
       } # IF benefits_risk
-      
-      
-      # adjust signs to ensure that x_reg - x_rev = (predicted absolute benefit) 
-      x_reg[w == 0] <- -x_reg[w == 0]
-      x_rev[w == 0] <- -x_rev[w == 0]
-      
-      # perform t-test
-      t <- stats::t.test(x = x_reg[subset], y = x_rev[subset], paired = FALSE, var.equal = FALSE)
-      
-      # get ATE
-      ate <- unname(t$estimate[1] - t$estimate[2])
-      sderr <- t$stderr
-      
     } # IF class
+    
+    
+    # adjust signs to ensure that x_reg - x_rev = (predicted absolute benefit) 
+    x_reg[w == 0] <- -x_reg[w == 0]
+    x_rev[w == 0] <- -x_rev[w == 0]
+    
+    # perform t-test
+    t <- stats::t.test(x = x_reg[subset], y = x_rev[subset], paired = FALSE, var.equal = FALSE)
+    
+    # get ATE
+    ate <- unname(t$estimate[1] - t$estimate[2])
+    sderr <- t$stderr
     
   } else {
     
@@ -161,11 +161,11 @@ average_treatment_effect <- function(x,
         ate <- mean(x$benefits$relative[subset])
         
       } # IF benefits_risk
-      
-      # no SE can be computed for relative risk TODO: maybe via bootstrap
-      sderr <- NA_real_
-      
     } # IF clss
+    
+    # no SE can be computed for relative risk TODO: maybe via bootstrap
+    sderr <- NA_real_
+    
   } # IF !relative
  
   # return

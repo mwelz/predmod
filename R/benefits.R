@@ -138,17 +138,27 @@ odds_ratio <- function(status, w, significance_level = 0.05){
 
 #' performs inference on the per-individual predicted benefits
 #' 
-#' @param predmod a predmod object
-#' @param significance_level the significance level. Default is 0.05.
+#' @param x A predmod object
 #' @param subset The indices of the subgroup of interest
-#' @param relative Relative effect?
+#' @param relative Shall relative ATE be calculated?
+#' @param benefits_risk Logical. If \code{TRUE}, then the failure-risk-based benefits are used (only applicable to survival models). Default is \code{FALSE}.
+#' @param time_eval Only applicable if \code{benefits_risk = TRUE}. Time at which to evaluate the failure risk predictions.
+#' @param significance_level The significance level, default is 0.05
 #' 
 #' @export
-predicted_benefit_inference <- function(predmod, subset = NULL, 
+predicted_benefit_inference <- function(x, 
+                                        subset = NULL, 
                                         relative = FALSE,
+                                        benefits_risk = FALSE,
+                                        time_eval = NULL,
                                         significance_level = 0.05){
   
-  ate_obj <- average_treatment_effect(predmod, subset = subset, relative = relative)
+  ate_obj <- average_treatment_effect(x = x, 
+                                      subset = subset,
+                                      relative = relative,
+                                      benefits_risk = benefits_risk, 
+                                      time_eval = time_eval)
+  
   se  <- unname(ate_obj["Std. Error"])
   ate <- unname(ate_obj["ATE"])
 
@@ -192,41 +202,6 @@ get_benefits <- function(x,
   # group observations by their quantile of predicted baseline risk
   quantile.groups <- quantile_group_NoChecks(baseline_risk, cutoffs)
   
-  # get predicted benefit (relative and absolute)
-  if(!benefits_risk){
-    
-    rel.pred.ben <- x$benefits$relative
-    abs.pred.ben <- x$benefits$absolute
-    
-  } else{
-    
-    stopifnot(class(x) == "predmod_survival")
-    
-    if(is.null(time_eval)){
-      
-      # if no time is supplied, take evaluation time of model
-      rel.pred.ben <- x$benefits_risk$relative
-      abs.pred.ben <- x$benefits_risk$absolute
-      
-    } else{
-      
-      stopifnot(length(time_eval) == 1L)
-      
-      # get failure risk at the time of interest
-      risk_reg <- 1.0 - x$funs$regular$surv(time_eval)
-      risk_rev <- 1.0 - x$funs$counterfactual$surv(time_eval)
-      
-      # get benefits of risk
-      benefits_risk <- get_predicted_benefits(risk_reg = risk_reg, 
-                                              risk_rev = risk_rev,
-                                              w = x$inputs$w)
-      rel.pred.ben <- benefits_risk$relative
-      abs.pred.ben <- benefits_risk$absolute
-      
-    } # IF
-  } # IF
-  
-  
   ## calculate observed benefit and predicted benefit for each quantile group
   # initialize
   rel.obs.ben.mat           <- matrix(NA_real_, ncol(quantile.groups), 4)
@@ -247,15 +222,23 @@ get_benefits <- function(x,
     
     # absolute predicted benefit
     abs.pred.ben.mat[i, ] <- 
-      predicted_benefit_inference(x, subset = group, relative = FALSE, significance_level = significance_level)
-    
+      predicted_benefit_inference(x = x, subset = group, 
+                                  relative = FALSE, 
+                                  benefits_risk = benefits_risk, 
+                                  time_eval = time_eval, 
+                                  significance_level = significance_level)
+
     # relative observed benefit
     rel.obs.ben.mat[i, ] <- 
       observed_benefit_relative(status[group], w[group], significance_level = significance_level)
     
     # relative predicted benefit
     rel.pred.ben.mat[i, ] <- 
-      predicted_benefit_inference(x, subset = group, relative = TRUE, significance_level = significance_level)
+      predicted_benefit_inference(x = x, subset = group, 
+                                  relative = TRUE, 
+                                  benefits_risk = benefits_risk, 
+                                  time_eval = time_eval, 
+                                  significance_level = significance_level)
     
     # odds ratio
     or.mat[i, ] <- 

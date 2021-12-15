@@ -5,20 +5,26 @@
 \title{performs inference on the per-individual predicted benefits}
 \usage{
 predicted_benefit_inference(
-  predmod,
+  x,
   subset = NULL,
   relative = FALSE,
+  benefits_risk = FALSE,
+  time_eval = NULL,
   significance_level = 0.05
 )
 }
 \arguments{
-\item{predmod}{a predmod object}
+\item{x}{A predmod object}
 
 \item{subset}{The indices of the subgroup of interest}
 
-\item{relative}{Relative effect?}
+\item{relative}{Shall relative ATE be calculated?}
 
-\item{significance_level}{the significance level. Default is 0.05.}
+\item{benefits_risk}{Logical. If \code{TRUE}, then the failure-risk-based benefits are used (only applicable to survival models). Default is \code{FALSE}.}
+
+\item{time_eval}{Only applicable if \code{benefits_risk = TRUE}. Time at which to evaluate the failure risk predictions.}
+
+\item{significance_level}{The significance level, default is 0.05}
 }
 \description{
 performs inference on the per-individual predicted benefits
