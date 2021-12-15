@@ -260,29 +260,29 @@ get_benefits <- function(x,
 #' Calculates group-level benefits from a GRF model, and the associated confidence intervals.
 #' The returned benefits are the observed and predicted relative and absolute benefits as well as the odds ratio
 #' 
-#' @param grf.model.obj GRF model object
+#' @param x GRF model object
 #' @param cutoffs the quantile cutoff points. Default is c(0.25, 0.5, 0.75), which yields the quartiles.
-#' @param risk.baseline The baseline risk that shall be used for grouping. If \code{NULL} (default), then the baseline risk in \code{grf.model.obj} is used.
-#' @param significance.level the significance level. Default is 0.05.
+#' @param baseline_risk The baseline risk that shall be used for grouping. If \code{NULL} (default), then the baseline risk in \code{pred.model.obj} is used.
+#' @param significance_level the significance level. Default is 0.05.
 #' 
 #' @export
-get.benefits.grf <- function(grf.model.obj, 
+get_benefits_grf <- function(x, 
                              cutoffs = c(0.25, 0.5, 0.75),
-                             risk.baseline = NULL,
-                             significance.level = 0.05){
-  # calculates the observed and predicted absolute benefits along the associated confidence intervals for the GRF (relative effects cannot be computed)
+                             baseline_risk = NULL,
+                             significance_level = 0.05){
   
   # extract outcome and treatment status
-  y <- grf.model.obj$inputs$y.prediction.timeframe
-  w <- grf.model.obj$inputs$w
+  status <- x$inputs$status_bin
+  w      <- x$inputs$w
   
   # specify baseline risk that shall be used for grouping
-  if(is.null(risk.baseline)){
-    risk.baseline <- grf.model.obj$risk$risk.baseline
+  if(is.null(baseline_risk)){
+    baseline_risk <- as.numeric(x$risk$baseline)
   } # IF
   
+  
   # group observations by their quantile of predicted baseline risk
-  quantile.groups <- quantile_group(risk.baseline, cutoffs)
+  quantile.groups <- quantile_group_NoChecks(baseline_risk, cutoffs)
   
   ## calculate observed benefit and predicted benefit for each quantile group
   # initialize
@@ -292,34 +292,43 @@ get.benefits.grf <- function(grf.model.obj,
   abs.pred.ben.mat <- abs.obs.ben.mat
   
   for(i in 1:ncol(quantile.groups)){
-    group <- quantile.groups[,i]
+    
+    group <- which(quantile.groups[,i])
     
     ## absolute observed benefit
     abs.obs.ben.mat[i, 2:5] <- 
-      absolute.observed.benefit(y[group], w[group], significance.level = significance.level)
+      observed_benefit_absolute(status[group], w[group], significance_level = significance_level)
     
     ## absolute predicted benefit
-    ate.group <- grf::average_treatment_effect(grf.model.obj$causal.forest.obj, 
+    ate.group <- grf::average_treatment_effect(x$models, 
                                                subset = group)
     ate <- unname(ate.group["estimate"])
     se  <- unname(ate.group["std.err"]) 
     
     # quantile of the standard normal distribution
-    z <- stats::qnorm(1 - significance.level/2)
+    z <- stats::qnorm(1 - significance_level/2)
     
     abs.pred.ben.mat[i, "estimate"] <- ate
     abs.pred.ben.mat[i, "stderr"]   <- se
     abs.pred.ben.mat[i, "ci.lower"] <- ate - z * se
     abs.pred.ben.mat[i, "ci.upper"] <- ate + z * se
     
-  } # FOR
+    # odds ratio
+    or.mat[i, ] <- 
+      odds_ratio(status[group], w[group], significance_level = significance_level)
+    
+  } # FOR group
   
-  return(list(absolute.observed.benefit = abs.obs.ben.mat, 
-              absolute.predicted.benefit = abs.pred.ben.mat, 
-              significance.level = significance.level,
-              quantile.cutoff.points = colnames(quantile.groups),
-              group.membership = quantile.groups))
+  
+  return(list(absolute_observed_benefit = abs.obs.ben.mat, 
+              absolute_predicted_benefit = abs.pred.ben.mat, 
+              significance_level = significance_level,
+              quantiles = colnames(quantile.groups),
+              membership = quantile.groups))
+ 
 } # FUN
+
+
 
 
 

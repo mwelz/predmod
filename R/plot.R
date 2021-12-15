@@ -1,51 +1,3 @@
-
-group.static <- function(x, group.bounds){
-  # helper function
-  # if single value supplied: group is all obs with that particular value. 
-  # if intervals are supplied: all obs within these bounds (closed set) are a group. Hence, intervals need to be non-overlapping. TODO: add option of having half-closed intervals. 
-  # Note that rows that are all FALSE can be produced.
-  
-  group.mat <- matrix(NA, length(x), length(group.bounds))
-  group.nam <- rep(NA_character_, length(group.bounds))
-  
-  for(i in 1:length(group.bounds)){
-    bounds <- group.bounds[[i]]
-    
-    if(length(bounds) == 1){
-      
-      # case 1: a single value is supplied
-      group.nam[i]   <- as.character(bounds)
-      group.mat[, i] <- x == bounds
-      
-    } else if(length(bounds) == 2){
-      
-      # case 2: an interval is supplied
-      group.nam[i]   <- paste0("[", bounds[1], ",", bounds[2], "]")
-      group.mat[, i] <- (bounds[1] <= x) & (x <= bounds[2])
-      
-    } else stop("Incorrect input. Each element of 'group.bounds' needs to be a scalar or a 2-vector")
-  }
-  colnames(group.mat) <- group.nam
-  return(group.mat)
-} # FUN
-
-
-order.intervals <- function(intervals, quantile.nam){
-  # helper function to order intervals
-  if(quantile.nam){
-    is.first <- startsWith(intervals, "<")
-    is.last  <- startsWith(intervals, ">")
-    cut      <- as.numeric(gsub("[^0-9.-]", "",  gsub(",.*", "", intervals)))
-    cut[is.first] <- -Inf
-    cut[is.last]  <- Inf
-    ord           <- order(cut, decreasing = FALSE)
-  } else{
-    ord <- order(as.numeric(substr(gsub(",.*", "", intervals), 2, 1e8)), 
-                 decreasing = FALSE)
-  }
-  return(ord)
-}
-
 #' makes a calibration plot for a prediction model
 #' 
 #' @param x prediction model object, as returned by risk.modeling() or effect.modeling()
@@ -143,63 +95,63 @@ calibration_plot <- function( x,
 } # FUN
 
 
-#' makes a calibration plot for a GRF model
+#' makes a calibration plot for a prediction model
 #' 
-#' @param grf.model.obj GRF model oobject as returned by grf.modeling()
+#' @param x grf model
 #' @param cutoffs the cutoff points of quantiles that shall be used for GATES grouping. Default is `c(0.25, 0.5, 0.75)`, which corresponds to the quartiles.
-#' @param risk.baseline The baseline risk that shall be used for grouping. If \code{NULL} (default), then the baseline risk in \code{pred.model.obj} is used.
-#' @param significance.level significance level for the confidence intervals. Default is 0.05
+#' @param baseline_risk The baseline risk that shall be used for grouping. If \code{NULL} (default), then the baseline risk
+#' @param significance_level significance level for the confidence intervals. Default is 0.05
 #' @param title optional title of the plot
 #' @param xlim limits of x-axis
 #' @param ylim limits of y-xcis
-#' @param flip.sign.of.absolute.benefit logical. Shall the sign of the benefits be flipped?
+#' @param flip_sign logical. Shall the sign of the benefits be flipped?
 #' 
 #' @import ggplot2
 #' 
 #' @export
-calibration.plot.grf <- function(grf.model.obj,
+calibration_plot_grf <- function(x,
                                  cutoffs = c(0.25, 0.5, 0.75), 
-                                 risk.baseline = NULL,
-                                 significance.level = 0.05,
+                                 baseline_risk = NULL,
+                                 significance_level = 0.05,
                                  title = NULL,
                                  xlim = NULL,
                                  ylim = NULL,
-                                 flip.sign.of.absolute.benefit = FALSE){
+                                 flip_sign = FALSE){
   
   # appease the check (TODO: come up with better solution)
   pb.means <- ob.means <- ob.means.ci.lo <- ob.means.ci.up <- NULL
   
   # get observed and predicted benefit by quantile group
-  benefits <- get.benefits.grf(grf.model.obj, 
-                               cutoffs = cutoffs,
-                               risk.baseline = risk.baseline,
-                               significance.level = significance.level)
+  benefits <- get_benefits_grf(x = x, cutoffs = cutoffs, 
+                               baseline_risk = baseline_risk,
+                               significance_level = significance_level)
   
   # make sure risk quantile is in correct order
-  risk.quantile <- factor(benefits$absolute.observed.benefit$quantile,
-                          levels = benefits$absolute.observed.benefit$quantile)
-
-  # retrieve data
-  if(!flip.sign.of.absolute.benefit){
+  risk.quantile <- factor(benefits$quantiles,
+                          levels = benefits$quantiles)
+  
+  if(!flip_sign){
     
-    df <- data.frame(pb.means = benefits$absolute.predicted.benefit$estimate,
-                     ob.means = benefits$absolute.observed.benefit$estimate,
-                     ob.means.ci.lo = benefits$absolute.observed.benefit$ci.lower,
-                     ob.means.ci.up = benefits$absolute.observed.benefit$ci.upper,
+    df <- data.frame(pb.means = benefits$absolute_predicted_benefit[,"estimate"],
+                     ob.means = benefits$absolute_observed_benefit[,"estimate"],
+                     ob.means.ci.lo = benefits$absolute_observed_benefit[,"ci_lower"],
+                     ob.means.ci.up = benefits$absolute_observed_benefit[,"ci_upper"],
                      risk.quantile = risk.quantile)
     
   } else{
     
-    df <- data.frame(pb.means = -benefits$absolute.predicted.benefit$estimate,
-                     ob.means = -benefits$absolute.observed.benefit$estimate,
-                     ob.means.ci.lo = -benefits$absolute.observed.benefit$ci.lower,
-                     ob.means.ci.up = -benefits$absolute.observed.benefit$ci.upper,
+    df <- data.frame(pb.means = -benefits$absolute_predicted_benefit[,"estimate"],
+                     ob.means = -benefits$absolute_observed_benefit[,"estimate"],
+                     ob.means.ci.lo = -benefits$absolute_observed_benefit[,"ci_lower"],
+                     ob.means.ci.up = -benefits$absolute_observed_benefit[,"ci_upper"],
                      risk.quantile = risk.quantile)
     
-  }
+  } # IF
   
   
-  if(is.null(title)) title <- "Calibration plot of absolute benefit"
+  if(is.null(title)){
+    title <- "Calibration plot of absolute benefit"
+  } # IF
   
   ggplot(mapping = aes(x = pb.means,
                        y = ob.means, color = risk.quantile), data = df) +
@@ -211,7 +163,7 @@ calibration.plot.grf <- function(grf.model.obj,
     geom_abline(intercept = 0, slope = 1) +
     coord_cartesian(xlim = xlim, ylim = ylim) +
     labs(x = "Predicted absolute benefit",
-         y = "Observed absolute benefit") +
+         y = "observed absolute benefit") +
     theme_light() +
     ggtitle(title) +
     theme(legend.position = "bottom") 
@@ -219,90 +171,52 @@ calibration.plot.grf <- function(grf.model.obj,
 } # FUN
 
 
-
-#' make a subgroup plot of a variable x
-#' 
-#' @param pred.model.obj prediction model object, as returned by risk.modeling(), effect.modeling(), or grf.modeling()
-#' @param x a vector that shall be visualized
-#' @param relative TODO
-#' @param group.bounds TODO
-#' @param quantile.bounds TODO
-#' @param quantile.nam TODO
-#' @param risk.quantile.bounds TODO
-#' 
-#' @import ggplot2
-#' 
-#' @export
-subgroup.plot <- function(pred.model.obj, x, 
-                          relative = FALSE,
-                          group.bounds = NULL, 
-                          quantile.bounds = c(0.25, 0.5, 0.75), 
-                          quantile.nam = TRUE,
-                          risk.quantile.bounds = c(0.25, 0.5, 0.75)){
+group.static <- function(x, group.bounds){
+  # helper function
+  # if single value supplied: group is all obs with that particular value. 
+  # if intervals are supplied: all obs within these bounds (closed set) are a group. Hence, intervals need to be non-overlapping. TODO: add option of having half-closed intervals. 
+  # Note that rows that are all FALSE can be produced.
   
-  # group.bounds <- list(-3.3, c(-3, -2), c(-2+0.0001, 2), c(2 + 0.0001, 3))
-  if(!is.null(group.bounds) & !is.null(quantile.bounds)) stop("Either group or quantile!")
-  if(!is.null(group.bounds) & !is.list(group.bounds)) stop("group.bounds needs to be a list")
+  group.mat <- matrix(NA, length(x), length(group.bounds))
+  group.nam <- rep(NA_character_, length(group.bounds))
   
-  if(!is.null(group.bounds)){
-    x.group.mat <- group.static(x, group.bounds = group.bounds)
-  } else if(!is.null(quantile.bounds)){
-    x.group.mat <- quantile_group(x, cutoffs = quantile.bounds, names_quantile = quantile.nam)
-  } else stop("Please specify quantile bounds or group bounds")
-  
-  
-  # x-axis: risk group
-  risk.group.mat <- quantile_group(pred.model.obj$risk$risk.baseline, risk.quantile.bounds) 
-  risk.group <- rep(NA_character_, length(x))
-  for(nam in colnames(risk.group.mat)){
-    risk.group[which(risk.group.mat[,nam])] <- nam
+  for(i in 1:length(group.bounds)){
+    bounds <- group.bounds[[i]]
+    
+    if(length(bounds) == 1){
+      
+      # case 1: a single value is supplied
+      group.nam[i]   <- as.character(bounds)
+      group.mat[, i] <- x == bounds
+      
+    } else if(length(bounds) == 2){
+      
+      # case 2: an interval is supplied
+      group.nam[i]   <- paste0("[", bounds[1], ",", bounds[2], "]")
+      group.mat[, i] <- (bounds[1] <= x) & (x <= bounds[2])
+      
+    } else stop("Incorrect input. Each element of 'group.bounds' needs to be a scalar or a 2-vector")
   }
-  
-  # drop the word 'quantile' and make sure x-axis is in logical order
-  risk.group <- factor(gsub( " .*$", "", risk.group))
-  lv <- levels(risk.group)
-  lv <- lv[order.intervals(lv, quantile.nam = TRUE)]
-  risk.group <- factor(risk.group, levels = lv)
-  
-  ## group by x's values
-  x.group <- rep(NA_character_, length(x))
-  for(nam in colnames(x.group.mat)){
-    x.group[which(x.group.mat[,nam])] <- nam
-  }
-  
-  if(quantile.nam){
-    # drop the word 'quantile' and make sure groups are in logical order
-    x.group <- factor(gsub( " .*$", "", x.group))
-    lv <- levels(x.group)
-    lv <- lv[order.intervals(lv, quantile.nam = TRUE)]
-    x.group <- factor(x.group, levels = lv)
-    leg.tit <- paste0("Quantile of ", deparse(substitute(x)))
-  } else{
-    x.group <- factor(gsub( " .*$", "", x.group))
-    lv <- levels(x.group)
-    lv <- lv[order.intervals(lv, quantile.nam = FALSE)]
-    x.group <- factor(x.group, levels = lv)
-    leg.tit <- paste0("Group of ", deparse(substitute(x)))
-  }
-  
-  # y-axis: predicted benefit
-  if(relative){
-    pred.ben <- pred.model.obj$benefits$predicted.relative.benefit
-  } else{
-    pred.ben <- pred.model.obj$benefits$predicted.absolute.benefit
-  }
-  
-  # prepare data frame
-  df <- stats::na.omit(data.frame(pred.ben, risk.group, x.group))
-  
-  ggplot(data = df, aes(x = risk.group, y = pred.ben, fill = x.group)) + 
-    geom_boxplot() +
-    theme_bw() +
-    xlab("Baseline risk quantile") +
-    ylab(ifelse(relative, "Predicted relative benefit", "Predicted absolute benefit")) +
-    scale_fill_discrete(name = leg.tit) +
-    theme(legend.position = "bottom")
+  colnames(group.mat) <- group.nam
+  return(group.mat)
 } # FUN
+
+
+order.intervals <- function(intervals, quantile.nam){
+  # helper function to order intervals
+  if(quantile.nam){
+    is.first <- startsWith(intervals, "<")
+    is.last  <- startsWith(intervals, ">")
+    cut      <- as.numeric(gsub("[^0-9.-]", "",  gsub(",.*", "", intervals)))
+    cut[is.first] <- -Inf
+    cut[is.last]  <- Inf
+    ord           <- order(cut, decreasing = FALSE)
+  } else{
+    ord <- order(as.numeric(substr(gsub(",.*", "", intervals), 2, 1e8)), 
+                 decreasing = FALSE)
+  }
+  return(ord)
+}
 
 
 #' makes a calibration plot for a prediction model while accounting for imputation uncertainty
@@ -504,3 +418,89 @@ calibration.plot.grf_imputation.accounter <- function(grf.model.obj_imputed,
     theme(legend.position = "bottom") 
   
 } # FUN
+
+
+
+## make a subgroup plot of a variable x
+## 
+## @param pred.model.obj prediction model object, as returned by risk.modeling(), effect.modeling(), or grf.modeling()
+## @param x a vector that shall be visualized
+## @param relative TODO
+## @param group.bounds TODO
+## @param quantile.bounds TODO
+## @param quantile.nam TODO
+## @param risk.quantile.bounds TODO
+## 
+## @import ggplot2
+## 
+## @export
+# subgroup.plot <- function(pred.model.obj, x, 
+#                           relative = FALSE,
+#                           group.bounds = NULL, 
+#                           quantile.bounds = c(0.25, 0.5, 0.75), 
+#                           quantile.nam = TRUE,
+#                           risk.quantile.bounds = c(0.25, 0.5, 0.75)){
+#   
+#   # group.bounds <- list(-3.3, c(-3, -2), c(-2+0.0001, 2), c(2 + 0.0001, 3))
+#   if(!is.null(group.bounds) & !is.null(quantile.bounds)) stop("Either group or quantile!")
+#   if(!is.null(group.bounds) & !is.list(group.bounds)) stop("group.bounds needs to be a list")
+#   
+#   if(!is.null(group.bounds)){
+#     x.group.mat <- group.static(x, group.bounds = group.bounds)
+#   } else if(!is.null(quantile.bounds)){
+#     x.group.mat <- quantile_group(x, cutoffs = quantile.bounds, names_quantile = quantile.nam)
+#   } else stop("Please specify quantile bounds or group bounds")
+#   
+#   
+#   # x-axis: risk group
+#   risk.group.mat <- quantile_group(pred.model.obj$risk$risk.baseline, risk.quantile.bounds) 
+#   risk.group <- rep(NA_character_, length(x))
+#   for(nam in colnames(risk.group.mat)){
+#     risk.group[which(risk.group.mat[,nam])] <- nam
+#   }
+#   
+#   # drop the word 'quantile' and make sure x-axis is in logical order
+#   risk.group <- factor(gsub( " .*$", "", risk.group))
+#   lv <- levels(risk.group)
+#   lv <- lv[order.intervals(lv, quantile.nam = TRUE)]
+#   risk.group <- factor(risk.group, levels = lv)
+#   
+#   ## group by x's values
+#   x.group <- rep(NA_character_, length(x))
+#   for(nam in colnames(x.group.mat)){
+#     x.group[which(x.group.mat[,nam])] <- nam
+#   }
+#   
+#   if(quantile.nam){
+#     # drop the word 'quantile' and make sure groups are in logical order
+#     x.group <- factor(gsub( " .*$", "", x.group))
+#     lv <- levels(x.group)
+#     lv <- lv[order.intervals(lv, quantile.nam = TRUE)]
+#     x.group <- factor(x.group, levels = lv)
+#     leg.tit <- paste0("Quantile of ", deparse(substitute(x)))
+#   } else{
+#     x.group <- factor(gsub( " .*$", "", x.group))
+#     lv <- levels(x.group)
+#     lv <- lv[order.intervals(lv, quantile.nam = FALSE)]
+#     x.group <- factor(x.group, levels = lv)
+#     leg.tit <- paste0("Group of ", deparse(substitute(x)))
+#   }
+#   
+#   # y-axis: predicted benefit
+#   if(relative){
+#     pred.ben <- pred.model.obj$benefits$predicted.relative.benefit
+#   } else{
+#     pred.ben <- pred.model.obj$benefits$predicted.absolute.benefit
+#   }
+#   
+#   # prepare data frame
+#   df <- stats::na.omit(data.frame(pred.ben, risk.group, x.group))
+#   
+#   ggplot(data = df, aes(x = risk.group, y = pred.ben, fill = x.group)) + 
+#     geom_boxplot() +
+#     theme_bw() +
+#     xlab("Baseline risk quantile") +
+#     ylab(ifelse(relative, "Predicted relative benefit", "Predicted absolute benefit")) +
+#     scale_fill_discrete(name = leg.tit) +
+#     theme(legend.position = "bottom")
+# } # FUN
