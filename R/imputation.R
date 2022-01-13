@@ -77,37 +77,3 @@ impaccount_regression <- function(imp.list){
 } # FUN
 
 
-# x is a 3D-array of regression outputs on the 3rd dimension
-impaccount_regression_array <- function(x){
-  
-  # since x carries 'stderr' in 2nd dimension, but we need the variance, we need to adjust
-  x[,2L,] <- x[,2L,]^2L
-  
-  # get the relevant statistics
-  m     <- dim(x)[3L]
-  ave   <- apply(x, c(1L,2L), mean)
-  T_hat <- ave[, 1L] # location estimate
-  W_hat <- ave[, 2L] # within-variance estimate
-  
-  # between-variance estimate
-  B_hat <- rowSums(sapply(1:m, 
-                          function(i) (x[,1L,i] - T_hat)^2))/(m-1)
-  
-  # pooled variance estimate
-  V_hat <- W_hat + (m+1)/m * B_hat
-  
-  # inference
-  stderr <- sqrt(V_hat)
-  z      <- T_hat / stderr
-  p      <- 2.0 * stats::pnorm(abs(z), lower.tail = FALSE)
-  
-  #### TODO: continue here!
-  # BTW, why is there no p-value estimate in get_benefits?
-  # do we add this later with an accessor?
-  
-  out <- cbind(T.hat, stderr, z, p)
-  rownames(out) <- rownames(imp.list[[1]])
-  colnames(out) <- c("Estimate", "Std. Error", "z value", "Pr(>|z|)")
-  out
-  
-} # FUN
