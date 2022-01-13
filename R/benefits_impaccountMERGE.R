@@ -41,6 +41,17 @@ impaccount_regression_array <- function(x,
 } # FUN
 
 
+#' Calculates imputation-adjusted group-level benefits from a prediction model, and the associated confidence intervals.
+#' The returned benefits are the observed and predicted relative and absolute benefits as well as the odds ratio
+#' 
+#' @param x a list of prediction model object
+#' @param cutoffs the quantile cutoff points. Default is c(0.25, 0.5, 0.75), which yields the quartiles.
+#' @param baseline_risk A list of baseline risks that shall be used for grouping. If \code{NULL} (default), then the baseline risks in \code{x} are used.
+#' @param benefits_risk Logical. If \code{TRUE}, then the risk-based benefits are used (only applicable to survival models). Default is \code{FALSE}.
+#' @param time_eval Only applicable if \code{benefits_risk = TRUE}. Time at which we evaluate the risk predictions.
+#' @param significance_level the significance level. Default is 0.05.
+#' 
+#' @export
 get_benefits_imputation <- function(x, 
                                     cutoffs = c(0.25, 0.5, 0.75),
                                     baseline_risk = NULL,
@@ -50,6 +61,9 @@ get_benefits_imputation <- function(x,
 {
   # number of imputation runs
   m <- length(x)
+  
+  # sanity check
+  if(!is.null(baseline_risk)) stopifnot(length(baseline_risk) == m)
   
   # initialize array of results
   arr <- array(data = NA_real_, 
@@ -68,7 +82,7 @@ get_benefits_imputation <- function(x,
     # get benefits
     ben <- get_benefits(x = x[[i]], 
                         cutoffs = cutoffs,
-                        baseline_risk = baseline_risk,
+                        baseline_risk = baseline_risk[[i]],
                         time_eval = time_eval,
                         significance_level = significance_level)
     
@@ -111,3 +125,112 @@ get_benefits_imputation <- function(x,
 
 } # FUN
 
+
+#' makes an imputation-accounted calibration plot for imputed prediction models
+#' 
+#' @param x A list of prediction model objects
+#' @param cutoffs the cutoff points of quantiles that shall be used for GATES grouping. Default is `c(0.25, 0.5, 0.75)`, which corresponds to the quartiles.
+#' @param relative logical. If `TRUE`, then relative benefits will be plotted. Default is `FALSE`
+#' @param baseline_risk A list of baseline risks that shall be used for grouping. If \code{NULL} (default), then the baseline risks as in \code{x} are used.
+#' @param benefits_risk Logical. If \code{TRUE}, then the risk-based benefits are used (only applicable to survival models). Default is \code{FALSE}.
+#' @param time_eval Only applicable if \code{benefits_risk = TRUE}. Time at which we evaluate the risk predictions.
+#' @param significance_level significance level for the confidence intervals. Default is 0.05
+#' @param title optional title of the plot
+#' @param xlim limits of x-axis
+#' @param ylim limits of y-xcis
+#' @param flip_sign logical. Shall the sign of the benefits be flipped?
+#' 
+#' @import ggplot2
+#' 
+#' @export
+calibration_plot_imputation <- function(x,
+                                        cutoffs = c(0.25, 0.5, 0.75), 
+                                        relative = FALSE,
+                                        baseline_risk = NULL,
+                                        benefits_risk = FALSE,
+                                        time_eval = NULL,
+                                        significance_level = 0.05,
+                                        title = NULL,
+                                        xlim = NULL,
+                                        ylim = NULL,
+                                        flip_sign = FALSE){
+  
+  # appease the check (TODO: come up with better solution)
+  pb.means <- ob.means <- ob.means.ci.lo <- ob.means.ci.up <- NULL
+  
+  # get observed and predicted benefit by quantile group (imputation-adjusted)
+  benefits <- get_benefits_imputation(x                  = x,
+                                      cutoffs            = cutoffs,
+                                      baseline_risk      = baseline_risk,
+                                      benefits_risk      = benefits_risk,
+                                      time_eval          = time_eval,
+                                      significance_level = significance_level)
+  
+  # get imputation-adjusted baseline risk
+  m <- length(x)
+  if(is.null(baseline_risk))
+    {
+      br <- rowMeans(sapply(1:m, function(i) x[[i]]$risk$baseline))
+    } else{
+      br <- rowMeans(sapply(1:m, function(i) baseline_risk[[i]]))
+    } # IF
+  
+  # group observations by their quantile of predicted baseline risk (imputation-adjusted)
+  quantile.groups <- quantile_group_NoChecks(br, cutoffs)
+  quantiles <- colnames(quantile.groups)
+  
+  # make sure risk quantile is in correct order
+  risk.quantile <- factor(quantiles,
+                          levels = quantiles)
+  
+  # adjust for relative and absolute benefit
+  if(relative){
+    
+    df <- data.frame(pb.means = benefits$predicted_benefit$relative[,"estimate"],
+                     ob.means = benefits$observed_benefit$relative[,"estimate"],
+                     ob.means.ci.lo = benefits$observed_benefit$relative[,"ci_lower"],
+                     ob.means.ci.up = benefits$observed_benefit$relative[,"ci_upper"],
+                     risk.quantile = risk.quantile)
+  } else{
+    
+    if(!flip_sign){
+      
+      df <- data.frame(pb.means = benefits$predicted_benefit$absolute[,"estimate"],
+                       ob.means = benefits$observed_benefit$absolute[,"estimate"],
+                       ob.means.ci.lo = benefits$observed_benefit$absolute[,"ci_lower"],
+                       ob.means.ci.up = benefits$observed_benefit$absolute[,"ci_upper"],
+                       risk.quantile = risk.quantile)
+      
+    } else{
+      
+      df <- data.frame(pb.means = -benefits$predicted_benefit$absolute[,"estimate"],
+                       ob.means = -benefits$observed_benefit$absolute[,"estimate"],
+                       ob.means.ci.lo = -benefits$observed_benefit$absolute[,"ci_lower"],
+                       ob.means.ci.up = -benefits$observed_benefit$absolute[,"ci_upper"],
+                       risk.quantile = risk.quantile)
+      
+    }
+  } # IF
+  
+  
+  if(is.null(title)){
+    title <- paste0("Calibration plot of ", 
+                    ifelse(relative, "relative ", "absolute "), "benefit")
+  } # IF
+  
+  ggplot(mapping = aes(x = pb.means,
+                       y = ob.means, color = risk.quantile), data = df) +
+    geom_point() +
+    geom_errorbar(mapping = aes(ymin = ob.means.ci.lo,
+                                ymax = ob.means.ci.up)) +
+    geom_hline(yintercept = 0, linetype = 2) +
+    geom_vline(xintercept = 0, linetype = 2) +
+    geom_abline(intercept = 0, slope = 1) +
+    coord_cartesian(xlim = xlim, ylim = ylim) +
+    labs(x = ifelse(relative, "Predicted relative benefit", "Predicted absolute benefit"),
+         y = ifelse(relative, "Observed relative benefit", "Observed absolute benefit")) +
+    theme_light() +
+    ggtitle(title) +
+    theme(legend.position = "bottom") 
+  
+} # FUN

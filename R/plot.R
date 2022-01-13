@@ -3,7 +3,7 @@
 #' @param x prediction model object, as returned by risk.modeling() or effect.modeling()
 #' @param cutoffs the cutoff points of quantiles that shall be used for GATES grouping. Default is `c(0.25, 0.5, 0.75)`, which corresponds to the quartiles.
 #' @param relative logical. If `TRUE`, then relative benefits will be plotted. Default is `FALSE`
-#' @param baseline_risk The baseline risk that shall be used for grouping. If \code{NULL} (default), then the baseline risk in \code{pred.model.obj} is used.
+#' @param baseline_risk The baseline risk that shall be used for grouping. If \code{NULL} (default), then the baseline risk in \code{x} is used.
 #' @param benefits_risk Logical. If \code{TRUE}, then the risk-based benefits are used (only applicable to survival models). Default is \code{FALSE}.
 #' @param time_eval Only applicable if \code{benefits_risk = TRUE}. Time at which we evaluate the risk predictions.
 #' @param significance_level significance level for the confidence intervals. Default is 0.05
