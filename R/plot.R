@@ -95,15 +95,15 @@ calibration_plot <- function( x,
 } # FUN
 
 
-#' makes a calibration plot for a prediction model
+#' makes a calibration plot for a GRF model
 #' 
 #' @param x grf model
 #' @param cutoffs the cutoff points of quantiles that shall be used for GATES grouping. Default is `c(0.25, 0.5, 0.75)`, which corresponds to the quartiles.
-#' @param baseline_risk The baseline risk that shall be used for grouping. If \code{NULL} (default), then the baseline risk
+#' @param baseline_risk The baseline risk that shall be used for grouping. If \code{NULL} (default), then the baseline risk in \code{x} is used.
 #' @param significance_level significance level for the confidence intervals. Default is 0.05
 #' @param title optional title of the plot
 #' @param xlim limits of x-axis
-#' @param ylim limits of y-xcis
+#' @param ylim limits of y-axis
 #' @param flip_sign logical. Shall the sign of the benefits be flipped?
 #' 
 #' @import ggplot2
@@ -163,7 +163,7 @@ calibration_plot_grf <- function(x,
     geom_abline(intercept = 0, slope = 1) +
     coord_cartesian(xlim = xlim, ylim = ylim) +
     labs(x = "Predicted absolute benefit",
-         y = "observed absolute benefit") +
+         y = "Observed absolute benefit") +
     theme_light() +
     ggtitle(title) +
     theme(legend.position = "bottom") 

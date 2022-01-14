@@ -261,8 +261,8 @@ get_benefits <- function(x,
 #' The returned benefits are the observed and predicted relative and absolute benefits as well as the odds ratio
 #' 
 #' @param x GRF model object
-#' @param cutoffs the quantile cutoff points. Default is c(0.25, 0.5, 0.75), which yields the quartiles.
-#' @param baseline_risk The baseline risk that shall be used for grouping. If \code{NULL} (default), then the baseline risk in \code{pred.model.obj} is used.
+#' @param cutoffs the quantile cutoff points. Default is \code{c(0.25, 0.5, 0.75)}, which yields the quartiles.
+#' @param baseline_risk The baseline risk that shall be used for grouping. If \code{NULL} (default), then the baseline risk in \code{x} is used.
 #' @param significance_level the significance level. Default is 0.05.
 #' 
 #' @export
@@ -286,17 +286,17 @@ get_benefits_grf <- function(x,
   
   ## calculate observed benefit and predicted benefit for each quantile group
   # initialize
-  abs.obs.ben.mat           <- as.data.frame(matrix(NA_real_, ncol(quantile.groups), 5))
-  colnames(abs.obs.ben.mat) <- c("quantile", "estimate", "ci.lower", "ci.upper", "stderr")
-  abs.obs.ben.mat$quantile  <- colnames(quantile.groups)
-  abs.pred.ben.mat <- abs.obs.ben.mat
+  abs.obs.ben.mat           <- matrix(NA_real_, ncol(quantile.groups), 4L)
+  colnames(abs.obs.ben.mat) <- c("estimate", "ci_lower", "ci_upper", "stderr")
+  rownames(abs.obs.ben.mat) <- colnames(quantile.groups)
+  abs.pred.ben.mat          <- abs.obs.ben.mat
   
   for(i in 1:ncol(quantile.groups)){
     
     group <- which(quantile.groups[,i])
     
     ## absolute observed benefit
-    abs.obs.ben.mat[i, 2:5] <- 
+    abs.obs.ben.mat[i,] <- 
       observed_benefit_absolute(status[group], w[group], significance_level = significance_level)
     
     ## absolute predicted benefit
@@ -310,18 +310,14 @@ get_benefits_grf <- function(x,
     
     abs.pred.ben.mat[i, "estimate"] <- ate
     abs.pred.ben.mat[i, "stderr"]   <- se
-    abs.pred.ben.mat[i, "ci.lower"] <- ate - z * se
-    abs.pred.ben.mat[i, "ci.upper"] <- ate + z * se
-    
-    # odds ratio
-    or.mat[i, ] <- 
-      odds_ratio(status[group], w[group], significance_level = significance_level)
+    abs.pred.ben.mat[i, "ci_lower"] <- ate - z * se
+    abs.pred.ben.mat[i, "ci_upper"] <- ate + z * se
     
   } # FOR group
   
   
-  return(list(absolute_observed_benefit = abs.obs.ben.mat, 
-              absolute_predicted_benefit = abs.pred.ben.mat, 
+  return(list(absolute_predicted_benefit = abs.pred.ben.mat, 
+              absolute_observed_benefit = abs.obs.ben.mat, 
               significance_level = significance_level,
               quantiles = colnames(quantile.groups),
               membership = quantile.groups))
