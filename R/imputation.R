@@ -387,3 +387,74 @@ calibration_plot_grf_imputation <- function(x,
     theme(legend.position = "bottom") 
   
 } # FUN
+
+
+# C is list of concordance estimates, SE a list of associated standard errors
+impaccount_concordance <- function(C, SE)
+{
+  m <- length(C)
+  T_hat <- mean(sapply(1:m, function(i) C[[i]]))
+  W_hat <- mean(sapply(1:m, function(i) SE[[i]]^2)) # square since it's a variance
+  B_hat <- sum(sapply(1:m, function(i) (C[[i]] - T_hat)^2 )) / (m - 1)
+  V_hat <- W_hat + (m+1)/m * B_hat
+  
+  return(list(estimate = T_hat, stderr = sqrt(V_hat)))
+  
+} # FUN
+
+
+# x is a list of risk model objects (imputed)
+impaccount_risk_model <- function(x)
+{
+  # number of imputation runs
+  m <- length(x)
+  
+  ## prepare lists
+  # benfits
+  benefits <- list(absolute = NULL, relative = NULL)
+  benefits$absolute <- rowMeans(sapply(1:m, function(i) x[[i]]$benefits$absolute))
+  benefits$relative <- rowMeans(sapply(1:m, function(i) x[[i]]$benefits$relative))
+  
+  # coefficients
+  coefficients <- list(baseline = NULL, stage2 = NULL)
+  cf <- Matrix::Matrix(rowMeans(sapply(1:m, 
+                                       function(i) as.matrix(x[[i]]$coefficients$baseline))),
+                       sparse = TRUE)
+  dimnames(cf) <- dimnames(x[[1]]$coefficients$baseline)
+  coefficients$baseline <- cf
+  p <- nrow(x[[1]]$coefficients$stage2)
+  arr <- array(NA_real_, dim = c(p, 4L, m))
+  for(i in 1:m) arr[,,i] <- x[[i]]$coefficients$stage2
+  tmp <- impaccount_regression_array(x = arr, relative = FALSE)
+  z <- tmp[, "estimate"] / tmp[, "stderr"]
+  p <- 2 * stats::pnorm(abs(z), lower.tail = FALSE)
+  cf <- cbind(tmp[, "estimate"], tmp[, "stderr"], z, p)
+  dimnames(cf) <- dimnames(x[[1]]$coefficients$stage2)
+  coefficients$stage2 <- cf
+  
+  # risk
+  risk <- list(baseline = NULL, regular = NULL, counterfactual = NULL)
+  risk$baseline       <- as.matrix(rowMeans(sapply(1:m, function(i) x[[i]]$risk$baseline)))
+  risk$regular        <- as.matrix(rowMeans(sapply(1:m, function(i) x[[i]]$risk$regular)))
+  risk$counterfactual <- as.matrix(rowMeans(sapply(1:m, function(i) x[[i]]$risk$counterfactual)))
+  
+  # concordance
+  concordance <- list(outcome_baseline = NULL,
+                      outcome = NULL,
+                      benefit = NULL)
+  concordance$outcome_baseline <- 
+    impaccount_concordance(C  = lapply(1:m, function(i) x[[i]]$concordance$outcome_baseline$estimate),
+                           SE = lapply(1:m, function(i) x[[i]]$concordance$outcome_baseline$stderr))
+  concordance$outcome <- 
+    impaccount_concordance(C  = lapply(1:m, function(i) x[[i]]$concordance$outcome$estimate),
+                           SE = lapply(1:m, function(i) x[[i]]$concordance$outcome$stderr))
+  concordance$benefit <- 
+    impaccount_concordance(C  = lapply(1:m, function(i) x[[i]]$concordance$benefit$estimate),
+                           SE = lapply(1:m, function(i) x[[i]]$concordance$benefit$stderr))
+  
+  
+  return(list(benefits = benefits,
+              coefficients = coefficients,
+              risk = risk, 
+              concordance = concordance))
+} # FOR
