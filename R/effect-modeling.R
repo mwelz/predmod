@@ -519,9 +519,8 @@ interacted_matrix <- function(X, w, interacted){
   X.nam <- colnames(X)
   
   if(is.character(interacted)){
-    logic <- interacted %in% X.nam
-    idx   <- which(logic)
-    stopifnot(all(logic))
+    idx   <- which(X.nam %in% interacted)
+    stopifnot(all(interacted %in% X.nam))
   } else if(is.numeric(interacted)){
     idx <- interacted
     stopifnot(max(interacted) <= ncol(X))
