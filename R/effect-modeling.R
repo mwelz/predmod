@@ -114,7 +114,7 @@ effect_model <- function(X,
     br <- mod_baseline$risk
     
   } else{
-    br <- baseline_risk
+    br <- as.matrix(baseline_risk)
     mod_baseline <- NULL
   } # IF
   
