@@ -422,11 +422,18 @@ impaccount_risk_model <- function(x)
   
   # coefficients
   coefficients <- list(baseline = NULL, stage2 = NULL)
-  cf <- Matrix::Matrix(rowMeans(sapply(1:m, 
-                                       function(i) as.matrix(x[[i]]$coefficients$baseline))),
-                       sparse = TRUE)
-  dimnames(cf) <- dimnames(x[[1]]$coefficients$baseline)
-  coefficients$baseline <- cf
+  
+  # account for the case that baseline risk is NULL
+  cf <- NULL
+  if(all(sapply(1:m, function(i) !is.null(x[[i]]$coefficients$baseline ))))
+  {
+    cf <- Matrix::Matrix(rowMeans(sapply(1:m, 
+                                         function(i) as.matrix(x[[i]]$coefficients$baseline))),
+                         sparse = TRUE)
+    dimnames(cf) <- dimnames(x[[1]]$coefficients$baseline)
+    coefficients$baseline <- cf
+  }
+  
   p <- nrow(x[[1]]$coefficients$stage2)
   arr <- array(NA_real_, dim = c(p, 4L, m))
   for(i in 1:m) arr[,,i] <- x[[i]]$coefficients$stage2
@@ -439,17 +446,28 @@ impaccount_risk_model <- function(x)
   
   # risk
   risk <- list(baseline = NULL, regular = NULL, counterfactual = NULL)
-  risk$baseline       <- as.matrix(rowMeans(sapply(1:m, function(i) x[[i]]$risk$baseline)))
   risk$regular        <- as.matrix(rowMeans(sapply(1:m, function(i) x[[i]]$risk$regular)))
   risk$counterfactual <- as.matrix(rowMeans(sapply(1:m, function(i) x[[i]]$risk$counterfactual)))
+  
+  if(all(sapply(1:m, function(i) !is.null(x[[i]]$risk$baseline ))))
+  {
+    risk$baseline     <- as.matrix(rowMeans(sapply(1:m, function(i) x[[i]]$risk$baseline)))
+  }
+  
   
   # concordance
   concordance <- list(outcome_baseline = NULL,
                       outcome = NULL,
                       benefit = NULL)
-  concordance$outcome_baseline <- 
-    impaccount_concordance(C  = lapply(1:m, function(i) x[[i]]$concordance$outcome_baseline$estimate),
-                           SE = lapply(1:m, function(i) x[[i]]$concordance$outcome_baseline$stderr))
+  
+  c_logi  <- all(sapply(1:m, function(i) !is.null(x[[i]]$concordance$outcome_baseline$estimate )))
+  se_logi <- all(sapply(1:m, function(i) !is.null(x[[i]]$concordance$outcome_baseline$stderr )))
+  if(c_logi & se_logi){
+    concordance$outcome_baseline <- 
+      impaccount_concordance(C  = lapply(1:m, function(i) x[[i]]$concordance$outcome_baseline$estimate),
+                             SE = lapply(1:m, function(i) x[[i]]$concordance$outcome_baseline$stderr))
+  }
+  
   concordance$outcome <- 
     impaccount_concordance(C  = lapply(1:m, function(i) x[[i]]$concordance$outcome$estimate),
                            SE = lapply(1:m, function(i) x[[i]]$concordance$outcome$stderr))
