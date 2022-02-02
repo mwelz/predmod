@@ -424,7 +424,6 @@ impaccount_risk_model <- function(x)
   coefficients <- list(baseline = NULL, stage2 = NULL)
   
   # account for the case that baseline risk is NULL
-  cf <- NULL
   if(all(sapply(1:m, function(i) !is.null(x[[i]]$coefficients$baseline ))))
   {
     cf <- Matrix::Matrix(rowMeans(sapply(1:m, 
@@ -504,7 +503,6 @@ impaccount_effect_model <- function(x)
   coefficients <- list(baseline = NULL, full = NULL, reduced = NULL)
   
   # account for the case that baseline risk is NULL
-  cf <- NULL
   if(all(sapply(1:m, function(i) !is.null(x[[i]]$coefficients$baseline ))))
   {
     cf <- Matrix::Matrix(rowMeans(sapply(1:m, 
