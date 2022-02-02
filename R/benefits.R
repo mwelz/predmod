@@ -194,10 +194,19 @@ get_benefits <- function(x,
   status <- x$inputs$status_bin
   w      <- x$inputs$w
   
+  # if baseline_risk is NULL, then x$baseline cannot be null
+  
   # specify baseline risk that shall be used for grouping
   if(is.null(baseline_risk)){
-    baseline_risk <- as.numeric(x$risk$baseline)
-  } # IF
+    
+    tmp <- x$risk$baseline
+    
+    if(is.null(tmp)){
+      stop("Both the argument 'baseline_risk' and x$risk$baseline are NULL. If x$risk$baseline = NULL, then baseline_risk cannot be NULL as well. Please provide estimates of baseline risks via 'baseline_risk'.", call. = FALSE)
+    } else{
+      baseline_risk <- as.numeric(tmp)
+    } # IF
+  }  # IF
   
   # group observations by their quantile of predicted baseline risk
   quantile.groups <- quantile_group_NoChecks(baseline_risk, cutoffs)
