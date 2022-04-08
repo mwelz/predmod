@@ -311,7 +311,7 @@ get_benefits_grf <- function(x,
   
   # specify baseline risk that shall be used for grouping
   if(is.null(baseline_risk)){
-    if(class(x) == "grf_survival") stop("Baseline risk calculation in survival forests not yet implemented!")
+    if(class(x) == "grf_surv") stop("Baseline risk calculation in survival forests not yet implemented!")
     baseline_risk <- as.numeric(x$risk$baseline)
   } # IF
   
