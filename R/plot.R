@@ -36,6 +36,7 @@ calibration_plot <- function( x,
                            baseline_risk      = baseline_risk,
                            benefits_risk      = benefits_risk,
                            time_eval          = time_eval,
+                           odds_ratio         = FALSE,
                            significance_level = significance_level)
   
   # make sure risk quantile is in correct order

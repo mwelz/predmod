@@ -37,24 +37,37 @@ get_predicted_benefits <- function(risk_reg, risk_rev, w){
 #' @export
 observed_benefit_absolute <- function(status, w, significance_level = 0.05){
   
-  if(stats::var(status) == 0){
-    status <- status + stats::rnorm(length(status), 0, sqrt(0.001))
-    warning("There is zero variation in 'status', so we added Gaussian noise with variance 0.001")
+  y1 <- status[w==1]
+  y0 <- status[w==0]
+  
+  ## account for scenarios where no t-tests can be performed: 
+  # no variation or size less than two in either variable 
+  # in this case, return zeros
+  if(length(unique(y1)) < 2 |
+     length(unique(y0)) < 2 |
+     length(y1) < 2 | length(y0) < 2){
+    
+    out <- c(estimate = 0.0, 
+             ci_lower = 0.0,
+             ci_upper = 0.0,
+             stderr   = 0.0)
+  } else{
+    
+    ttest  <- stats::t.test(x = y1, y = y0, 
+                            paired = FALSE, 
+                            var.equal = FALSE) 
+    aob    <- unname(ttest$estimate[1] - ttest$estimate[2])
+    se.aob <- unname(ttest$stderr) 
+    
+    # quantile of the standard normal distribution
+    z <- stats::qnorm(1 - significance_level/2)
+    
+    out <- c(estimate = aob, 
+             ci_lower = aob - z * se.aob,
+             ci_upper = aob + z * se.aob,
+             stderr   = se.aob)
   } # IF
-  
-  ttest  <- stats::t.test(status[w==1], status[w==0], 
-                          paired = FALSE, 
-                          var.equal = FALSE) 
-  aob    <- unname(ttest$estimate[1] - ttest$estimate[2])
-  se.aob <- unname(ttest$stderr) 
-  
-  # quantile of the standard normal distribution
-  z <- stats::qnorm(1 - significance_level/2)
-  
-  return(c(estimate = aob, 
-           ci_lower = aob - z * se.aob,
-           ci_upper = aob + z * se.aob,
-           stderr   = se.aob))
+  return(out)
 } # FUN
 
 
@@ -180,6 +193,7 @@ predicted_benefit_inference <- function(x,
 #' @param baseline_risk The baseline risk that shall be used for grouping. If \code{NULL} (default), then the baseline risk in \code{x} is used.
 #' @param benefits_risk Logical. If \code{TRUE}, then the risk-based benefits are used (only applicable to survival models). Default is \code{FALSE}.
 #' @param time_eval Only applicable if \code{benefits_risk = TRUE}. Time at which we evaluate the risk predictions.
+#' @param odds_ratio Logical. If \code{TRUE}, odds ratios per quantile group will be computed. Default is \code{FALSE}.
 #' @param significance_level the significance level. Default is 0.05.
 #' 
 #' @export
@@ -188,6 +202,7 @@ get_benefits <- function(x,
                          baseline_risk = NULL,
                          benefits_risk = FALSE,
                          time_eval = NULL,
+                         odds_ratio = FALSE,
                          significance_level = 0.05){
   
   # extract outcome and treatment status
@@ -219,15 +234,22 @@ get_benefits <- function(x,
   abs.obs.ben.mat  <- rel.obs.ben.mat
   abs.pred.ben.mat <- rel.obs.ben.mat
   rel.pred.ben.mat <- rel.obs.ben.mat
-  or.mat           <- rel.obs.ben.mat
+  if(odds_ratio){
+    or.mat         <- rel.obs.ben.mat
+  } else{
+    or.mat         <- NULL
+  } # IF
+  
   
   for(i in 1:ncol(quantile.groups)){
     
     group <- which(quantile.groups[,i])
-    
+
     # absolute observed benefit
     abs.obs.ben.mat[i, ] <- 
-      observed_benefit_absolute(status[group], w[group], significance_level = significance_level)
+      observed_benefit_absolute(status = status[group], 
+                                w = w[group], 
+                                significance_level = significance_level)
     
     # absolute predicted benefit
     abs.pred.ben.mat[i, ] <- 
@@ -250,8 +272,11 @@ get_benefits <- function(x,
                                   significance_level = significance_level)
     
     # odds ratio
-    or.mat[i, ] <- 
-      odds_ratio(status[group], w[group], significance_level = significance_level)
+    if(odds_ratio)
+    {
+      or.mat[i, ] <- 
+        odds_ratio(status[group], w[group], significance_level = significance_level)
+    } # IF
     
   } # FOR
   
