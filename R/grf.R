@@ -44,7 +44,7 @@ grf_model <- function(X,
                         inputs = list(status = status, status_bin = status_bin,
                                       w = w, failcode = failcode)
   ), 
-  class = "grf_ordinary"))
+  class = "grf_crss"))
   
 } # FUN
 
@@ -96,6 +96,6 @@ grf_model_survival <- function(X,
                         inputs = list(status = status, status_bin = status_bin,
                                       w = w, failcode = failcode)
   ), 
-  class = "grf_survival"))
+  class = "grf_surv"))
   
 } # FUN

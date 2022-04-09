@@ -96,7 +96,7 @@ risk_model <- function(X,
                                       w = w, failcode = failcode, z = z, 
                                       constant = constant, alpha = alpha)
                         ), 
-                   class = "predmod_ordinary"))
+                   class = "predmod_crss"))
   
 } # FUN
 
@@ -332,7 +332,7 @@ risk_model_survival_nocmprisk <- function(X,
                                       w = w, failcode = failcode, z = z, 
                                       constant = constant, alpha = alpha)
   ), 
-  class = "predmod_survival"))
+  class = "predmod_surv"))
   
   
 } # FUN
@@ -503,7 +503,7 @@ risk_model_survival_cmprisk <- function(X,
                                       w = w, failcode = failcode, z = z, 
                                       constant = constant, alpha = alpha)
   ), 
-  class = "predmod_survival"))
+  class = "predmod_surv"))
   
 } # FUN
 

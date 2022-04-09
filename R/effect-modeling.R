@@ -141,7 +141,7 @@ effect_model <- function(X,
                                       w = w, failcode = failcode, alpha = alpha, 
                                       alpha_baseline = alpha_baseline)
   ), 
-  class = "predmod_ordinary"))
+  class = "predmod_crss"))
   
 
 } # FUN
@@ -349,7 +349,7 @@ effect_model_survival <- function(X,
                                       time = time, time_eval = time_eval, w = w, failcode = failcode, 
                                       alpha = alpha, alpha_baseline = alpha_baseline)
   ), 
-  class = "predmod_survival"))
+  class = "predmod_surv"))
   
   
 } # FUN

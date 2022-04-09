@@ -77,7 +77,7 @@ baseline_risk <- function(X,
     coefficients = coefs,
     model = model.obj,
     lambda_min = lambda.min
-  ), class = "baseline_risk"))
+  ), class = "baseline_crss"))
   
 } # FUN
 
@@ -272,6 +272,6 @@ baseline_survival_nocmprsk <- function(X,
     model = model.obj,
     lambda_min = lambda.min,
     funs = surv.obj
-  ), class = "baseline_survival"))
+  ), class = "baseline_surv"))
   
 } # FUN

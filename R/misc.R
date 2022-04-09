@@ -71,7 +71,7 @@ average_treatment_effect <- function(x,
   
   clss <- class(x)
   w    <- x$inputs$w
-  stopifnot(clss %in% c("predmod_ordinary", "predmod_survival"))
+  stopifnot(clss %in% c("predmod_crss", "predmod_surv"))
   
   # prepare subset object
   if(!is.null(subset)){
@@ -84,7 +84,7 @@ average_treatment_effect <- function(x,
   if(is.null(time_eval)){
     
     # if no value provided, take time_eval used in model fitting
-    if(clss == "predmod_survival"){
+    if(clss == "predmod_surv"){
       time_eval <- x$input$time_eval
     } # IF clss
     
@@ -100,7 +100,7 @@ average_treatment_effect <- function(x,
     # in case of absolute effect, we need to decompose the effect
     # so that we can apply a two-sample test
     
-    if(clss == "predmod_ordinary"){
+    if(clss == "predmod_crss"){
       
       # case 1: predmod_ordinary
       x_reg <- x$risk$regular
@@ -139,7 +139,7 @@ average_treatment_effect <- function(x,
   } else {
     
     # relative effect: here we can simply use the direct estimated benefits
-    if(clss == "predmod_ordinary"){
+    if(clss == "predmod_crss"){
       
       # case 1: benefits concern risk in cross-sectional model
       ate <- mean(x$benefits$relative[subset])

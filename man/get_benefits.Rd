@@ -11,6 +11,7 @@ get_benefits(
   baseline_risk = NULL,
   benefits_risk = FALSE,
   time_eval = NULL,
+  odds_ratio = FALSE,
   significance_level = 0.05
 )
 }
@@ -24,6 +25,8 @@ get_benefits(
 \item{benefits_risk}{Logical. If \code{TRUE}, then the risk-based benefits are used (only applicable to survival models). Default is \code{FALSE}.}
 
 \item{time_eval}{Only applicable if \code{benefits_risk = TRUE}. Time at which we evaluate the risk predictions.}
+
+\item{odds_ratio}{Logical. If \code{TRUE}, odds ratios per quantile group will be computed. Default is \code{FALSE}.}
 
 \item{significance_level}{the significance level. Default is 0.05.}
 }

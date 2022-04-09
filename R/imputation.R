@@ -84,7 +84,8 @@ get_benefits_imputation <- function(x,
                         cutoffs = cutoffs,
                         baseline_risk = baseline_risk[[i]], 
                         benefits_risk = benefits_risk,
-                        time_eval = time_eval,
+                        time_eval = time_eval, 
+                        odds_ratio = FALSE,
                         significance_level = significance_level)
     
     # assign results matrices
