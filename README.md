@@ -2,7 +2,7 @@
 Predictive modeling of heterogeneous treatment effects in medicine.
 
 # Todo list
-- [ ] Can we bootstrap standard error of relative risk estimate? No we cannot
+- [ ] Can we bootstrap standard error of relative risk estimate? No we cannot, do don't compute SE for relative risks
 - [ ] WA audio
 
 # Examples
