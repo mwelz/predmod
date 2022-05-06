@@ -571,3 +571,72 @@ risk_model_stage2_cmprsk <- function(status, time, w, z,
               funs = list(regular = surv_obj_reg, counterfactual = surv_obj_rev)
   ))
 } # FUN
+
+
+
+
+
+
+
+BLABLABLA <- function(status, time, w, z,
+                                     w_flipped = ifelse(w == 1, 0, 1), 
+                                     constant = FALSE,
+                                     failcode = 1,
+                                     ...)
+{
+  if(constant){
+    
+    # prepare X for second stage...
+    X_stage2 <- cbind(w = w, z = z)
+    
+    # ... and its counterpart with flipped w
+    X_stage2_rev <- cbind(w = w_flipped, z = z)
+    
+  } else{
+    
+    # prepare X for second stage...
+    X_stage2 <- cbind(w = w, z = z, w.z = w * z)
+    
+    # ... and its counterpart with flipped w
+    X_stage2_rev <- cbind(w = w_flipped, z = z, w.z = w_flipped * z)
+    
+  } # IF
+  
+  
+  # fit the model
+  model <- cmprsk::crr(ftime = time, 
+                       fstatus = status, 
+                       cov1 = X_stage2, variance = TRUE,
+                       failcode = failcode,... = ...)
+  
+  # get linear predictor with regular and reversed treatment assignment 
+  lp_reg  <- as.numeric(X_stage2 %*% model$coef)
+  lp_rev  <- as.numeric(X_stage2_rev %*% model$coef)
+  
+  # prepare the predict object
+  prep.pred <- prep_predict(time = time, status = status, k = failcode)
+  
+  # get the survival functions
+  surv_obj_reg <- survival_cmprsk(time = time, status = status, 
+                                  lp = lp_reg, prep_predict_object = prep.pred, 
+                                  failcode = failcode)
+  surv_obj_rev <- survival_cmprsk(time = time, status = status, 
+                                  lp = lp_rev, prep_predict_object = prep.pred, 
+                                  failcode = failcode)
+  
+  # get sorted unique failure times to obtain survival curves
+  time_unique    <- sort(unique(time), decreasing = FALSE)
+  surv_curve_reg <- surv_obj_reg$surv(time_unique)
+  surv_curve_rev <- surv_obj_rev$surv(time_unique)
+  
+  # use survival curves to estimate potential failure times
+  fail_reg <- expected_survival(S.hat = surv_curve_reg, Y.grid = time_unique)
+  fail_rev <- expected_survival(S.hat = surv_curve_rev, Y.grid = time_unique)
+  
+  
+  # return
+  return(list(model = model,
+              failure = list(regular = fail_reg, counterfactual = fail_rev),
+              funs = list(regular = surv_obj_reg, counterfactual = surv_obj_rev)
+  ))
+} # FUN
