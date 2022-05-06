@@ -29,7 +29,9 @@ C_benefit <- function(y, w, pred_ben){
   
   # return
   return(list(estimate = unname(c.index.benefit.arr["C Index"]),
-              stderr   = unname(c.index.benefit.arr["S.D."])))
+              stderr   = unname(c.index.benefit.arr["S.D."]),
+              lowerci  = estimate-1.96*stderr,
+              upperci  = estimate+1.96*stderr))
 } # FUN
 
 
@@ -44,5 +46,7 @@ C_outcome <- function(y, risk){
   
   hmisc.obj <- Hmisc::rcorr.cens(risk, y)
   return(list(estimate = unname(hmisc.obj["C Index"]),
-              stderr   = unname(hmisc.obj["S.D."])))
+              stderr   = unname(hmisc.obj["S.D."]),
+              lowerci  = estimate-1.96*stderr,
+              upperci  = estimate+1.96*stderr))
 } # FUN
