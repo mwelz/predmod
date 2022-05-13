@@ -307,9 +307,9 @@ predict_baseline_crss_NoChecks <- function(object, newX, ...)
 {
   
   ## case 1: glmnet object
-  if(inherits(x = object$model, what = "glmnet"))
+  if(inherits(x = object$model, what = "cv.glmnet"))
   {
-    out <- glmnet::predict.glmnet(
+    out <- glmnet:::predict.cv.glmnet(
       object = object$model,
       newx = newX, s = "lambda.min", 
       type = "response", ... = ...)
