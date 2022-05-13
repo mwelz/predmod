@@ -275,3 +275,54 @@ baseline_survival_nocmprsk <- function(X,
   ), class = "baseline_surv"))
   
 } # FUN
+
+
+#' Predict method for a \code{baseline_crss} object
+#' 
+#' @param object A \code{baseline_crss} object.
+#' @param newX A numeric matrix at which predictions should be performed
+#' @param ... Additional parameters to be passed down
+#' 
+#' @return A matrix of risk predictions
+#' 
+#' @export
+predict.baseline_crss <- function(object, newX, ...)
+{
+  ## input checks
+  if(!inherits(x = object, what = "baseline_crss", which = FALSE))
+  {
+    stop("object must be an instance of baseline_crss()")
+  }
+  
+  InputChecks_newX(newX)
+  InputChecks_newX_X(newX = newX, object = object)
+  
+  ## predict
+  predict_baseline_crss_NoChecks(object = object, newX = newX, ... = ...)
+  
+} # FUN
+
+
+predict_baseline_crss_NoChecks <- function(object, newX, ...)
+{
+  
+  ## case 1: glmnet object
+  if(inherits(x = object$model, what = "glmnet"))
+  {
+    out <- glmnet::predict.glmnet(
+      object = object$model,
+      newx = newX, s = "lambda.min", 
+      type = "response", ... = ...)
+    
+  } else{
+    
+    ## case 2: glm object
+    out <- unname(stats::predict.glm(object = object$model, 
+                                     newdata = as.data.frame(newX), 
+                                     type = "response", 
+                                     ... = ...))
+  } # IF
+  
+  return(matrix(out))
+
+} # FUN

@@ -54,3 +54,19 @@ InputChecks_NA <- function(list){
   
   if(any(is.na(unlist(list)))) stop("Data contains missing values")
 }
+
+InputChecks_newX <- function(newX)
+{
+  if(!(is.numeric(newX) & is.matrix(newX))) stop("newX must be a numeric matrix", call. = FALSE)
+} # FUN
+
+
+InputChecks_newX_X <- function(newX, object)
+{
+  p <- object$coefficients@Dim[1L] - 1L # account for intercept
+  if(!identical(p, ncol(newX))){
+    stop(sprintf("The number of variables in newX must be %i", p), 
+         call. = FALSE)
+  } # IF
+  
+} # FUN
