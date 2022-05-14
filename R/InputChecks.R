@@ -61,9 +61,14 @@ InputChecks_newX <- function(newX)
 } # FUN
 
 
-InputChecks_newX_X <- function(newX, object)
+InputChecks_newX_X <- function(newX, object, survival = FALSE)
 {
-  p <- object$coefficients@Dim[1L] - 1L # account for intercept
+  p <- object$coefficients@Dim[1L] 
+  
+  if(!survival){
+    p <- p - 1L # account for intercept in cross-sectional models
+  }
+  
   if(!identical(p, ncol(newX))){
     stop(sprintf("The number of variables in newX must be %i", p), 
          call. = FALSE)

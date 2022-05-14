@@ -272,7 +272,7 @@ baseline_survival_nocmprsk <- function(X,
     model = model.obj,
     lambda_min = lambda.min,
     funs = surv.obj
-  ), class = "baseline_surv"))
+  ), class = "baseline_survival"))
   
 } # FUN
 
@@ -295,7 +295,7 @@ predict.baseline_crss <- function(object, newX, ...)
   }
   
   InputChecks_newX(newX)
-  InputChecks_newX_X(newX = newX, object = object)
+  InputChecks_newX_X(newX = newX, object = object, survival = FALSE)
   
   ## predict
   predict_baseline_crss_NoChecks(object = object, newX = newX, ... = ...)
@@ -328,7 +328,7 @@ predict_baseline_crss_NoChecks <- function(object, newX, ...)
 } # FUN
 
 
-predict_baseline_surv_NoChecks <- function(object, newX, ...)
+predict_baseline_survival_NoChecks <- function(object, newX, time_eval, ...)
 {
   ### get the linear predictor (lp) at 'newX' 
   ## case 1: glmnet object
@@ -357,27 +357,43 @@ predict_baseline_surv_NoChecks <- function(object, newX, ...)
   ## convert lp to vector
   lp <- as.numeric(lp)
   
-  ## check if model is a competing risks model
-  cr <- inherits(x = object$model, what = c("crr", "fcrrp"))
+  ## calculate baseline survival probability at time_eval
+  s0 <- object$funs$basesurv(time_eval = time_eval)
   
-  ## get the survival functions
-  # even if we knew status and time, they would need to be of the same length as LP...
-  #if(cr){
-  #  
-  #  surv_fun <- survival(time = object$status_info$time,
-  #                       time, status = status, lp = lp, center = FALSE)
-  #  
-  #} else{
-  #surv.obj <- survival_cmprsk(time = time, status = status, lp = lp, 
-  #                            prep_predict_object = NULL,
-  #                            failcode = failcode)
-  #}
+  ## calculate risk as 1 - {survival probability}
+  risk <- 1.0 - s0 * exp(lp)
   
-  stop(paste0("Survival models cannot yield out-of-sample survival predictions.",
-              " The reason for this is that estimation of survival requires information ",
-              "on the status of each individual. But we don't have that information if we ",
-              "want to predict. See comments above. Predict() in cox-glmnet yields the relative risk",
-              ", which corresponds to exp(lp)."))
-  return(NULL)
+  return(matrix(risk))
+  
+} # FUN
+
+
+#' Predict method for a \code{baseline_survival} object
+#' 
+#' @param object A \code{baseline_survival} object.
+#' @param newX A numeric matrix at which predictions should be performed.
+#' @param time_eval The time at which baseline risk shall be predicted. Must be nonnegative numeric vector of length one.
+#' @param ... Additional parameters to be passed down
+#' 
+#' @return A matrix of risk predictions
+#' 
+#' @export
+predict.baseline_survival <- function(object, newX, time_eval, ...)
+{
+  ## input checks
+  if(!inherits(x = object, what = "baseline_survival", which = FALSE))
+  {
+    stop("object must be an instance of baseline_survival()")
+  }
+  
+  InputChecks_newX(newX)
+  InputChecks_newX_X(newX = newX, object = object, survival = TRUE)
+  stopifnot(length(time_eval) == 1L & is.numeric(time_eval))
+  
+  ## predict
+  predict_baseline_survival_NoChecks(object = object, 
+                                     newX = newX,
+                                     time_eval = time_eval,
+                                     ... = ...)
   
 } # FUN
