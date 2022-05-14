@@ -15,16 +15,17 @@ survival <- function(time, status, lp, center = FALSE){
   # Breslow baseline survival function 
   basesurv <- function(time_eval){
     
-    hdnom::glmnet_basesurv(time = time, event = status, lp = lp, 
-                           times.eval = time_eval, centered = center)
+    obj <- hdnom::glmnet_basesurv(
+      time = time, event = status, lp = lp, 
+      times.eval = time_eval, centered = center)
+    obj$base_surv
     
   } # FUN
   
   # returns survival probability
   surv <- function(time_eval){
     
-    basesurv_point <- basesurv(time_eval = time_eval)
-    exp( outer(-exp(lp), basesurv_point$cumulative_base_hazard))
+    t(outer(basesurv(time_eval = time_eval), exp(lp), FUN = "^"))
     
   } # FUN
   
