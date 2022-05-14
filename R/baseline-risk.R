@@ -171,7 +171,7 @@ baseline_survival_cmprsk <- function(X,
     kept.vars     <- coefs@i + 1
     
     # get linear predictor 
-    lp  <- as.numeric(cbind(1,X)[,kept.vars,drop = FALSE] %*% coefs[kept.vars])
+    lp  <- as.numeric(X[,kept.vars,drop = FALSE] %*% coefs[kept.vars])
     
   } else{
     
