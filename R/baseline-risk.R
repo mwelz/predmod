@@ -329,3 +329,58 @@ predict_baseline_crss_NoChecks <- function(object, newX, ...)
   return(matrix(out))
 
 } # FUN
+
+
+predict_baseline_surv_NoChecks <- function(object, newX, ...)
+{
+  ### get the linear predictor (lp) at 'newX' 
+  ## case 1: glmnet object
+  if(inherits(x = object$model, what = "cv.glmnet"))
+  {
+    lp <- glmnet:::predict.cv.glmnet(
+      object = object$model,
+      newx = newX, s = "lambda.min", 
+      type = "link", ... = ...) 
+    
+  } else if(inherits(x = object$model, what = c("coxph", "crr"))){
+    
+    ## case 2: no regularization
+    # applies to 'coxph' and 'crr' objects
+    lp <- newX %*% as.numeric(object$coefficients)
+    
+  } else{
+    
+    ## case 3: regularized competing risks model (class 'fcrrp')
+    # get indices of kept variables (account for zero indexing)
+    kept_vars <- object$coefficients@i + 1
+    lp        <- newX[,kept_vars,drop = FALSE] %*% object$coefficients[kept_vars]
+    
+  } # IF
+  
+  ## convert lp to vector
+  lp <- as.numeric(lp)
+  
+  ## check if model is a competing risks model
+  cr <- inherits(x = object$model, what = c("crr", "fcrrp"))
+  
+  ## get the survival functions
+  # even if we knew status and time, they would need to be of the same length as LP...
+  #if(cr){
+  #  
+  #  surv_fun <- survival(time = object$status_info$time,
+  #                       time, status = status, lp = lp, center = FALSE)
+  #  
+  #} else{
+  #surv.obj <- survival_cmprsk(time = time, status = status, lp = lp, 
+  #                            prep_predict_object = NULL,
+  #                            failcode = failcode)
+  #}
+  
+  stop(paste0("Survival models cannot yield out-of-sample survival predictions.",
+              " The reason for this is that estimation of survival requires information ",
+              "on the status of each individual. But we don't have that information if we ",
+              "want to predict. See comments above. Predict() in cox-glmnet yields the relative risk",
+              ", which corresponds to exp(lp)."))
+  return(NULL)
+  
+} # FUN
