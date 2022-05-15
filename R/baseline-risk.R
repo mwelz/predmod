@@ -286,7 +286,7 @@ baseline_survival_nocmprsk <- function(X,
 #' @return A matrix of risk predictions
 #' 
 #' @export
-predict.baseline_crss <- function(object, newX, ...)
+predict.baseline_risk <- function(object, newX, ...)
 {
   ## input checks
   if(!inherits(x = object, what = "baseline_crss", which = FALSE))
