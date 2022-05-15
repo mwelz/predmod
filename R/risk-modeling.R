@@ -585,7 +585,7 @@ risk_model_stage2_cmprsk <- function(status, time, w, z,
 #' @return A matrix of risk predictions
 #' 
 #' @export
-predict.risk_model <- function(object, newX, neww, newz = NULL, ...)
+predict.risk_model <- function(object, neww, newX = NULL, newz = NULL, ...)
 {
   ## input checks
   if(!inherits(x = object, what = "predmod_crss", which = FALSE))
@@ -593,26 +593,45 @@ predict.risk_model <- function(object, newX, neww, newz = NULL, ...)
     stop("object must be an instance of predmod_crss()")
   }
   
+  ## check correctness of neww
   InputChecks_W(neww)
-  InputChecks_newX(newX)
-  InputChecks_equal.length2(neww, newX)
-  InputChecks_newX_X(newX = newX, object = object, survival = FALSE)
   
-  if(is.null(object$models$baseline) & is.null(newz))
+  ## if no newz is passed, we need both newX and baseline model
+  if(is.null(newz))
   {
-    stop(paste0("No baseline risk model was fitted in 'object'. ",
-                " Therefore, please provide a vector 'newz'"))
+    if(is.null(object$models$baseline))
+    {
+      ## case 1: no baseline model => stop
+      stop(paste0("No baseline risk model was fitted in 'object'. ",
+                  " Therefore, please provide a vector 'newz'"), 
+           call. = FALSE)
+    } else if(is.null(newX)){
+      
+      ## case 2: no newX => stop
+      stop("Please pass a matrix 'newX' to generate baseline risk predictions", 
+           call. = FALSE) 
+    } else{
+      
+      ## case 3: both baseline model and passed
+      # check if newX is correctly specified
+      InputChecks_newX(newX)
+      InputChecks_equal.length2(neww, newX)
+      InputChecks_newX_X(newX = newX,
+                         object = object$models$baseline, 
+                         survival = FALSE)
+    } # IF
   } # IF
   
   ## predict
   predict_risk_model_NoChecks(object = object,
-                              newX = newX, 
+                              neww = neww, 
+                              newX = newX,
                               newz = newz, ... = ...)
   
 } # FUN
 
 
-predict_risk_model_NoChecks <- function(object, newX, neww, newz = NULL, ...)
+predict_risk_model_NoChecks <- function(object, neww, newX, newz, ...)
 {
   ## get model object from 2nd stage
   mod <- object$models$stage2$model
@@ -640,18 +659,22 @@ predict_risk_model_NoChecks <- function(object, newX, neww, newz = NULL, ...)
   if(object$inputs$constant){
     
     # prepare X for second stage...
-    X_stage2 <- cbind(w = neww, z = z)
+    X_stage2 <- cbind(w = neww, z = as.numeric(z))
     
     # ... and its counterpart with flipped w
-    X_stage2_rev <- cbind(w = w_flipped, z = z)
+    X_stage2_rev <- cbind(w = w_flipped, z = as.numeric(z))
     
   } else{
     
     # prepare X for second stage...
-    X_stage2 <- cbind(w = neww, z = z, w.z = neww * z)
+    X_stage2 <- cbind(w = neww,
+                      z = as.numeric(z), 
+                      w.z = as.numeric(neww * z))
     
     # ... and its counterpart with flipped w
-    X_stage2_rev <- cbind(w = w_flipped, z = z, w.z = w_flipped * z)
+    X_stage2_rev <- cbind(w = w_flipped,
+                          z = as.numeric(z),
+                          w.z = as.numeric(w_flipped * z))
     
   } # IF
   
