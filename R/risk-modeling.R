@@ -88,9 +88,9 @@ risk_model <- function(X,
                         concordance = list(outcome_baseline = C_outcome_stage1,
                                            outcome = C_outcome(y = status_bin,
                                                                risk = risk_reg),
-                                           benefit = C_benefit(y = status_bin, 
-                                                               w = w,
-                                                               pred_ben = benefits$absolute)),
+                                           benefit =NULL),# C_benefit(y = status_bin, 
+                                                    #           w = w,
+                                                    #           pred_ben = benefits$absolute)),
                         models = list(baseline = stage1, stage2 = stage2),
                         inputs = list(status = status, status_bin = status_bin,
                                       w = w, failcode = failcode, z = z, 
@@ -569,5 +569,113 @@ risk_model_stage2_cmprsk <- function(status, time, w, z,
   return(list(model = model,
               failure = list(regular = fail_reg, counterfactual = fail_rev),
               funs = list(regular = surv_obj_reg, counterfactual = surv_obj_rev)
+  ))
+} # FUN
+
+
+
+#' Predict method for a \code{predmod_crss} object
+#' 
+#' @param object A \code{predmod_crss} object.
+#' @param newX A numeric matrix at which predictions should be performed
+#' @param neww Treatment assignment
+#' @param newz TODO
+#' @param ... Additional parameters to be passed down
+#' 
+#' @return A matrix of risk predictions
+#' 
+#' @export
+predict.risk_model <- function(object, newX, neww, newz = NULL, ...)
+{
+  ## input checks
+  if(!inherits(x = object, what = "predmod_crss", which = FALSE))
+  {
+    stop("object must be an instance of predmod_crss()")
+  }
+  
+  InputChecks_W(neww)
+  InputChecks_newX(newX)
+  InputChecks_equal.length2(neww, newX)
+  InputChecks_newX_X(newX = newX, object = object, survival = FALSE)
+  
+  if(is.null(object$models$baseline) & is.null(newz))
+  {
+    stop(paste0("No baseline risk model was fitted in 'object'. ",
+                " Therefore, please provide a vector 'newz'"))
+  } # IF
+  
+  ## predict
+  predict_risk_model_NoChecks(object = object,
+                              newX = newX, 
+                              newz = newz, ... = ...)
+  
+} # FUN
+
+
+predict_risk_model_NoChecks <- function(object, newX, neww, newz = NULL, ...)
+{
+  ## get model object from 2nd stage
+  mod <- object$models$stage2$model
+  
+  ## if no newz provided, get it via the baseline risk model
+  if(is.null(newz))
+  {
+    
+    ## get baseline risk
+    risk0 <- predict_baseline_crss_NoChecks(
+      object = object$models$baseline, 
+      newX = newX, ... = ...)
+    
+    ## take as z the linear predictor of risk
+    z <- stats::qlogis(p = risk0)
+    
+  } else{
+    z <- newz
+  } # IF
+  
+  ## flip w
+  w_flipped <- ifelse(neww == 1, 0, 1)
+  
+  ## prepare X for second stage
+  if(object$inputs$constant){
+    
+    # prepare X for second stage...
+    X_stage2 <- cbind(w = neww, z = z)
+    
+    # ... and its counterpart with flipped w
+    X_stage2_rev <- cbind(w = w_flipped, z = z)
+    
+  } else{
+    
+    # prepare X for second stage...
+    X_stage2 <- cbind(w = neww, z = z, w.z = neww * z)
+    
+    # ... and its counterpart with flipped w
+    X_stage2_rev <- cbind(w = w_flipped, z = z, w.z = w_flipped * z)
+    
+  } # IF
+  
+  
+  ## predict risk with regular w... 
+  risk_reg <- as.numeric(
+    stats::predict.glm(object = mod, 
+                       newdata = as.data.frame(X_stage2),
+                       type = "response"))
+  
+  ## ... and with flipped w
+  risk_rev <- as.numeric(
+    stats::predict.glm(object = mod, 
+                       newdata = as.data.frame(X_stage2_rev),
+                       type = "response"))
+  
+  ## calculate predicted benefits
+  benefits <- get_predicted_benefits_NoChecks(
+    risk_reg = risk_reg, 
+    risk_rev = risk_rev,
+    w = neww)
+  
+  return(cbind(
+    absolute = benefits$absolute,
+    relative = benefits$relative
   ))
 } # FUN
