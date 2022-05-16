@@ -81,7 +81,7 @@ risk_model <- function(X,
   # return
   return(structure(list(benefits = benefits,
                         coefficients = list(baseline = stage1$coefficients,
-                                            stage2 = summary(stage2$model)$coefficients),
+                                            stage2 = get_coefs(stage2$model)),
                         risk = list(baseline = baseline.risk,
                                     regular = as.matrix(risk_reg),
                                     counterfactual = as.matrix(risk_rev)),
@@ -300,7 +300,7 @@ risk_model_survival_nocmprisk <- function(X,
                                           w = w)
   
   # coefficient summary
-  temp <- summary(stage2$model)$coefficients
+  temp <- get_coefs(stage2$model)
   est  <- temp[, "coef"]
   se   <- temp[, "se(coef)"]
   t    <- est / se
@@ -367,9 +367,13 @@ risk_model_stage2_nocmprsk <- function(status, time, w, z,
   model <- survival::coxph(survival::Surv(time = time, event = status)~.,
                            data = data.frame(time, status, X_stage2), ...)
   
+  # get the coefficients and account for possibility of NA-coefs (due to multicollinearity)
+  cfs  <- model$coefficients
+  keep <- !is.na(cfs)
+  
   # get linear predictor with regular and reversed treatment assignment 
-  lp_reg  <- as.numeric(X_stage2 %*% model$coefficients)
-  lp_rev  <- as.numeric(X_stage2_rev %*% model$coefficients)
+  lp_reg  <- as.numeric(X_stage2[,keep, drop = FALSE] %*% model$coefficients[keep])
+  lp_rev  <- as.numeric(X_stage2_rev[,keep, drop = FALSE] %*% model$coefficients[keep])
   
   # get the survival functions
   surv_obj_reg <- survival(time = time, status = status, lp = lp_reg, center = FALSE)
@@ -533,7 +537,6 @@ risk_model_stage2_cmprsk <- function(status, time, w, z,
     
   } # IF
   
-  
   # fit the model
   model <- cmprsk::crr(ftime = time, 
                        fstatus = status, 
@@ -585,7 +588,7 @@ risk_model_stage2_cmprsk <- function(status, time, w, z,
 #' @return A matrix of risk predictions
 #' 
 #' @export
-predict.risk_model <- function(object, neww, newX = NULL, newz = NULL, ...)
+predict.risk_model <- function(object, neww, newz = NULL, newX = NULL, ...)
 {
   ## input checks
   if(!inherits(x = object, what = "predmod_crss", which = FALSE))
@@ -701,4 +704,118 @@ predict_risk_model_NoChecks <- function(object, neww, newX, newz, ...)
     absolute = benefits$absolute,
     relative = benefits$relative
   ))
+} # FUN
+
+
+
+#' Predict method for a \code{predmod_surv} object
+#' 
+#' @param object A \code{predmod_surv} object.
+#' @param newX A numeric matrix at which predictions should be performed
+#' @param neww Treatment assignment
+#' @param newz TODO
+#' @param time_eval The time at which baseline risk shall be predicted. Must be nonnegative numeric vector of length one.
+#' @param ... Additional parameters to be passed down
+#' 
+#' @return A matrix of risk predictions
+#' 
+#' @export
+predict.risk_model_survival <- function(object, neww, time_eval, newz = NULL, newX = NULL, ...)
+{
+  ## input checks
+  if(!inherits(x = object, what = "predmod_surv", which = FALSE))
+  {
+    stop("object must be an instance of predmod_surv()")
+  }
+  
+  ## check correctness of neww and time_eval
+  InputChecks_W(neww)
+  stopifnot(length(time_eval) == 1L & is.numeric(time_eval))
+  
+  ## if no newz is passed, we need both newX and baseline model
+  if(is.null(newz))
+  {
+    if(is.null(object$models$baseline))
+    {
+      ## case 1: no baseline model => stop
+      stop(paste0("No baseline risk model was fitted in 'object'. ",
+                  " Therefore, please provide a vector 'newz'"), 
+           call. = FALSE)
+    } else if(is.null(newX)){
+      
+      ## case 2: no newX => stop
+      stop("Please pass a matrix 'newX' to generate baseline risk predictions", 
+           call. = FALSE) 
+    } else{
+      
+      ## case 3: both baseline model and passed
+      # check if newX is correctly specified
+      InputChecks_newX(newX)
+      InputChecks_equal.length2(neww, newX)
+      InputChecks_newX_X(newX = newX,
+                         object = object$models$baseline, 
+                         survival = TRUE)
+    } # IF
+  } # IF
+  
+  ## predict
+  predict_risk_survival_NoChecks(object    = object,
+                                 neww      = neww, 
+                                 time_eval = time_eval,
+                                 newX      = newX,
+                                 newz      = newz, ... = ...)
+  
+} # FUN
+
+
+predict_risk_survival_NoChecks <- function(object, neww, time_eval, newX, newz, ...)
+{
+  ## get model object from 2nd stage
+  mod <- object$models$stage2$model
+  
+  ## if no newz provided, get it via the baseline risk model
+  if(is.null(newz))
+  {
+    
+    ## get baseline risk
+    risk0 <- predict_baseline_survival_NoChecks(
+      object = object$models$baseline,
+      time_eval = time_eval,
+      newX = newX, ... = ...)
+    
+    ## take as z the linear predictor of risk
+    z <- stats::qlogis(p = risk0)
+    
+  } else{
+    z <- newz
+  } # IF
+  
+  ## flip w
+  w_flipped <- ifelse(neww == 1, 0, 1)
+  
+  ## prepare X for second stage
+  if(object$inputs$constant){
+    
+    # prepare X for second stage...
+    X_stage2 <- cbind(w = neww, z = as.numeric(z))
+    
+    # ... and its counterpart with flipped w
+    X_stage2_rev <- cbind(w = w_flipped, z = as.numeric(z))
+    
+  } else{
+    
+    # prepare X for second stage...
+    X_stage2 <- cbind(w = neww,
+                      z = as.numeric(z), 
+                      w.z = as.numeric(neww * z))
+    
+    # ... and its counterpart with flipped w
+    X_stage2_rev <- cbind(w = w_flipped,
+                          z = as.numeric(z),
+                          w.z = as.numeric(w_flipped * z))
+    
+  } # IF
+  
+  stop("continue with the prediction method of survival risk model")
+  
 } # FUN

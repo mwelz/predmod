@@ -4,16 +4,16 @@
 \alias{predict.risk_model}
 \title{Predict method for a \code{predmod_crss} object}
 \usage{
-\method{predict}{risk_model}(object, newX, neww, newz = NULL, ...)
+\method{predict}{risk_model}(object, neww, newz = NULL, newX = NULL, ...)
 }
 \arguments{
 \item{object}{A \code{predmod_crss} object.}
 
-\item{newX}{A numeric matrix at which predictions should be performed}
-
 \item{neww}{Treatment assignment}
 
 \item{newz}{TODO}
+
+\item{newX}{A numeric matrix at which predictions should be performed}
 
 \item{...}{Additional parameters to be passed down}
 }
