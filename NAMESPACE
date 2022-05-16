@@ -3,6 +3,7 @@
 S3method(predict,baseline_risk)
 S3method(predict,baseline_survival)
 S3method(predict,risk_model)
+S3method(predict,risk_model_survival)
 export(C_benefit)
 export(C_outcome)
 export(average_treatment_effect)
