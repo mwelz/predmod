@@ -4,7 +4,13 @@ Predictive modeling of heterogeneous treatment effects in medicine.
 # Todo list
 - [ ] Can we bootstrap standard error of relative risk estimate? No we cannot, so don't compute SE for relative risks
 - [ ] WA audio
-- [ ] external validation function: predict methods  
+- [ ] external validation function: predict methods 
+- [ ] If status is noise, then C benefit throws error in risk model, so I've commented it out for now. Address!
+- [ ] Add input check for z and newz in risk model and better input check for X
+- [ ] new class structure: differentiate between risk and effect model
+- [ ] In risk model: relax requirement that X is needed when z is passed
+- [ ] In crr risk model: account for perfect collinearity in 2nd stage with plm::detect.lindep(X_stage2, suppressPrint = TRUE)
+- [ ] Finish predict method for survival risk model
 
 # Examples
 ## Complete case
