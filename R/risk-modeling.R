@@ -11,6 +11,8 @@
 #' @param alpha The elasticnet mixing parameter for regularization in a potential baseline risk model to obtain the linear predictor to be used as \code{z}. Only applicable if \code{z = NULL}. See \code{\link{baseline_risk}} for details.
 #' @param failcode Code of status that denotes the failure type of interest. Default is one.
 #' @param constant Shall \eqn{\beta_3 = 0} be enforced in the logistic regression model above? If \code{TRUE}, then this is equivalent to assuming that there is a constant treatment effect. Default is \code{FALSE}.
+#' @param LRT shall likelihood ratio test performed to test if there is a constant treatment effect? Default is \code{FALSE}.
+#' @param significance_level Significance level of possible likelihood ratio test. Only applicable if \code{LRT = TRUE}.
 #' @param ... Additional arguments to be passed.
 #' 
 #' @return A \code{predmod_ordinary} object.
@@ -23,6 +25,8 @@ risk_model <- function(X,
                        alpha = 1,
                        failcode = 1,
                        constant = FALSE,
+                       LRT = FALSE,
+                       significance_level = 0.05,
                        ...){
   
   # input checks
@@ -63,11 +67,23 @@ risk_model <- function(X,
   
 
   ## stage 2
-  stage2 <- risk_model_stage2(status_bin = status_bin, 
-                              w = w, 
-                              w_flipped = ifelse(w == 1, 0, 1), 
-                              z = z, 
-                              constant = constant)
+  if(LRT)
+  {
+    stage2 <- LRT(status = status_bin, 
+                  w = w, 
+                  w_flipped = ifelse(w == 1, 0, 1), 
+                  z = z, 
+                  significance_level = significance_level,
+                  ... = ...)
+  } else{
+    stage2 <- risk_model_stage2(status_bin = status_bin, 
+                                w = w, 
+                                w_flipped = ifelse(w == 1, 0, 1), 
+                                z = z, 
+                                constant = constant,
+                                ...  = ...)
+  } # IF
+  
 
   # extract risk estimates
   risk_reg <- stage2$risk$regular
@@ -152,10 +168,71 @@ risk_model_stage2 <- function(status_bin, w, z,
   
   # return
   return(list(model = model,
-              risk = list(regular = risk_reg, counterfactual = risk_rev)
+              risk = list(regular = risk_reg, counterfactual = risk_rev),
+              deviance = NULL, pval_LRT = NULL
               ))
 } # FUN
 
+
+#' calculate likelihood ratio test statistic (LRT)
+#' 
+#' LRT between models with and without constant treatment effect
+#' @param status A \strong{binary} vector of status. Zero is survivor, one is failure.
+#' @param A binary treatment assignment status.
+#' @param w_flipped Treatment assignment status, but flipped .
+#' @param z TODO
+#' @param significance_level significance level of test
+#' @param ... Additional arguments
+#' 
+#' @noRd
+LRT <- function(status, w, w_flipped, z, significance_level = 0.05, ...)
+{
+  
+  ## fit restricted and full model
+  stage2_0 <- 
+    risk_model_stage2(status_bin = status, 
+                      w = w, 
+                      w_flipped = w_flipped, 
+                      z = z, 
+                      constant = TRUE, 
+                      ... = ...)
+  
+  stage2_full <- 
+    risk_model_stage2(status_bin = status, 
+                      w = w, 
+                      w_flipped = w_flipped, 
+                      z = z, 
+                      constant = FALSE, 
+                      ... = ...)
+  
+  mod_0    <- stage2_0$model
+  mod_full <- stage2_full$model
+  
+  ## calculate deviance and p-value of the LRT test
+  lmtest_obj <- lmtest::lrtest(mod_full, mod_0)
+  deviance   <- 2.0 * abs(diff(lmtest_obj$LogLik))
+  pval       <- stats::pchisq(deviance, df = 1L, 
+                              lower.tail = FALSE)
+
+  if(pval < significance_level)
+  {
+    ## case 1: reject the null of the models having equal fit
+    # in this case, go for the full model
+    out <- stage2_full
+  } else{
+    
+    ## case 2: do not reject null of equal fit
+    # in this case, go for smaller model
+    out <- stage2_0
+  }
+  
+  # add deviance and p-value
+  out$deviance <- deviance
+  out$pval_LRT <- pval
+  
+  return(out)
+  
+} # FUN
 
 
 

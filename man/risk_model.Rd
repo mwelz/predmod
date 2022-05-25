@@ -12,6 +12,8 @@ risk_model(
   alpha = 1,
   failcode = 1,
   constant = FALSE,
+  LRT = FALSE,
+  significance_level = 0.05,
   ...
 )
 }
@@ -29,6 +31,10 @@ risk_model(
 \item{failcode}{Code of status that denotes the failure type of interest. Default is one.}
 
 \item{constant}{Shall \eqn{\beta_3 = 0} be enforced in the logistic regression model above? If \code{TRUE}, then this is equivalent to assuming that there is a constant treatment effect. Default is \code{FALSE}.}
+
+\item{LRT}{shall likelihood ratio test performed to test if there is a constant treatment effect? Default is \code{FALSE}.}
+
+\item{significance_level}{Significance level of possible likelihood ratio test. Only applicable if \code{LRT = TRUE}.}
 
 \item{...}{Additional arguments to be passed.}
 }
