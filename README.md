@@ -10,7 +10,8 @@ Predictive modeling of heterogeneous treatment effects in medicine.
 - [ ] new class structure: differentiate between risk and effect model
 - [ ] In risk model: relax requirement that X is needed when z is passed
 - [ ] In crr risk model: account for perfect collinearity in 2nd stage with plm::detect.lindep(X_stage2, suppressPrint = TRUE)
-- [ ] Finish predict method for survival risk model
+- [ ] Finish predict method for survival risk model (especially model: done in riskmodelcrss)
+- [ ] kick out duplicate objects in return
 
 # Examples
 ## Complete case

@@ -275,3 +275,20 @@ get_coefs <- function(model)
   }
   cfs
 } # FUN
+
+
+#' pooled LRT for imputed data
+#' 
+#' @param x A list of risk models
+LRT_pooled <- function(x)
+{
+  stopifnot(is.list(x))
+  m <- length(x)
+  stopifnot(all(sapply(seq_len(m), 
+         function(i) inherits(x[[i]], what = c("predmod_crss", "predmod_surv") ))))
+  stopifnot(all(sapply(seq_len(m),
+                       function(i) !is.null(x[[i]]$models$stage2$deviance))))
+  
+  ### continue here
+  
+}
