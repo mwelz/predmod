@@ -178,7 +178,8 @@ predicted_benefit_inference <- function(x,
                                         time_eval = NULL,
                                         significance_level = 0.05){
   
-  ate_obj <- average_treatment_effect(x = x, 
+  ate_obj <- average_treatment_effect_NoChecks(
+                                      x = x, 
                                       subset = subset,
                                       relative = relative,
                                       benefits_risk = benefits_risk, 

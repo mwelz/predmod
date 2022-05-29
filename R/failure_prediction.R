@@ -5,7 +5,7 @@
 #' @export
 failure <- function(x, time = NULL)
 {
-  stopifnot(inherits(x, what = "risk_model_surv"))
+  stopifnot(inherits(x, what = c("risk_model_surv", "effect_model_surv")))
   
   if(is.null(time)){
     time. <- x$inputs$time

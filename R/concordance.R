@@ -63,7 +63,10 @@ C_outcome <- function(y, risk){
 #' @export
 concordance <- function(x){
   
-  stopifnot(inherits(x, what = c("risk_model_crss", "risk_model_surv")))
+  stopifnot(inherits(x, what = c("risk_model_crss", 
+                                 "risk_model_surv", 
+                                 "effect_model_crss",
+                                 "effect_model_surv")))
   
   if(is.null(x$risk$baseline)){
     

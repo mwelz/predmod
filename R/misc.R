@@ -69,9 +69,27 @@ average_treatment_effect <- function(x,
                                      benefits_risk = FALSE,
                                      time_eval = NULL){
   
+  stopifnot(inherits(x, what = c("risk_model_crss", "risk_model_surv",
+                                 "effect_model_crss", "effect_model_surv")))
+  
+  average_treatment_effect_NoChecks(x = x, 
+                                    subset = subset,
+                                    relative = relative,
+                                    benefits_risk = benefits_risk,
+                                    time_eval = time_eval)
+ 
+} # FUN
+
+
+average_treatment_effect_NoChecks <- function(x, 
+                                              subset = NULL, 
+                                              relative = FALSE,
+                                              benefits_risk = FALSE,
+                                              time_eval = NULL)
+{
+  
   clss <- class(x)
   w    <- x$inputs$w
-  stopifnot(clss %in% c("predmod_crss", "predmod_surv"))
   
   # prepare subset object
   if(!is.null(subset)){
@@ -84,7 +102,7 @@ average_treatment_effect <- function(x,
   if(is.null(time_eval)){
     
     # if no value provided, take time_eval used in model fitting
-    if(clss == "predmod_surv"){
+    if(clss %in% c("risk_model_surv", "effect_model_surv")){
       time_eval <- x$input$time_eval
     } # IF clss
     
@@ -100,7 +118,7 @@ average_treatment_effect <- function(x,
     # in case of absolute effect, we need to decompose the effect
     # so that we can apply a two-sample test
     
-    if(clss == "predmod_crss"){
+    if(clss %in% c("risk_model_crss", "effect_model_crss")){
       
       # case 1: predmod_ordinary
       x_reg <- x$risk$regular
@@ -139,7 +157,7 @@ average_treatment_effect <- function(x,
   } else {
     
     # relative effect: here we can simply use the direct estimated benefits
-    if(clss == "predmod_crss"){
+    if(clss %in% c("risk_model_crss", "effect_model_crss")){
       
       # case 1: benefits concern risk in cross-sectional model
       ate <- mean(x$benefits$relative[subset])
@@ -167,10 +185,10 @@ average_treatment_effect <- function(x,
     sderr <- NA_real_
     
   } # IF !relative
- 
+  
   # return
   return(structure(c(ate, sderr), names = c("ATE", "Std. Error")))
-
+  
 } # FUN
 
 
@@ -275,6 +293,28 @@ get_coefs <- function(model)
   }
   cfs
 } # FUN
+
+
+# helper function for effect models
+interacted_matrix <- function(X, w, interacted){
+  
+  X.nam <- colnames(X)
+  
+  if(is.character(interacted)){
+    idx   <- which(X.nam %in% interacted)
+    stopifnot(all(interacted %in% X.nam))
+  } else if(is.numeric(interacted)){
+    idx <- interacted
+    stopifnot(max(interacted) <= ncol(X))
+  } else stop("Indices must be either numeric or character")
+  
+  # make the matrix
+  intmat <- sapply(idx, function(j) w * X[, j, drop = FALSE] )
+  out <- cbind(X, w, intmat)
+  colnames(out) <- c(X.nam, "w", paste0("w.", X.nam[idx]))
+  out
+  
+} # FOR
 
 
 #' pooled LRT for imputed data
