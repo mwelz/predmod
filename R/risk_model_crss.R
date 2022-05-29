@@ -55,13 +55,10 @@ risk_model <- function(X,
     # extract baseline risk
     baseline.risk <- stage1$risk
     
-    # estimate concordance on 1st stage
-    C_outcome_stage1 <- C_outcome(y = status_bin, risk = baseline.risk)
-    
   } else{
     
     # in case values for z are supplied, don't fit baseline risk model
-    stage1 <- C_outcome_stage1 <- baseline.risk <- NULL
+    stage1 <- baseline.risk <- NULL
     
   } # IF
   
@@ -101,23 +98,14 @@ risk_model <- function(X,
                         risk = list(baseline = baseline.risk,
                                     regular = as.matrix(risk_reg),
                                     counterfactual = as.matrix(risk_rev)),
-                        concordance = list(outcome_baseline = C_outcome_stage1,
-                                           outcome = C_outcome(y = status_bin,
-                                                               risk = risk_reg),
-                                           benefit =NULL),# C_benefit(y = status_bin, 
-                        #           w = w,
-                        #           pred_ben = benefits$absolute)),
                         models = list(baseline = stage1$model, stage2 = stage2$model),
                         inputs = list(status = status, status_bin = status_bin,
                                       w = w, failcode = failcode, z = z, 
                                       constant = constant, alpha = alpha)
   ), 
-  class = "predmod_crss"))
+  class = "risk_model_crss"))
   
 } # FUN
-
-
-
 
 
 #' (For internal use only.) Fits the second stage risk model. 

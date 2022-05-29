@@ -10,8 +10,6 @@
 #' @noRd
 survival <- function(time, status, lp, center = FALSE){
   
-  
-  
   # Breslow baseline survival function 
   basesurv <- function(time_eval){
     

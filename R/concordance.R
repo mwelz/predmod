@@ -27,9 +27,13 @@ C_benefit <- function(y, w, pred_ben){
                             pred_ben[match.treated]) / 2
   c.index.benefit.arr <- Hmisc::rcorr.cens(pred.ben.abs.paired, obs.ben)
   
-  # return
-  return(list(estimate = unname(c.index.benefit.arr["C Index"]),
-              stderr   = unname(c.index.benefit.arr["S.D."])))
+  loc <- unname(c.index.benefit.arr["C Index"])
+  sd <- unname(c.index.benefit.arr["S.D."])
+  whisk <- stats::qnorm(0.975) * sd
+  
+  return(list(estimate = loc,
+              stderr   = sd,
+              ci95     = c(loc - whisk, loc + whisk)))
 } # FUN
 
 
@@ -43,6 +47,45 @@ C_benefit <- function(y, w, pred_ben){
 C_outcome <- function(y, risk){
   
   hmisc.obj <- Hmisc::rcorr.cens(risk, y)
-  return(list(estimate = unname(hmisc.obj["C Index"]),
-              stderr   = unname(hmisc.obj["S.D."])))
+  loc <- unname(hmisc.obj["C Index"])
+  sd <-  unname(hmisc.obj["S.D."])
+  whisk <- stats::qnorm(0.975) * sd
+  return(list(estimate = loc,
+              stderr   = sd,
+              ci95     = c(loc - whisk, loc + whisk)))
+} # FUN
+
+
+
+#' Function to predict concordance
+#' @param x A predmod object. TODO
+#' 
+#' @export
+concordance <- function(x){
+  
+  stopifnot(inherits(x, what = c("risk_model_crss", "risk_model_surv")))
+  
+  if(is.null(x$risk$baseline)){
+    
+    outcome_baseline <- NULL
+    
+  } else{
+    
+    outcome_baseline <- C_outcome(y    = x$inputs$status_bin, 
+                                  risk = as.numeric(x$risk$baseline))
+  } # IF
+  
+  outcome <- C_outcome(y = x$inputs$status_bin,
+                       risk = as.numeric(x$risk$regular))
+  
+  benefit <- C_benefit(y = x$inputs$status_bin,
+                       w = x$inputs$w, 
+                       pred_ben = as.numeric(x$benefits$absolute))
+ 
+  return(list(
+    outcome_baseline = outcome_baseline,
+    outcome = outcome,
+    benefit = benefit
+  ))
+  
 } # FUN

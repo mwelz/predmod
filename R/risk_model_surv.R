@@ -102,13 +102,10 @@ risk_model_survival_nocmprisk <- function(X,
     # extract baseline risk
     baseline.risk <- stage1$risk
     
-    # estimate concordance on 1st stage
-    C_outcome_stage1 <- C_outcome(y = status_bin, risk = baseline.risk)
-    
   } else{
     
     # in case values for z are supplied, don't fit baseline risk model
-    stage1 <- C_outcome_stage1 <- baseline.risk <- NULL
+    stage1  <- baseline.risk <- NULL
     
   } # IF
   
@@ -119,15 +116,6 @@ risk_model_survival_nocmprisk <- function(X,
                                        w = w, z = z, 
                                        w_flipped = ifelse(w == 1, 0, 1), 
                                        constant = constant)
-  
-  # extract failure time estimates
-  fail_reg <- stage2$failure$regular
-  fail_rev <- stage2$failure$counterfactual
-  
-  # calculate predicted benefits
-  benefits <- get_predicted_benefits(risk_reg = fail_reg, 
-                                     risk_rev = fail_rev,
-                                     w = w)
   
   # get failure risk at the time of interest
   risk_reg <- 1.0 - stage2$funs$regular$surv(time_eval)
@@ -149,21 +137,12 @@ risk_model_survival_nocmprisk <- function(X,
   
 
   # return
-  return(structure(list(benefits = benefits,
+  return(structure(list(benefits = benefits_risk,
                         coefficients = list(baseline = stage1$coefficients,
                                             stage2 = cf),
                         risk = list(baseline = baseline.risk,
                                     regular = risk_reg,
                                     counterfactual = risk_rev),
-                        failure = list(regular = fail_reg, 
-                                       counterfactual = fail_rev),
-                        concordance = list(outcome_baseline = C_outcome_stage1,
-                                           outcome = C_outcome(y = status_bin,
-                                                               risk = risk_reg),
-                                           benefit = C_benefit(y = status_bin, 
-                                                               w = w,
-                                                               pred_ben = benefits_risk$absolute)),
-                        benefits_risk = benefits_risk,
                         funs = stage2$funs,
                         models = list(baseline = stage1$model, stage2 = stage2$model),
                         inputs = list(status = status, status_bin = status_bin,
@@ -171,7 +150,7 @@ risk_model_survival_nocmprisk <- function(X,
                                       w = w, failcode = failcode, z = z, 
                                       constant = constant, alpha = alpha)
   ), 
-  class = "predmod_surv"))
+  class = "risk_model_surv"))
   
   
 } # FUN
@@ -218,18 +197,8 @@ risk_model_stage2_nocmprsk <- function(status, time, w, z,
   surv_obj_reg <- survival(time = time, status = status, lp = lp_reg, center = FALSE)
   surv_obj_rev <- survival(time = time, status = status, lp = lp_rev, center = FALSE)
   
-  # get sorted unique failure times to obtain survival curves
-  time_unique <- sort(unique(time), decreasing = FALSE)
-  surv_curve_reg <- surv_obj_reg$surv(time_unique)
-  surv_curve_rev <- surv_obj_rev$surv(time_unique)
-  
-  # use survival curves to estimate potential failure times
-  fail_reg <- expected_survival(S.hat = surv_curve_reg, Y.grid = time_unique)
-  fail_rev <- expected_survival(S.hat = surv_curve_rev, Y.grid = time_unique)
-  
   # return
   return(list(model = model,
-              failure = list(regular = fail_reg, counterfactual = fail_rev),
               funs = list(regular = surv_obj_reg, counterfactual = surv_obj_rev)
   ))
 } # FUN
@@ -277,13 +246,10 @@ risk_model_survival_cmprisk <- function(X,
     # extract baseline risk
     baseline.risk <- stage1$risk
     
-    # estimate concordance on 1st stage
-    C_outcome_stage1 <- C_outcome(y = status_bin, risk = baseline.risk)
-    
   } else{
     
     # in case values for z are supplied, don't fit baseline risk model
-    stage1 <- C_outcome_stage1 <- baseline.risk <- NULL
+    stage1 <- baseline.risk <- NULL
     
   } # IF
   
@@ -296,15 +262,6 @@ risk_model_survival_cmprisk <- function(X,
                                      constant = constant,
                                      failcode = failcode)
 
-  # extract failure time estimates
-  fail_reg <- stage2$failure$regular
-  fail_rev <- stage2$failure$counterfactual
-  
-  # calculate predicted benefits
-  benefits <- get_predicted_benefits(risk_reg = fail_reg, 
-                                     risk_rev = fail_rev,
-                                     w = w)
-  
   # get failure risk at the time of interest
   risk_reg <- 1.0 - stage2$funs$regular$surv(time_eval)
   risk_rev <- 1.0 - stage2$funs$counterfactual$surv(time_eval)
@@ -324,21 +281,12 @@ risk_model_survival_cmprisk <- function(X,
   
   
   # return
-  return(structure(list(benefits = benefits,
+  return(structure(list(benefits = benefits_risk,
                         coefficients = list(baseline = stage1$coefficients,
                                             stage2 = cf),
                         risk = list(baseline = baseline.risk,
                                     regular = risk_reg,
                                     counterfactual = risk_rev),
-                        failure = list(regular = fail_reg, 
-                                       counterfactual = fail_rev),
-                        concordance = list(outcome_baseline = C_outcome_stage1,
-                                           outcome = C_outcome(y = status_bin,
-                                                               risk = risk_reg),
-                                           benefit = C_benefit(y = status_bin, 
-                                                               w = w,
-                                                               pred_ben = benefits_risk$absolute)),
-                        benefits_risk = benefits_risk,
                         funs = stage2$funs,
                         models = list(baseline = stage1$model, stage2 = stage2$model),
                         inputs = list(status = status, status_bin = status_bin,
@@ -346,7 +294,7 @@ risk_model_survival_cmprisk <- function(X,
                                       w = w, failcode = failcode, z = z, 
                                       constant = constant, alpha = alpha)
   ), 
-  class = "predmod_surv"))
+  class = "risk_model_surv"))
   
 } # FUN
 
@@ -397,19 +345,8 @@ risk_model_stage2_cmprsk <- function(status, time, w, z,
                                   lp = lp_rev, prep_predict_object = prep.pred, 
                                   failcode = failcode)
   
-  # get sorted unique failure times to obtain survival curves
-  time_unique    <- sort(unique(time), decreasing = FALSE)
-  surv_curve_reg <- surv_obj_reg$surv(time_unique)
-  surv_curve_rev <- surv_obj_rev$surv(time_unique)
-  
-  # use survival curves to estimate potential failure times
-  fail_reg <- expected_survival(S.hat = surv_curve_reg, Y.grid = time_unique)
-  fail_rev <- expected_survival(S.hat = surv_curve_rev, Y.grid = time_unique)
-  
-  
   # return
   return(list(model = model,
-              failure = list(regular = fail_reg, counterfactual = fail_rev),
               funs = list(regular = surv_obj_reg, counterfactual = surv_obj_rev)
   ))
 } # FUN
