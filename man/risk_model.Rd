@@ -12,7 +12,7 @@ risk_model(
   alpha = 1,
   failcode = 1,
   constant = FALSE,
-  LRT = FALSE,
+  LRT = TRUE,
   significance_level = 0.05,
   ...
 )

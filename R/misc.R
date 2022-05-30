@@ -281,6 +281,8 @@ intervals.quantile <- function(cutoffs){
 # 'model' is typically a glm object
 get_coefs <- function(model)
 {
+  if(is.null(model)) return(NULL)
+  
   smry <- summary(model)
   cfs <- smry$coefficients
   aliased <- smry$aliased

@@ -25,7 +25,7 @@ risk_model <- function(X,
                        alpha = 1,
                        failcode = 1,
                        constant = FALSE,
-                       LRT = FALSE,
+                       LRT = TRUE,
                        significance_level = 0.05,
                        ...){
   
@@ -66,25 +66,48 @@ risk_model <- function(X,
   ## stage 2
   if(LRT)
   {
-    stage2 <- LRT(status = status_bin, 
+    fit <- LRT(status = status_bin, 
                   w = w, 
                   w_flipped = ifelse(w == 1, 0, 1), 
                   z = z, 
                   significance_level = significance_level,
                   ... = ...)
+    
+    # extract risk estimates
+    risk_reg <- fit$models$accepted$risk$regular
+    risk_rev <- fit$models$accepted$risk$counterfactual
+    
+    # organize output
+    stage2 <- list(
+      models = list(accepted = fit$models$accepted$model, 
+                    rejected = fit$models$rejected$model),
+      deviance = fit$deviance,
+      pval_LRT = fit$pval_LRT,
+      decision = fit$decision
+    )
+    
   } else{
-    stage2 <- risk_model_stage2(status_bin = status_bin, 
+    fit <- risk_model_stage2(status_bin = status_bin, 
                                 w = w, 
                                 w_flipped = ifelse(w == 1, 0, 1), 
                                 z = z, 
                                 constant = constant,
                                 ...  = ...)
+    
+    # extract risk estimates
+    risk_reg <- fit$risk$regular
+    risk_rev <- fit$risk$counterfactual
+    
+    # organize output
+    stage2 <- list(
+      models = list(accepted = fit$model, rejected = NULL),
+      deviance = NULL,
+      pval_LRT = NULL,
+      decision = NULL
+    )
+    
   } # IF
   
-  
-  # extract risk estimates
-  risk_reg <- stage2$risk$regular
-  risk_rev <- stage2$risk$counterfactual
   
   # calculate predicted benefits
   benefits <- get_predicted_benefits(risk_reg = risk_reg, 
@@ -94,11 +117,15 @@ risk_model <- function(X,
   # return
   return(structure(list(benefits = benefits,
                         coefficients = list(baseline = stage1$coefficients,
-                                            stage2 = get_coefs(stage2$model)),
+                                            stage2 = list(
+                                              accepted = get_coefs(stage2$models$accepted),
+                                              rejected = get_coefs(stage2$models$rejected)
+                                            )),
                         risk = list(baseline = baseline.risk,
                                     regular = as.matrix(risk_reg),
                                     counterfactual = as.matrix(risk_rev)),
-                        models = list(baseline = stage1$model, stage2 = stage2$model),
+                        models = list(baseline = stage1$model, 
+                                      stage2 = stage2),
                         inputs = list(status = status, status_bin = status_bin,
                                       w = w, failcode = failcode, z = z, 
                                       constant = constant, alpha = alpha)
@@ -157,68 +184,6 @@ risk_model_stage2 <- function(status_bin, w, z,
   
   # return
   return(list(model = model,
-              risk = list(regular = risk_reg, counterfactual = risk_rev),
-              deviance = NULL, pval_LRT = NULL
+              risk = list(regular = risk_reg, counterfactual = risk_rev)
   ))
-} # FUN
-
-
-#' calculate likelihood ratio test statistic (LRT)
-#' 
-#' LRT between models with and without constant treatment effect
-#' @param status A \strong{binary} vector of status. Zero is survivor, one is failure.
-#' @param A binary treatment assignment status.
-#' @param w_flipped Treatment assignment status, but flipped .
-#' @param z TODO
-#' @param significance_level significance level of test
-#' @param ... Additional arguments
-#' 
-#' @noRd
-LRT <- function(status, w, w_flipped, z, significance_level = 0.05, ...)
-{
-  
-  ## fit restricted and full model
-  stage2_0 <- 
-    risk_model_stage2(status_bin = status, 
-                      w = w, 
-                      w_flipped = w_flipped, 
-                      z = z, 
-                      constant = TRUE, 
-                      ... = ...)
-  
-  stage2_full <- 
-    risk_model_stage2(status_bin = status, 
-                      w = w, 
-                      w_flipped = w_flipped, 
-                      z = z, 
-                      constant = FALSE, 
-                      ... = ...)
-  
-  mod_0    <- stage2_0$model
-  mod_full <- stage2_full$model
-  
-  ## calculate deviance and p-value of the LRT test
-  lmtest_obj <- lmtest::lrtest(mod_full, mod_0)
-  deviance   <- 2.0 * abs(diff(lmtest_obj$LogLik))
-  pval       <- stats::pchisq(deviance, df = 1L, 
-                              lower.tail = FALSE)
-  
-  if(pval < significance_level)
-  {
-    ## case 1: reject the null of the models having equal fit
-    # in this case, go for the full model
-    out <- stage2_full
-  } else{
-    
-    ## case 2: do not reject null of equal fit
-    # in this case, go for smaller model
-    out <- stage2_0
-  }
-  
-  # add deviance and p-value
-  out$deviance <- deviance
-  out$pval_LRT <- pval
-  
-  return(out)
-  
 } # FUN
