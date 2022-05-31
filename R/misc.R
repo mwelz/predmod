@@ -279,12 +279,18 @@ intervals.quantile <- function(cutoffs){
 
 # helper function to calculate the regression output. Accounts for the case of multicollinearity
 # 'model' is typically a glm object
-get_coefs <- function(model)
+get_coefs <- function(model, cmprsk = FALSE)
 {
   if(is.null(model)) return(NULL)
   
   smry <- summary(model)
-  cfs <- smry$coefficients
+  
+  if(!cmprsk){
+    cfs <- smry$coefficients
+  } else{
+    cfs <- smry$coef
+  }
+  
   aliased <- smry$aliased
   
   ## if there are aliased variables (i.e. collinear variables), add them to output

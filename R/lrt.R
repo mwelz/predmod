@@ -83,6 +83,10 @@ LRT_surv <- function(status, time, w, w_flipped, z,
                                z = z, 
                                constant = FALSE,
                                failcode = failcode, ... = ...)
+    
+    ## calculate deviance (LRT test statistic)
+    deviance   <- 2.0 * (stage2_full$model$loglik - stage2_0$model$loglik)
+    
   } else{
     
     stage2_0 <- 
@@ -92,7 +96,7 @@ LRT_surv <- function(status, time, w, w_flipped, z,
                                  w_flipped = w_flipped, 
                                  z = z, 
                                  constant = TRUE,
-                                 failcode = failcode, ... = ...)
+                                 ... = ...)
     
     stage2_full <- 
       risk_model_stage2_nocmprsk(status = status, 
@@ -101,15 +105,13 @@ LRT_surv <- function(status, time, w, w_flipped, z,
                                  w_flipped = w_flipped, 
                                  z = z, 
                                  constant = FALSE,
-                                 failcode = failcode, ... = ...)
+                                 ... = ...)
+    
+    ## calculate deviance (LRT test statistic)
+    deviance   <- 2.0 * (stage2_full$model$loglik[2] - stage2_0$model$loglik[2])
     
   } # IF
   
-  mod_0    <- stage2_0$model
-  mod_full <- stage2_full$model
-  
-  ## calculate deviance (LRT test statistic)
-  deviance   <- 2.0 * (mod_full$loglik - mod_0$loglik)
   
   ## return
   LRT_return(stage2_full = stage2_full,

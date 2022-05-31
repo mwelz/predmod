@@ -13,6 +13,8 @@
 #' @param alpha The elasticnet mixing parameter for regularization in a potential baseline risk model to obtain the linear predictor to be used as \code{z}. Only applicable if \code{z = NULL}. See \code{\link{baseline_risk}} for details.
 #' @param failcode Code of status that denotes the failure type of interest. Default is one.
 #' @param constant Shall \eqn{\beta_3 = 0} be enforced in the logistic regression model above? If \code{TRUE}, then this is equivalent to assuming that there is a constant treatment effect. Default is \code{FALSE}.
+#' @param LRT shall likelihood ratio test performed to test if there is a constant treatment effect? Default is \code{FALSE}.
+#' @param significance_level Significance level of possible likelihood ratio test. Only applicable if \code{LRT = TRUE}.
 #' @param ... Additional arguments to be passed.
 #' 
 #' @return A \code{predmod_ordinary} object.
@@ -27,6 +29,8 @@ risk_model_survival <- function(X,
                                 alpha = 1,
                                 failcode = 1,
                                 constant = FALSE,
+                                LRT = TRUE,
+                                significance_level = 0.05,
                                 ...)
 {
   
@@ -55,6 +59,8 @@ risk_model_survival <- function(X,
                       alpha = alpha,
                       failcode = failcode,
                       constant = constant,
+                      LRT = LRT,
+                      significance_level = significance_level,
                       ... = ...))
   
 } # FUN
@@ -70,6 +76,8 @@ risk_model_survival_nocmprisk <- function(X,
                                           alpha = 1,
                                           failcode = 1,
                                           constant = FALSE,
+                                          LRT = TRUE,
+                                          significance_level = 0.05,
                                           ...){
   
   # input checks
@@ -89,7 +97,7 @@ risk_model_survival_nocmprisk <- function(X,
     
     # in case no z is supplied, fit a baseline risk model
     stage1 <- baseline_survival_nocmprsk(X = X, 
-                                         status = status,
+                                         status = status_bin,
                                          time = time,
                                          time_eval = time_eval, 
                                          alpha = alpha,
@@ -110,41 +118,76 @@ risk_model_survival_nocmprisk <- function(X,
   } # IF
   
   
-  ## stage 2
-  stage2 <- risk_model_stage2_nocmprsk(status = status_bin, 
-                                       time = time, 
-                                       w = w, z = z, 
-                                       w_flipped = ifelse(w == 1, 0, 1), 
-                                       constant = constant)
-  
-  # get failure risk at the time of interest
-  risk_reg <- 1.0 - stage2$funs$regular$surv(time_eval)
-  risk_rev <- 1.0 - stage2$funs$counterfactual$surv(time_eval)
+  if(LRT)
+  {
+    fit <- LRT_surv(status = status_bin, 
+                    time = time,
+                    w = w, 
+                    w_flipped = ifelse(w == 1, 0, 1), 
+                    z = z, 
+                    significance_level = significance_level, 
+                    failcode = failcode,
+                    cmprsk = FALSE,
+                    ... = ...)
+    
+    # get failure risk at the time of interest
+    risk_reg <- 1.0 - fit$models$accepted$funs$regular$surv(time_eval)
+    risk_rev <- 1.0 - fit$models$accepted$funs$counterfactual$surv(time_eval)
+    
+    # organize output
+    stage2 <- list(
+      models = list(accepted = fit$models$accepted$model, 
+                    rejected = fit$models$rejected$model),
+      funs = list(accepted = fit$models$accepted$funs,
+                  rejected = fit$models$rejected$funs),
+      deviance = fit$deviance,
+      pval_LRT = fit$pval_LRT,
+      decision = fit$decision
+    )
+    
+  } else{
+    
+    fit <- risk_model_stage2_nocmprsk(status = status_bin, 
+                                      time = time, 
+                                      w = w, z = z, 
+                                      w_flipped = ifelse(w == 1, 0, 1), 
+                                      constant = constant,
+                                      ... = ...)
+    
+    # get failure risk at the time of interest
+    risk_reg <- 1.0 - fit$funs$regular$surv(time_eval)
+    risk_rev <- 1.0 - fit$funs$counterfactual$surv(time_eval)
+    
+    # organize output
+    stage2 <- list(
+      models = list(accepted = fit$model, 
+                    rejected = NULL),
+      funs = list(accepted = fit$funs,
+                  rejected = NULL),
+      deviance = NULL,
+      pval_LRT = NULL,
+      decision = NULL
+    )
+    
+  } # IF
   
   # get benefits of risk
   benefits_risk <- get_predicted_benefits(risk_reg = risk_reg, 
                                           risk_rev = risk_rev,
                                           w = w)
   
-  # coefficient summary
-  temp <- get_coefs(stage2$model)
-  est  <- temp[, "coef"]
-  se   <- temp[, "se(coef)"]
-  t    <- est / se
-  p    <-  2 * stats::pnorm(abs(t), lower.tail = FALSE)
-  cf   <- cbind(est, se, t, p)
-  colnames(cf) <- c("Estimate", "Std. Error", "z value", "Pr(>|z|)")
-  
-
   # return
   return(structure(list(benefits = benefits_risk,
                         coefficients = list(baseline = stage1$coefficients,
-                                            stage2 = cf),
+                                            stage2 = list(
+                                              accepted = format_surv_output(stage2$models$accepted, cmprsk = FALSE),
+                                              rejected = format_surv_output(stage2$models$rejected, cmprsk = FALSE)
+                                            )),
                         risk = list(baseline = baseline.risk,
                                     regular = risk_reg,
                                     counterfactual = risk_rev),
-                        funs = stage2$funs,
-                        models = list(baseline = stage1$model, stage2 = stage2$model),
+                        funs = stage2$funs$accepted,
+                        models = list(baseline = stage1$model, stage2 = stage2),
                         inputs = list(status = status, status_bin = status_bin,
                                       time = time, time_eval = time_eval, 
                                       w = w, failcode = failcode, z = z, 
@@ -214,6 +257,8 @@ risk_model_survival_cmprisk <- function(X,
                                         alpha = 1,
                                         failcode = 1,
                                         constant = FALSE,
+                                        LRT = TRUE,
+                                        significance_level = 0.05,
                                         ...){
   
   # input checks
@@ -253,44 +298,80 @@ risk_model_survival_cmprisk <- function(X,
     
   } # IF
   
+  if(LRT)
+  {
+    fit <- LRT_surv(status = status, 
+                    time = time,
+                    w = w, 
+                    w_flipped = ifelse(w == 1, 0, 1), 
+                    z = z, 
+                    significance_level = significance_level, 
+                    failcode = failcode,
+                    cmprsk = TRUE,
+                    ... = ...)
+    
+    # get failure risk at the time of interest
+    risk_reg <- 1.0 - fit$models$accepted$funs$regular$surv(time_eval)
+    risk_rev <- 1.0 - fit$models$accepted$funs$counterfactual$surv(time_eval)
+    
+    # organize output
+    stage2 <- list(
+      models = list(accepted = fit$models$accepted$model, 
+                    rejected = fit$models$rejected$model),
+      funs = list(accepted = fit$models$accepted$funs,
+                  rejected = fit$models$rejected$funs),
+      deviance = fit$deviance,
+      pval_LRT = fit$pval_LRT,
+      decision = fit$decision
+    )
+    
+  } else{
+    
+    fit <- risk_model_stage2_cmprsk(status = status, 
+                                    time = time, 
+                                    w = w, z = z, 
+                                    w_flipped = ifelse(w == 1, 0, 1), 
+                                    constant = constant,
+                                    failcode = failcode,
+                                    ... = ...)
+    
+    # get failure risk at the time of interest
+    risk_reg <- 1.0 - fit$funs$regular$surv(time_eval)
+    risk_rev <- 1.0 - fit$funs$counterfactual$surv(time_eval)
+    
+    # organize output
+    stage2 <- list(
+      models = list(accepted = fit$model, 
+                    rejected = NULL),
+      funs = list(accepted = fit$funs,
+                  rejected = NULL),
+      deviance = NULL,
+      pval_LRT = NULL,
+      decision = NULL
+    )
+    
+  } # IF
   
-  ## stage 2
-  stage2 <- risk_model_stage2_cmprsk(status = status_bin, 
-                                     time = time, 
-                                     w = w, z = z, 
-                                     w_flipped = ifelse(w == 1, 0, 1), 
-                                     constant = constant,
-                                     failcode = failcode)
-
-  # get failure risk at the time of interest
-  risk_reg <- 1.0 - stage2$funs$regular$surv(time_eval)
-  risk_rev <- 1.0 - stage2$funs$counterfactual$surv(time_eval)
   
   # get benefits of risk
   benefits_risk <- get_predicted_benefits(risk_reg = risk_reg, 
                                           risk_rev = risk_rev,
                                           w = w)
   
-  # coefficient summary
-  est <- stage2$model$coef
-  se  <- sqrt(diag(stage2$model$var))
-  t   <- est / se
-  p   <-  2 * stats::pnorm(abs(t), lower.tail = FALSE)
-  cf  <- cbind(est, se, t, p)
-  colnames(cf) <- c("Estimate", "Std. Error", "z value", "Pr(>|z|)")
-  
-  
   # return
   return(structure(list(benefits = benefits_risk,
                         coefficients = list(baseline = stage1$coefficients,
-                                            stage2 = cf),
+                                            stage2 = list(
+                                              accepted = format_surv_output(stage2$models$accepted, cmprsk = TRUE),
+                                              rejected = format_surv_output(stage2$models$rejected, cmprsk = TRUE)
+                                            )),
                         risk = list(baseline = baseline.risk,
                                     regular = risk_reg,
                                     counterfactual = risk_rev),
-                        funs = stage2$funs,
-                        models = list(baseline = stage1$model, stage2 = stage2$model),
+                        funs = stage2$funs$accepted,
+                        models = list(baseline = stage1$model, stage2 = stage2),
                         inputs = list(status = status, status_bin = status_bin,
-                                      time = time, time_eval = time_eval,
+                                      time = time, time_eval = time_eval, 
                                       w = w, failcode = failcode, z = z, 
                                       constant = constant, alpha = alpha)
   ), 
@@ -349,4 +430,22 @@ risk_model_stage2_cmprsk <- function(status, time, w, z,
   return(list(model = model,
               funs = list(regular = surv_obj_reg, counterfactual = surv_obj_rev)
   ))
+} # FUN
+
+
+
+format_surv_output <- function(x, cmprsk)
+{
+  if(is.null(x)) return(x)
+  
+  # coefficient summary
+  temp <- get_coefs(x, cmprsk = cmprsk)
+  est  <- temp[, "coef"]
+  se   <- temp[, "se(coef)"]
+  t    <- est / se
+  p    <-  2 * stats::pnorm(abs(t), lower.tail = FALSE)
+  cf   <- cbind(est, se, t, p)
+  colnames(cf) <- c("Estimate", "Std. Error", "z value", "Pr(>|z|)")
+  cf
+  
 } # FUN
