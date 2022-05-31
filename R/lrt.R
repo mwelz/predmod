@@ -1,15 +1,15 @@
-#' calculate likelihood ratio test statistic (LRT)
+#' calculate likelihood ratio test statistic (LRT) for cross-sectional models
 #' 
 #' LRT between models with and without constant treatment effect
 #' @param status A \strong{binary} vector of status. Zero is survivor, one is failure.
-#' @param A binary treatment assignment status.
+#' @param w A binary treatment assignment status.
 #' @param w_flipped Treatment assignment status, but flipped .
 #' @param z TODO
 #' @param significance_level significance level of test
 #' @param ... Additional arguments
 #' 
 #' @noRd
-LRT <- function(status, w, w_flipped, z, significance_level = 0.05, ...)
+LRT_crss <- function(status, w, w_flipped, z, significance_level, ...)
 {
   
   ## fit restricted and full model
@@ -32,11 +32,101 @@ LRT <- function(status, w, w_flipped, z, significance_level = 0.05, ...)
   mod_0    <- stage2_0$model
   mod_full <- stage2_full$model
   
-  ## calculate deviance and p-value of the LRT test
+  ## calculate deviance
   lmtest_obj <- lmtest::lrtest(mod_full, mod_0)
-  deviance   <- 2.0 * abs(diff(lmtest_obj$LogLik))
-  pval       <- stats::pchisq(deviance, df = 1L, 
-                              lower.tail = FALSE)
+  deviance   <- 2.0 * (lmtest_obj$LogLik[1] - lmtest_obj$LogLik[2])
+  
+  ## return
+  LRT_return(stage2_full = stage2_full,
+             stage2_0 = stage2_0,
+             deviance = deviance,
+             significance_level = significance_level)
+  
+} # FUN
+
+
+#' calculate likelihood ratio test statistic (LRT) in survival models
+#' 
+#' LRT between models with and without constant treatment effect
+#' @param status A \strong{binary} vector of status. Zero is survivor, one is failure.
+#' @param time (Possibly) Right-censored failure times
+#' @param w A binary treatment assignment status.
+#' @param w_flipped Treatment assignment status, but flipped .
+#' @param z TODO
+#' @param significance_level significance level of test
+#' @param failcode Failcode of status
+#' @param cmprsk Logical. If \code{TRUE}, then a competing risks model is used
+#' @param ... Additional arguments
+#' 
+#' @noRd
+LRT_surv <- function(status, time, w, w_flipped, z, 
+                     significance_level, failcode, cmprsk, ...)
+{
+  
+  ## fit restricted and full model
+  if(cmprsk)
+  {
+    stage2_0 <- 
+      risk_model_stage2_cmprsk(status = status, 
+                               time = time,
+                               w = w, 
+                               w_flipped = w_flipped, 
+                               z = z, 
+                               constant = TRUE,
+                               failcode = failcode, ... = ...)
+    
+    stage2_full <- 
+      risk_model_stage2_cmprsk(status = status, 
+                               time = time,
+                               w = w, 
+                               w_flipped = w_flipped, 
+                               z = z, 
+                               constant = FALSE,
+                               failcode = failcode, ... = ...)
+  } else{
+    
+    stage2_0 <- 
+      risk_model_stage2_nocmprsk(status = status, 
+                                 time = time,
+                                 w = w, 
+                                 w_flipped = w_flipped, 
+                                 z = z, 
+                                 constant = TRUE,
+                                 failcode = failcode, ... = ...)
+    
+    stage2_full <- 
+      risk_model_stage2_nocmprsk(status = status, 
+                                 time = time,
+                                 w = w, 
+                                 w_flipped = w_flipped, 
+                                 z = z, 
+                                 constant = FALSE,
+                                 failcode = failcode, ... = ...)
+    
+  } # IF
+  
+  mod_0    <- stage2_0$model
+  mod_full <- stage2_full$model
+  
+  ## calculate deviance (LRT test statistic)
+  deviance   <- 2.0 * (mod_full$loglik - mod_0$loglik)
+  
+  ## return
+  LRT_return(stage2_full = stage2_full,
+             stage2_0 = stage2_0,
+             deviance = deviance,
+             significance_level = significance_level)
+  
+} # FUN
+
+
+# helper function that formats the returns of the LRT function
+LRT_return <- function(stage2_full, stage2_0, deviance, significance_level)
+{
+  
+  # calculate p-value of the LRT test
+  pval <- stats::pchisq(deviance, df = 1L, 
+                        lower.tail = FALSE)
   
   if(pval < significance_level)
   {

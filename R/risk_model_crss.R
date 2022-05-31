@@ -66,12 +66,12 @@ risk_model <- function(X,
   ## stage 2
   if(LRT)
   {
-    fit <- LRT(status = status_bin, 
-                  w = w, 
-                  w_flipped = ifelse(w == 1, 0, 1), 
-                  z = z, 
-                  significance_level = significance_level,
-                  ... = ...)
+    fit <- LRT_crss(status = status_bin, 
+                    w = w, 
+                    w_flipped = ifelse(w == 1, 0, 1), 
+                    z = z, 
+                    significance_level = significance_level,
+                    ... = ...)
     
     # extract risk estimates
     risk_reg <- fit$models$accepted$risk$regular
