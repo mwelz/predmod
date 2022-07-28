@@ -10,6 +10,17 @@ get_predicted_benefits <- function(risk_reg, risk_rev, w){
   # check for equal length
   InputChecks_equal.length3(risk_reg, risk_rev, w)
   
+  # get absolute and relative risks
+  get_predicted_benefits_NoChecks(risk_reg = risk_reg,
+                                  risk_rev = risk_rev,
+                                  w = w)
+  
+  
+} # FUN
+
+
+get_predicted_benefits_NoChecks <- function(risk_reg, risk_rev, w){
+  
   # absolute predicted benefit
   absolute <- risk_reg - risk_rev
   
@@ -26,6 +37,7 @@ get_predicted_benefits <- function(risk_reg, risk_rev, w){
   return(list(absolute = absolute, relative = relative))
   
 } # FUN
+
 
 
 #' calculates the absolute observed benefit, which corresponds to the difference in \code{mean(y[W=w])}, and the associated confidence interval.
@@ -166,7 +178,8 @@ predicted_benefit_inference <- function(x,
                                         time_eval = NULL,
                                         significance_level = 0.05){
   
-  ate_obj <- average_treatment_effect(x = x, 
+  ate_obj <- average_treatment_effect_NoChecks(
+                                      x = x, 
                                       subset = subset,
                                       relative = relative,
                                       benefits_risk = benefits_risk, 

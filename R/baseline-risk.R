@@ -171,7 +171,7 @@ baseline_survival_cmprsk <- function(X,
     kept.vars     <- coefs@i + 1
     
     # get linear predictor 
-    lp  <- as.numeric(cbind(1,X)[,kept.vars,drop = FALSE] %*% coefs[kept.vars])
+    lp  <- as.numeric(X[,kept.vars,drop = FALSE] %*% coefs[kept.vars])
     
   } else{
     
@@ -272,6 +272,128 @@ baseline_survival_nocmprsk <- function(X,
     model = model.obj,
     lambda_min = lambda.min,
     funs = surv.obj
-  ), class = "baseline_surv"))
+  ), class = "baseline_survival"))
+  
+} # FUN
+
+
+#' Predict method for a \code{baseline_crss} object
+#' 
+#' @param object A \code{baseline_crss} object.
+#' @param newX A numeric matrix at which predictions should be performed
+#' @param ... Additional parameters to be passed down
+#' 
+#' @return A matrix of risk predictions
+#' 
+#' @export
+predict.baseline_risk <- function(object, newX, ...)
+{
+  ## input checks
+  if(!inherits(x = object, what = "baseline_crss", which = FALSE))
+  {
+    stop("object must be an instance of baseline_crss()")
+  }
+  
+  InputChecks_newX(newX)
+  InputChecks_newX_X(newX = newX, object = object, survival = FALSE)
+  
+  ## predict
+  predict_baseline_crss_NoChecks(object = object, newX = newX, ... = ...)
+  
+} # FUN
+
+
+predict_baseline_crss_NoChecks <- function(object, newX, ...)
+{
+  
+  ## case 1: glmnet object
+  if(inherits(x = object$model, what = "cv.glmnet"))
+  {
+    out <- glmnet:::predict.cv.glmnet(
+      object = object$model,
+      newx = newX, s = "lambda.min", 
+      type = "response", ... = ...)
+    
+  } else{
+    
+    ## case 2: glm object
+    out <- unname(stats::predict.glm(object = object$model, 
+                                     newdata = as.data.frame(newX), 
+                                     type = "response", 
+                                     ... = ...))
+  } # IF
+  
+  return(matrix(out))
+
+} # FUN
+
+
+predict_baseline_survival_NoChecks <- function(object, newX, time_eval, ...)
+{
+  ### get the linear predictor (lp) at 'newX' 
+  ## case 1: glmnet object
+  if(inherits(x = object$model, what = "cv.glmnet"))
+  {
+    lp <- glmnet:::predict.cv.glmnet(
+      object = object$model,
+      newx = newX, s = "lambda.min", 
+      type = "link", ... = ...) 
+    
+  } else if(inherits(x = object$model, what = c("coxph", "crr"))){
+    
+    ## case 2: no regularization
+    # applies to 'coxph' and 'crr' objects
+    lp <- newX %*% as.numeric(object$coefficients)
+    
+  } else{
+    
+    ## case 3: regularized competing risks model (class 'fcrrp')
+    # get indices of kept variables (account for zero indexing)
+    kept_vars <- object$coefficients@i + 1
+    lp        <- newX[,kept_vars,drop = FALSE] %*% object$coefficients[kept_vars]
+    
+  } # IF
+  
+  ## convert lp to vector
+  lp <- as.numeric(lp)
+  
+  ## calculate baseline survival probability at time_eval
+  s0 <- object$funs$basesurv(time_eval = time_eval)
+  
+  ## calculate risk as 1 - {survival probability}
+  risk <- 1.0 - s0 * exp(lp)
+  
+  return(matrix(risk))
+  
+} # FUN
+
+
+#' Predict method for a \code{baseline_survival} object
+#' 
+#' @param object A \code{baseline_survival} object.
+#' @param newX A numeric matrix at which predictions should be performed.
+#' @param time_eval The time at which baseline risk shall be predicted. Must be nonnegative numeric vector of length one.
+#' @param ... Additional parameters to be passed down
+#' 
+#' @return A matrix of risk predictions
+#' 
+#' @export
+predict.baseline_survival <- function(object, newX, time_eval, ...)
+{
+  ## input checks
+  if(!inherits(x = object, what = "baseline_survival", which = FALSE))
+  {
+    stop("object must be an instance of baseline_survival()")
+  }
+  
+  InputChecks_newX(newX)
+  InputChecks_newX_X(newX = newX, object = object, survival = TRUE)
+  stopifnot(length(time_eval) == 1L & is.numeric(time_eval))
+  
+  ## predict
+  predict_baseline_survival_NoChecks(object = object, 
+                                     newX = newX,
+                                     time_eval = time_eval,
+                                     ... = ...)
   
 } # FUN

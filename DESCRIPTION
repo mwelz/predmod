@@ -23,7 +23,7 @@ License: GPL (>= 3)
 Encoding: UTF-8
 LazyData: true
 Roxygen: list(markdown = TRUE)
-RoxygenNote: 7.1.2
+RoxygenNote: 7.2.0
 Depends: ggplot2
 Imports: 
     glmnet,
@@ -41,4 +41,5 @@ Imports:
     rateratio.test,
     VIM,
     fastcmprsk,
-    Matrix
+    Matrix,
+    plm
