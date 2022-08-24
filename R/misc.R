@@ -88,7 +88,6 @@ average_treatment_effect_NoChecks <- function(x,
                                               time_eval = NULL)
 {
   
-  clss <- class(x)
   w    <- x$inputs$w
   
   # prepare subset object
@@ -102,7 +101,7 @@ average_treatment_effect_NoChecks <- function(x,
   if(is.null(time_eval)){
     
     # if no value provided, take time_eval used in model fitting
-    if(clss %in% c("risk_model_surv", "effect_model_surv")){
+    if(inherits(x, what = c("risk_model_crss", "effect_model_crss"))){
       time_eval <- x$input$time_eval
     } # IF clss
     
@@ -118,30 +117,20 @@ average_treatment_effect_NoChecks <- function(x,
     # in case of absolute effect, we need to decompose the effect
     # so that we can apply a two-sample test
     
-    if(clss %in% c("risk_model_crss", "effect_model_crss")){
+    if(inherits(x, what = c("risk_model_crss", "effect_model_crss"))){
       
-      # case 1: predmod_ordinary
+      # case 1: cross-sectional model
       x_reg <- x$risk$regular
       x_rev <- x$risk$counterfactual
       
     } else{
       
-      # case 2: predmod_survival
-      if(benefits_risk){
-        
-        # case 2.1: benefits concern risk at time of interest
-        x_reg <- 1.0 - x$funs$regular$surv(time_eval)
-        x_rev <- 1.0 - x$funs$counterfactual$surv(time_eval)
-        
-      } else{
-        
-        # case 2.2: benefits concern failure times
-        x_reg <- x$failure$regular
-        x_rev <- x$failure$counterfactual
-        
-      } # IF benefits_risk
+      # case 2: survival model: benefits concern risk at time of interest
+      x_reg <- as.numeric(1.0 - x$funs$regular$surv(time_eval))
+      x_rev <- as.numeric(1.0 - x$funs$counterfactual$surv(time_eval))
+      
     } # IF class
-    
+      
     
     # adjust signs to ensure that x_reg - x_rev = (predicted absolute benefit) 
     x_reg[w == 0] <- -x_reg[w == 0]
@@ -157,28 +146,16 @@ average_treatment_effect_NoChecks <- function(x,
   } else {
     
     # relative effect: here we can simply use the direct estimated benefits
-    if(clss %in% c("risk_model_crss", "effect_model_crss")){
+    if(inherits(x, what = c("risk_model_crss", "effect_model_crss"))){
       
-      # case 1: benefits concern risk in cross-sectional model
+      # case 1: cross-sectional model
       ate <- mean(x$benefits$relative[subset])
       
     } else{
-      
-      if(benefits_risk){
         
-        # case 2.1: benefits concern risk at time of interest
-        x_reg      <- 1.0 - x$funs$regular$surv(time_eval)
-        x_rev      <- 1.0 - x$funs$counterfactual$surv(time_eval)
-        rr         <- x_reg / x_rev
-        rr[w == 0] <- 1 / rr[w == 0]
-        ate        <- mean(rr[subset])
+      # case 2: survival model: benefits concern risk at time of interest
+      ate <- mean(x$benefits$relative[subset])
         
-      } else{
-        
-        # case 2.2: benefits concern failure time
-        ate <- mean(x$benefits$relative[subset])
-        
-      } # IF benefits_risk
     } # IF clss
     
     # no SE can be computed for relative risk TODO: maybe via bootstrap
