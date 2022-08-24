@@ -9,7 +9,6 @@ get_benefits(
   x,
   cutoffs = c(0.25, 0.5, 0.75),
   baseline_risk = NULL,
-  benefits_risk = FALSE,
   time_eval = NULL,
   odds_ratio = FALSE,
   significance_level = 0.05
@@ -22,9 +21,7 @@ get_benefits(
 
 \item{baseline_risk}{The baseline risk that shall be used for grouping. If \code{NULL} (default), then the baseline risk in \code{x} is used.}
 
-\item{benefits_risk}{Logical. If \code{TRUE}, then the risk-based benefits are used (only applicable to survival models). Default is \code{FALSE}.}
-
-\item{time_eval}{Only applicable if \code{benefits_risk = TRUE}. Time at which we evaluate the risk predictions.}
+\item{time_eval}{Time at which we evaluate the risk predictions.}
 
 \item{odds_ratio}{Logical. If \code{TRUE}, odds ratios per quantile group will be computed. Default is \code{FALSE}.}
 

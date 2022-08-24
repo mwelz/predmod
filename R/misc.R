@@ -59,14 +59,12 @@ expected_survival <- function(S.hat, Y.grid) {
 #' @param x A predmod object
 #' @param subset The indices of the subgroup of interest
 #' @param relative Shall relative ATE be calculated?
-#' @param benefits_risk Logical. If \code{TRUE}, then the failure-risk-based benefits are used (only applicable to survival models). Default is \code{FALSE}.
-#' @param time_eval Only applicable if \code{benefits_risk = TRUE}. Time at which to evaluate the failure risk predictions.
+#' @param time_eval Time at which to evaluate the failure risk predictions.
 #' 
 #' @export
 average_treatment_effect <- function(x, 
                                      subset = NULL, 
                                      relative = FALSE,
-                                     benefits_risk = FALSE,
                                      time_eval = NULL){
   
   stopifnot(inherits(x, what = c("risk_model_crss", "risk_model_surv",
@@ -75,7 +73,6 @@ average_treatment_effect <- function(x,
   average_treatment_effect_NoChecks(x = x, 
                                     subset = subset,
                                     relative = relative,
-                                    benefits_risk = benefits_risk,
                                     time_eval = time_eval)
  
 } # FUN
@@ -84,11 +81,11 @@ average_treatment_effect <- function(x,
 average_treatment_effect_NoChecks <- function(x, 
                                               subset = NULL, 
                                               relative = FALSE,
-                                              benefits_risk = FALSE,
                                               time_eval = NULL)
 {
   
-  w    <- x$inputs$w
+  # treatment assignment
+  w <- x$inputs$w
   
   # prepare subset object
   if(!is.null(subset)){

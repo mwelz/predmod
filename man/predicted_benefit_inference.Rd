@@ -8,7 +8,6 @@ predicted_benefit_inference(
   x,
   subset = NULL,
   relative = FALSE,
-  benefits_risk = FALSE,
   time_eval = NULL,
   significance_level = 0.05
 )
@@ -20,9 +19,7 @@ predicted_benefit_inference(
 
 \item{relative}{Shall relative ATE be calculated?}
 
-\item{benefits_risk}{Logical. If \code{TRUE}, then the failure-risk-based benefits are used (only applicable to survival models). Default is \code{FALSE}.}
-
-\item{time_eval}{Only applicable if \code{benefits_risk = TRUE}. Time at which to evaluate the failure risk predictions.}
+\item{time_eval}{Time at which to evaluate the failure risk predictions.}
 
 \item{significance_level}{The significance level, default is 0.05}
 }

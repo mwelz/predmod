@@ -9,7 +9,6 @@ calibration_plot(
   cutoffs = c(0.25, 0.5, 0.75),
   relative = FALSE,
   baseline_risk = NULL,
-  benefits_risk = FALSE,
   time_eval = NULL,
   significance_level = 0.05,
   title = NULL,
@@ -27,9 +26,7 @@ calibration_plot(
 
 \item{baseline_risk}{The baseline risk that shall be used for grouping. If \code{NULL} (default), then the baseline risk in \code{x} is used.}
 
-\item{benefits_risk}{Logical. If \code{TRUE}, then the risk-based benefits are used (only applicable to survival models). Default is \code{FALSE}.}
-
-\item{time_eval}{Only applicable if \code{benefits_risk = TRUE}. Time at which we evaluate the risk predictions.}
+\item{time_eval}{Time at which we evaluate the risk predictions.}
 
 \item{significance_level}{significance level for the confidence intervals. Default is 0.05}
 
