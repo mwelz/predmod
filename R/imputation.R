@@ -551,29 +551,28 @@ impaccount_effect_model <- function(x)
     risk$baseline     <- as.matrix(rowMeans(sapply(1:m, function(i) x[[i]]$risk$baseline)))
   }
   
-  # concordance
-  concordance <- list(outcome_baseline = NULL,
-                      outcome = NULL,
-                      benefit = NULL)
-  
-  concordance$outcome <- 
-    impaccount_concordance(C  = lapply(1:m, function(i) x[[i]]$concordance$outcome$estimate),
-                           SE = lapply(1:m, function(i) x[[i]]$concordance$outcome$stderr))
-  concordance$benefit <- 
-    impaccount_concordance(C  = lapply(1:m, function(i) x[[i]]$concordance$benefit$estimate),
-                           SE = lapply(1:m, function(i) x[[i]]$concordance$benefit$stderr))
-  
-  c_logi  <- all(sapply(1:m, function(i) !is.null(x[[i]]$concordance$outcome_baseline$estimate )))
-  se_logi <- all(sapply(1:m, function(i) !is.null(x[[i]]$concordance$outcome_baseline$stderr )))
-  if(c_logi & se_logi){
-    concordance$outcome_baseline <- 
-      impaccount_concordance(C  = lapply(1:m, function(i) x[[i]]$concordance$outcome_baseline$estimate),
-                             SE = lapply(1:m, function(i) x[[i]]$concordance$outcome_baseline$stderr))
-  }
+  # # concordance
+  # concordance <- list(outcome_baseline = NULL,
+  #                     outcome = NULL,
+  #                     benefit = NULL)
+  # 
+  # concordance$outcome <- 
+  #   impaccount_concordance(C  = lapply(1:m, function(i) x[[i]]$concordance$outcome$estimate),
+  #                          SE = lapply(1:m, function(i) x[[i]]$concordance$outcome$stderr))
+  # concordance$benefit <- 
+  #   impaccount_concordance(C  = lapply(1:m, function(i) x[[i]]$concordance$benefit$estimate),
+  #                          SE = lapply(1:m, function(i) x[[i]]$concordance$benefit$stderr))
+  # 
+  # c_logi  <- all(sapply(1:m, function(i) !is.null(x[[i]]$concordance$outcome_baseline$estimate )))
+  # se_logi <- all(sapply(1:m, function(i) !is.null(x[[i]]$concordance$outcome_baseline$stderr )))
+  # if(c_logi & se_logi){
+  #   concordance$outcome_baseline <- 
+  #     impaccount_concordance(C  = lapply(1:m, function(i) x[[i]]$concordance$outcome_baseline$estimate),
+  #                            SE = lapply(1:m, function(i) x[[i]]$concordance$outcome_baseline$stderr))
+  # }
   
   
   return(list(benefits = benefits,
               coefficients = coefficients,
-              risk = risk, 
-              concordance = concordance))
+              risk = risk)) 
 } # FOR
