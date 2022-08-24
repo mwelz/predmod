@@ -434,15 +434,21 @@ impaccount_risk_model <- function(x)
     coefficients$baseline <- cf
   }
   
-  p <- nrow(x[[1]]$coefficients$stage2)
-  arr <- array(NA_real_, dim = c(p, 4L, m))
-  for(i in 1:m) arr[,,i] <- x[[i]]$coefficients$stage2
-  tmp <- impaccount_regression_array(x = arr, relative = FALSE)
-  z <- tmp[, "estimate"] / tmp[, "stderr"]
-  p <- 2 * stats::pnorm(abs(z), lower.tail = FALSE)
-  cf <- cbind(tmp[, "estimate"], tmp[, "stderr"], z, p)
-  dimnames(cf) <- dimnames(x[[1]]$coefficients$stage2)
-  coefficients$stage2 <- cf
+  decisions <- c("accepted", "rejected")
+  
+  for(decision in decisions)
+  {
+    p <- nrow(x[[1]]$coefficients$stage2[[decision]])
+    arr <- array(NA_real_, dim = c(p, 4L, m))
+    for(i in 1:m) arr[,,i] <- x[[i]]$coefficients$stage2[[decision]]
+    tmp <- impaccount_regression_array(x = arr, relative = FALSE)
+    z <- tmp[, "estimate"] / tmp[, "stderr"]
+    p <- 2 * stats::pnorm(abs(z), lower.tail = FALSE)
+    cf <- cbind(tmp[, "estimate"], tmp[, "stderr"], z, p)
+    dimnames(cf) <- dimnames(x[[1]]$coefficients$stage2[[decision]])
+    coefficients$stage2[[decision]] <- cf
+  } # FOR decision
+  
   
   # risk
   risk <- list(baseline = NULL, regular = NULL, counterfactual = NULL)
@@ -455,31 +461,30 @@ impaccount_risk_model <- function(x)
   }
   
   
-  # concordance
-  concordance <- list(outcome_baseline = NULL,
-                      outcome = NULL,
-                      benefit = NULL)
-  
-  c_logi  <- all(sapply(1:m, function(i) !is.null(x[[i]]$concordance$outcome_baseline$estimate )))
-  se_logi <- all(sapply(1:m, function(i) !is.null(x[[i]]$concordance$outcome_baseline$stderr )))
-  if(c_logi & se_logi){
-    concordance$outcome_baseline <- 
-      impaccount_concordance(C  = lapply(1:m, function(i) x[[i]]$concordance$outcome_baseline$estimate),
-                             SE = lapply(1:m, function(i) x[[i]]$concordance$outcome_baseline$stderr))
-  }
-  
-  concordance$outcome <- 
-    impaccount_concordance(C  = lapply(1:m, function(i) x[[i]]$concordance$outcome$estimate),
-                           SE = lapply(1:m, function(i) x[[i]]$concordance$outcome$stderr))
-  concordance$benefit <- 
-    impaccount_concordance(C  = lapply(1:m, function(i) x[[i]]$concordance$benefit$estimate),
-                           SE = lapply(1:m, function(i) x[[i]]$concordance$benefit$stderr))
+  ## concordance
+  # concordance <- list(outcome_baseline = NULL,
+  #                     outcome = NULL,
+  #                     benefit = NULL)
+  # 
+  # c_logi  <- all(sapply(1:m, function(i) !is.null(x[[i]]$concordance$outcome_baseline$estimate )))
+  # se_logi <- all(sapply(1:m, function(i) !is.null(x[[i]]$concordance$outcome_baseline$stderr )))
+  # if(c_logi & se_logi){
+  #   concordance$outcome_baseline <- 
+  #     impaccount_concordance(C  = lapply(1:m, function(i) x[[i]]$concordance$outcome_baseline$estimate),
+  #                            SE = lapply(1:m, function(i) x[[i]]$concordance$outcome_baseline$stderr))
+  # }
+  # 
+  # concordance$outcome <- 
+  #   impaccount_concordance(C  = lapply(1:m, function(i) x[[i]]$concordance$outcome$estimate),
+  #                          SE = lapply(1:m, function(i) x[[i]]$concordance$outcome$stderr))
+  # concordance$benefit <- 
+  #   impaccount_concordance(C  = lapply(1:m, function(i) x[[i]]$concordance$benefit$estimate),
+  #                          SE = lapply(1:m, function(i) x[[i]]$concordance$benefit$stderr))
   
   
   return(list(benefits = benefits,
               coefficients = coefficients,
-              risk = risk, 
-              concordance = concordance))
+              risk = risk))
 } # FOR
 
 
