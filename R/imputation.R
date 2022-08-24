@@ -74,8 +74,8 @@ get_benefits_imputation <- function(x,
   arr_ls <- list(pb_abs = arr,
                  pb_rel = arr,
                  ob_abs = arr,
-                 ob_rel = arr,
-                 or     = arr)
+                 ob_rel = arr) 
+                 #or     = arr) # don't calculate odds ration for now
   
   for(i in 1:m)
   {
@@ -93,7 +93,7 @@ get_benefits_imputation <- function(x,
     arr_ls$pb_rel[,,i] <- ben$predicted_benefit$relative[,c("estimate", "stderr")]
     arr_ls$ob_abs[,,i] <- ben$observed_benefit$absolute[,c("estimate", "stderr")]
     arr_ls$ob_rel[,,i] <- ben$observed_benefit$relative[,c("estimate", "stderr")]
-    arr_ls$or[,,i]     <- ben$odds_ratio[,c("estimate", "stderr")]
+    # arr_ls$or[,,i]     <- ben$odds_ratio[,c("estimate", "stderr")]
     
   } # FOR
   
@@ -112,16 +112,18 @@ get_benefits_imputation <- function(x,
   ob_rel <- impaccount_regression_array(arr_ls$ob_rel,
                                         relative = TRUE, 
                                         significance_level = significance_level)
-  or     <- impaccount_regression_array(arr_ls$or,
-                                        relative = TRUE, 
-                                        significance_level = significance_level)
+  
+  ## don't calculate odds ratio for now 
+  # or     <- impaccount_regression_array(arr_ls$or,
+  #                                       relative = TRUE, 
+  #                                       significance_level = significance_level)
   
   # organize output
   out <- list(predicted_benefit = list(absolute = pb_abs,
                                        relative = pb_rel),
               observed_benefit = list(absolute = ob_abs,
                                       relative = ob_rel),
-              odds_ratio = or,
+              #odds_ratio = or,
               significance_level = significance_level)
   return(out)
 
