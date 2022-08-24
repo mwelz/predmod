@@ -118,13 +118,33 @@ get_benefits_imputation <- function(x,
   #                                       relative = TRUE, 
   #                                       significance_level = significance_level)
   
+  
+  
+  ### adjust baseline risk 
+  # take average over the baseline risk estimates
+  if(is.null(baseline_risk))
+  {
+    br <- rowMeans(sapply(1:m, function(i) x[[i]]$risk$baseline))
+  } else{
+    br <- rowMeans(sapply(1:m, function(i) baseline_risk[[i]]))
+  } # IF
+  
+  # group observations by their quantile of predicted baseline risk (imputation-adjusted)
+  quantile_groups <- quantile_group_NoChecks(br, cutoffs)
+  quantiles <- colnames(quantile_groups)
+  
+  # name the groups
+  rownames(pb_abs) <- rownames(pb_rel) <- rownames(ob_abs) <- 
+    rownames(ob_rel) <- quantiles
+  
   # organize output
   out <- list(predicted_benefit = list(absolute = pb_abs,
                                        relative = pb_rel),
               observed_benefit = list(absolute = ob_abs,
                                       relative = ob_rel),
               #odds_ratio = or,
-              significance_level = significance_level)
+              significance_level = significance_level,
+              risk_intervals = quantiles)
   return(out)
 
 } # FUN
@@ -230,22 +250,11 @@ calibration_plot_imputation <- function(x,
                                       time_eval          = time_eval,
                                       significance_level = significance_level)
   
-  # get imputation-adjusted baseline risk
-  m <- length(x)
-  if(is.null(baseline_risk))
-    {
-      br <- rowMeans(sapply(1:m, function(i) x[[i]]$risk$baseline))
-    } else{
-      br <- rowMeans(sapply(1:m, function(i) baseline_risk[[i]]))
-    } # IF
   
-  # group observations by their quantile of predicted baseline risk (imputation-adjusted)
-  quantile.groups <- quantile_group_NoChecks(br, cutoffs)
-  quantiles <- colnames(quantile.groups)
   
   # make sure risk quantile is in correct order
-  risk.quantile <- factor(quantiles,
-                          levels = quantiles)
+  risk_quantile <- factor(benefits$risk_intervals,
+                          levels = benefits$risk_intervals)
   
   # adjust for relative and absolute benefit
   if(relative){
@@ -254,7 +263,7 @@ calibration_plot_imputation <- function(x,
                      ob.means = benefits$observed_benefit$relative[,"estimate"],
                      ob.means.ci.lo = benefits$observed_benefit$relative[,"ci_lower"],
                      ob.means.ci.up = benefits$observed_benefit$relative[,"ci_upper"],
-                     risk.quantile = risk.quantile)
+                     risk.quantile = risk_quantile)
   } else{
     
     if(!flip_sign){
@@ -263,7 +272,7 @@ calibration_plot_imputation <- function(x,
                        ob.means = benefits$observed_benefit$absolute[,"estimate"],
                        ob.means.ci.lo = benefits$observed_benefit$absolute[,"ci_lower"],
                        ob.means.ci.up = benefits$observed_benefit$absolute[,"ci_upper"],
-                       risk.quantile = risk.quantile)
+                       risk.quantile = risk_quantile)
       
     } else{
       
@@ -271,7 +280,7 @@ calibration_plot_imputation <- function(x,
                        ob.means = -benefits$observed_benefit$absolute[,"estimate"],
                        ob.means.ci.lo = -benefits$observed_benefit$absolute[,"ci_lower"],
                        ob.means.ci.up = -benefits$observed_benefit$absolute[,"ci_upper"],
-                       risk.quantile = risk.quantile)
+                       risk.quantile = risk_quantile)
       
     }
   } # IF
@@ -283,7 +292,7 @@ calibration_plot_imputation <- function(x,
   } # IF
   
   ggplot(mapping = aes(x = pb.means,
-                       y = ob.means, color = risk.quantile), data = df) +
+                       y = ob.means, color = risk_quantile), data = df) +
     geom_point() +
     geom_errorbar(mapping = aes(ymin = ob.means.ci.lo,
                                 ymax = ob.means.ci.up)) +
