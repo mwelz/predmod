@@ -186,11 +186,20 @@ predicted_benefit_inference <- function(x,
   ate <- unname(ate_obj["ATE"])
 
   # quantile of the standard normal distribution
-  z <- stats::qnorm(1 - significance_level/2)
+  z <- stats::qnorm(1 - significance_level / 2)
   
+  if(relative){
+    cilo <- ate * exp(-z * se)
+    ciup <- ate * exp( z * se)
+  } else{
+    cilo <- ate - z * se
+    ciup <- ate + z * se
+  } # IF
+  
+  # organize output to be consistent with other benefits functions
   return(c(estimate = ate, 
-           ci_lower = ate - z * se,
-           ci_upper = ate + z * se,
+           ci_lower = cilo,
+           ci_upper = ciup,
            stderr   = se))
 } # FUN
 
