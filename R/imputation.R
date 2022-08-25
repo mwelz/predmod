@@ -47,15 +47,13 @@ impaccount_regression_array <- function(x,
 #' @param x a list of prediction model object
 #' @param cutoffs the quantile cutoff points. Default is c(0.25, 0.5, 0.75), which yields the quartiles.
 #' @param baseline_risk A list of baseline risks that shall be used for grouping. If \code{NULL} (default), then the baseline risks in \code{x} are used.
-#' @param benefits_risk Logical. If \code{TRUE}, then the risk-based benefits are used (only applicable to survival models). Default is \code{FALSE}.
-#' @param time_eval Only applicable if \code{benefits_risk = TRUE}. Time at which we evaluate the risk predictions.
+#' @param time_eval Time at which we evaluate the risk predictions.
 #' @param significance_level the significance level. Default is 0.05.
 #' 
 #' @export
 get_benefits_imputation <- function(x, 
                                     cutoffs = c(0.25, 0.5, 0.75),
                                     baseline_risk = NULL,
-                                    benefits_risk = FALSE,
                                     time_eval = NULL,
                                     significance_level = 0.05)
 {
@@ -74,8 +72,8 @@ get_benefits_imputation <- function(x,
   arr_ls <- list(pb_abs = arr,
                  pb_rel = arr,
                  ob_abs = arr,
-                 ob_rel = arr,
-                 or     = arr)
+                 ob_rel = arr) 
+                 #or     = arr) # don't calculate odds ration for now
   
   for(i in 1:m)
   {
@@ -83,7 +81,6 @@ get_benefits_imputation <- function(x,
     ben <- get_benefits(x = x[[i]], 
                         cutoffs = cutoffs,
                         baseline_risk = baseline_risk[[i]], 
-                        benefits_risk = benefits_risk,
                         time_eval = time_eval, 
                         odds_ratio = FALSE,
                         significance_level = significance_level)
@@ -93,7 +90,7 @@ get_benefits_imputation <- function(x,
     arr_ls$pb_rel[,,i] <- ben$predicted_benefit$relative[,c("estimate", "stderr")]
     arr_ls$ob_abs[,,i] <- ben$observed_benefit$absolute[,c("estimate", "stderr")]
     arr_ls$ob_rel[,,i] <- ben$observed_benefit$relative[,c("estimate", "stderr")]
-    arr_ls$or[,,i]     <- ben$odds_ratio[,c("estimate", "stderr")]
+    # arr_ls$or[,,i]     <- ben$odds_ratio[,c("estimate", "stderr")]
     
   } # FOR
   
@@ -112,17 +109,39 @@ get_benefits_imputation <- function(x,
   ob_rel <- impaccount_regression_array(arr_ls$ob_rel,
                                         relative = TRUE, 
                                         significance_level = significance_level)
-  or     <- impaccount_regression_array(arr_ls$or,
-                                        relative = TRUE, 
-                                        significance_level = significance_level)
+  
+  ## don't calculate odds ratio for now 
+  # or     <- impaccount_regression_array(arr_ls$or,
+  #                                       relative = TRUE, 
+  #                                       significance_level = significance_level)
+  
+  
+  
+  ### adjust baseline risk 
+  # take average over the baseline risk estimates
+  if(is.null(baseline_risk))
+  {
+    br <- rowMeans(sapply(1:m, function(i) x[[i]]$risk$baseline))
+  } else{
+    br <- rowMeans(sapply(1:m, function(i) baseline_risk[[i]]))
+  } # IF
+  
+  # group observations by their quantile of predicted baseline risk (imputation-adjusted)
+  quantile_groups <- quantile_group_NoChecks(br, cutoffs)
+  quantiles <- colnames(quantile_groups)
+  
+  # name the groups
+  rownames(pb_abs) <- rownames(pb_rel) <- rownames(ob_abs) <- 
+    rownames(ob_rel) <- quantiles
   
   # organize output
   out <- list(predicted_benefit = list(absolute = pb_abs,
                                        relative = pb_rel),
               observed_benefit = list(absolute = ob_abs,
                                       relative = ob_rel),
-              odds_ratio = or,
-              significance_level = significance_level)
+              #odds_ratio = or,
+              significance_level = significance_level,
+              risk_intervals = quantiles)
   return(out)
 
 } # FUN
@@ -194,8 +213,7 @@ get_benefits_grf_imputation <- function(x,
 #' @param cutoffs the cutoff points of quantiles that shall be used for GATES grouping. Default is `c(0.25, 0.5, 0.75)`, which corresponds to the quartiles.
 #' @param relative logical. If `TRUE`, then relative benefits will be plotted. Default is `FALSE`
 #' @param baseline_risk A list of baseline risks that shall be used for grouping. If \code{NULL} (default), then the baseline risks as in \code{x} are used.
-#' @param benefits_risk Logical. If \code{TRUE}, then the risk-based benefits are used (only applicable to survival models). Default is \code{FALSE}.
-#' @param time_eval Only applicable if \code{benefits_risk = TRUE}. Time at which we evaluate the risk predictions.
+#' @param time_eval Time at which we evaluate the risk predictions.
 #' @param significance_level significance level for the confidence intervals. Default is 0.05
 #' @param title optional title of the plot
 #' @param xlim limits of x-axis
@@ -209,7 +227,6 @@ calibration_plot_imputation <- function(x,
                                         cutoffs = c(0.25, 0.5, 0.75), 
                                         relative = FALSE,
                                         baseline_risk = NULL,
-                                        benefits_risk = FALSE,
                                         time_eval = NULL,
                                         significance_level = 0.05,
                                         title = NULL,
@@ -224,26 +241,14 @@ calibration_plot_imputation <- function(x,
   benefits <- get_benefits_imputation(x                  = x,
                                       cutoffs            = cutoffs,
                                       baseline_risk      = baseline_risk,
-                                      benefits_risk      = benefits_risk,
                                       time_eval          = time_eval,
                                       significance_level = significance_level)
   
-  # get imputation-adjusted baseline risk
-  m <- length(x)
-  if(is.null(baseline_risk))
-    {
-      br <- rowMeans(sapply(1:m, function(i) x[[i]]$risk$baseline))
-    } else{
-      br <- rowMeans(sapply(1:m, function(i) baseline_risk[[i]]))
-    } # IF
   
-  # group observations by their quantile of predicted baseline risk (imputation-adjusted)
-  quantile.groups <- quantile_group_NoChecks(br, cutoffs)
-  quantiles <- colnames(quantile.groups)
   
   # make sure risk quantile is in correct order
-  risk.quantile <- factor(quantiles,
-                          levels = quantiles)
+  risk_quantile <- factor(benefits$risk_intervals,
+                          levels = benefits$risk_intervals)
   
   # adjust for relative and absolute benefit
   if(relative){
@@ -252,7 +257,7 @@ calibration_plot_imputation <- function(x,
                      ob.means = benefits$observed_benefit$relative[,"estimate"],
                      ob.means.ci.lo = benefits$observed_benefit$relative[,"ci_lower"],
                      ob.means.ci.up = benefits$observed_benefit$relative[,"ci_upper"],
-                     risk.quantile = risk.quantile)
+                     risk.quantile = risk_quantile)
   } else{
     
     if(!flip_sign){
@@ -261,7 +266,7 @@ calibration_plot_imputation <- function(x,
                        ob.means = benefits$observed_benefit$absolute[,"estimate"],
                        ob.means.ci.lo = benefits$observed_benefit$absolute[,"ci_lower"],
                        ob.means.ci.up = benefits$observed_benefit$absolute[,"ci_upper"],
-                       risk.quantile = risk.quantile)
+                       risk.quantile = risk_quantile)
       
     } else{
       
@@ -269,7 +274,7 @@ calibration_plot_imputation <- function(x,
                        ob.means = -benefits$observed_benefit$absolute[,"estimate"],
                        ob.means.ci.lo = -benefits$observed_benefit$absolute[,"ci_lower"],
                        ob.means.ci.up = -benefits$observed_benefit$absolute[,"ci_upper"],
-                       risk.quantile = risk.quantile)
+                       risk.quantile = risk_quantile)
       
     }
   } # IF
@@ -281,7 +286,7 @@ calibration_plot_imputation <- function(x,
   } # IF
   
   ggplot(mapping = aes(x = pb.means,
-                       y = ob.means, color = risk.quantile), data = df) +
+                       y = ob.means, color = risk_quantile), data = df) +
     geom_point() +
     geom_errorbar(mapping = aes(ymin = ob.means.ci.lo,
                                 ymax = ob.means.ci.up)) +
@@ -434,15 +439,21 @@ impaccount_risk_model <- function(x)
     coefficients$baseline <- cf
   }
   
-  p <- nrow(x[[1]]$coefficients$stage2)
-  arr <- array(NA_real_, dim = c(p, 4L, m))
-  for(i in 1:m) arr[,,i] <- x[[i]]$coefficients$stage2
-  tmp <- impaccount_regression_array(x = arr, relative = FALSE)
-  z <- tmp[, "estimate"] / tmp[, "stderr"]
-  p <- 2 * stats::pnorm(abs(z), lower.tail = FALSE)
-  cf <- cbind(tmp[, "estimate"], tmp[, "stderr"], z, p)
-  dimnames(cf) <- dimnames(x[[1]]$coefficients$stage2)
-  coefficients$stage2 <- cf
+  decisions <- c("accepted", "rejected")
+  
+  for(decision in decisions)
+  {
+    p <- nrow(x[[1]]$coefficients$stage2[[decision]])
+    arr <- array(NA_real_, dim = c(p, 4L, m))
+    for(i in 1:m) arr[,,i] <- x[[i]]$coefficients$stage2[[decision]]
+    tmp <- impaccount_regression_array(x = arr, relative = FALSE)
+    z <- tmp[, "estimate"] / tmp[, "stderr"]
+    p <- 2 * stats::pnorm(abs(z), lower.tail = FALSE)
+    cf <- cbind(tmp[, "estimate"], tmp[, "stderr"], z, p)
+    dimnames(cf) <- dimnames(x[[1]]$coefficients$stage2[[decision]])
+    coefficients$stage2[[decision]] <- cf
+  } # FOR decision
+  
   
   # risk
   risk <- list(baseline = NULL, regular = NULL, counterfactual = NULL)
@@ -455,31 +466,30 @@ impaccount_risk_model <- function(x)
   }
   
   
-  # concordance
-  concordance <- list(outcome_baseline = NULL,
-                      outcome = NULL,
-                      benefit = NULL)
-  
-  c_logi  <- all(sapply(1:m, function(i) !is.null(x[[i]]$concordance$outcome_baseline$estimate )))
-  se_logi <- all(sapply(1:m, function(i) !is.null(x[[i]]$concordance$outcome_baseline$stderr )))
-  if(c_logi & se_logi){
-    concordance$outcome_baseline <- 
-      impaccount_concordance(C  = lapply(1:m, function(i) x[[i]]$concordance$outcome_baseline$estimate),
-                             SE = lapply(1:m, function(i) x[[i]]$concordance$outcome_baseline$stderr))
-  }
-  
-  concordance$outcome <- 
-    impaccount_concordance(C  = lapply(1:m, function(i) x[[i]]$concordance$outcome$estimate),
-                           SE = lapply(1:m, function(i) x[[i]]$concordance$outcome$stderr))
-  concordance$benefit <- 
-    impaccount_concordance(C  = lapply(1:m, function(i) x[[i]]$concordance$benefit$estimate),
-                           SE = lapply(1:m, function(i) x[[i]]$concordance$benefit$stderr))
+  ## concordance
+  # concordance <- list(outcome_baseline = NULL,
+  #                     outcome = NULL,
+  #                     benefit = NULL)
+  # 
+  # c_logi  <- all(sapply(1:m, function(i) !is.null(x[[i]]$concordance$outcome_baseline$estimate )))
+  # se_logi <- all(sapply(1:m, function(i) !is.null(x[[i]]$concordance$outcome_baseline$stderr )))
+  # if(c_logi & se_logi){
+  #   concordance$outcome_baseline <- 
+  #     impaccount_concordance(C  = lapply(1:m, function(i) x[[i]]$concordance$outcome_baseline$estimate),
+  #                            SE = lapply(1:m, function(i) x[[i]]$concordance$outcome_baseline$stderr))
+  # }
+  # 
+  # concordance$outcome <- 
+  #   impaccount_concordance(C  = lapply(1:m, function(i) x[[i]]$concordance$outcome$estimate),
+  #                          SE = lapply(1:m, function(i) x[[i]]$concordance$outcome$stderr))
+  # concordance$benefit <- 
+  #   impaccount_concordance(C  = lapply(1:m, function(i) x[[i]]$concordance$benefit$estimate),
+  #                          SE = lapply(1:m, function(i) x[[i]]$concordance$benefit$stderr))
   
   
   return(list(benefits = benefits,
               coefficients = coefficients,
-              risk = risk, 
-              concordance = concordance))
+              risk = risk))
 } # FOR
 
 
@@ -541,29 +551,28 @@ impaccount_effect_model <- function(x)
     risk$baseline     <- as.matrix(rowMeans(sapply(1:m, function(i) x[[i]]$risk$baseline)))
   }
   
-  # concordance
-  concordance <- list(outcome_baseline = NULL,
-                      outcome = NULL,
-                      benefit = NULL)
-  
-  concordance$outcome <- 
-    impaccount_concordance(C  = lapply(1:m, function(i) x[[i]]$concordance$outcome$estimate),
-                           SE = lapply(1:m, function(i) x[[i]]$concordance$outcome$stderr))
-  concordance$benefit <- 
-    impaccount_concordance(C  = lapply(1:m, function(i) x[[i]]$concordance$benefit$estimate),
-                           SE = lapply(1:m, function(i) x[[i]]$concordance$benefit$stderr))
-  
-  c_logi  <- all(sapply(1:m, function(i) !is.null(x[[i]]$concordance$outcome_baseline$estimate )))
-  se_logi <- all(sapply(1:m, function(i) !is.null(x[[i]]$concordance$outcome_baseline$stderr )))
-  if(c_logi & se_logi){
-    concordance$outcome_baseline <- 
-      impaccount_concordance(C  = lapply(1:m, function(i) x[[i]]$concordance$outcome_baseline$estimate),
-                             SE = lapply(1:m, function(i) x[[i]]$concordance$outcome_baseline$stderr))
-  }
+  # # concordance
+  # concordance <- list(outcome_baseline = NULL,
+  #                     outcome = NULL,
+  #                     benefit = NULL)
+  # 
+  # concordance$outcome <- 
+  #   impaccount_concordance(C  = lapply(1:m, function(i) x[[i]]$concordance$outcome$estimate),
+  #                          SE = lapply(1:m, function(i) x[[i]]$concordance$outcome$stderr))
+  # concordance$benefit <- 
+  #   impaccount_concordance(C  = lapply(1:m, function(i) x[[i]]$concordance$benefit$estimate),
+  #                          SE = lapply(1:m, function(i) x[[i]]$concordance$benefit$stderr))
+  # 
+  # c_logi  <- all(sapply(1:m, function(i) !is.null(x[[i]]$concordance$outcome_baseline$estimate )))
+  # se_logi <- all(sapply(1:m, function(i) !is.null(x[[i]]$concordance$outcome_baseline$stderr )))
+  # if(c_logi & se_logi){
+  #   concordance$outcome_baseline <- 
+  #     impaccount_concordance(C  = lapply(1:m, function(i) x[[i]]$concordance$outcome_baseline$estimate),
+  #                            SE = lapply(1:m, function(i) x[[i]]$concordance$outcome_baseline$stderr))
+  # }
   
   
   return(list(benefits = benefits,
               coefficients = coefficients,
-              risk = risk, 
-              concordance = concordance))
+              risk = risk)) 
 } # FOR

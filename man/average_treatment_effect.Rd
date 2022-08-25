@@ -4,13 +4,7 @@
 \alias{average_treatment_effect}
 \title{computes the average treatment effect (ATE) of a predmod object}
 \usage{
-average_treatment_effect(
-  x,
-  subset = NULL,
-  relative = FALSE,
-  benefits_risk = FALSE,
-  time_eval = NULL
-)
+average_treatment_effect(x, subset = NULL, relative = FALSE, time_eval = NULL)
 }
 \arguments{
 \item{x}{A predmod object}
@@ -19,9 +13,7 @@ average_treatment_effect(
 
 \item{relative}{Shall relative ATE be calculated?}
 
-\item{benefits_risk}{Logical. If \code{TRUE}, then the failure-risk-based benefits are used (only applicable to survival models). Default is \code{FALSE}.}
-
-\item{time_eval}{Only applicable if \code{benefits_risk = TRUE}. Time at which to evaluate the failure risk predictions.}
+\item{time_eval}{Time at which to evaluate the failure risk predictions.}
 }
 \description{
 computes the average treatment effect (ATE) of a predmod object

@@ -166,15 +166,13 @@ odds_ratio <- function(status, w, significance_level = 0.05){
 #' @param x A predmod object
 #' @param subset The indices of the subgroup of interest
 #' @param relative Shall relative ATE be calculated?
-#' @param benefits_risk Logical. If \code{TRUE}, then the failure-risk-based benefits are used (only applicable to survival models). Default is \code{FALSE}.
-#' @param time_eval Only applicable if \code{benefits_risk = TRUE}. Time at which to evaluate the failure risk predictions.
+#' @param time_eval Time at which to evaluate the failure risk predictions.
 #' @param significance_level The significance level, default is 0.05
 #' 
 #' @export
 predicted_benefit_inference <- function(x, 
                                         subset = NULL, 
                                         relative = FALSE,
-                                        benefits_risk = FALSE,
                                         time_eval = NULL,
                                         significance_level = 0.05){
   
@@ -182,18 +180,26 @@ predicted_benefit_inference <- function(x,
                                       x = x, 
                                       subset = subset,
                                       relative = relative,
-                                      benefits_risk = benefits_risk, 
                                       time_eval = time_eval)
   
   se  <- unname(ate_obj["Std. Error"])
   ate <- unname(ate_obj["ATE"])
 
   # quantile of the standard normal distribution
-  z <- stats::qnorm(1 - significance_level/2)
+  z <- stats::qnorm(1 - significance_level / 2)
   
+  if(relative){
+    cilo <- ate * exp(-z * se)
+    ciup <- ate * exp( z * se)
+  } else{
+    cilo <- ate - z * se
+    ciup <- ate + z * se
+  } # IF
+  
+  # organize output to be consistent with other benefits functions
   return(c(estimate = ate, 
-           ci_lower = ate - z * se,
-           ci_upper = ate + z * se,
+           ci_lower = cilo,
+           ci_upper = ciup,
            stderr   = se))
 } # FUN
 
@@ -204,8 +210,7 @@ predicted_benefit_inference <- function(x,
 #' @param x prediction model object
 #' @param cutoffs the quantile cutoff points. Default is c(0.25, 0.5, 0.75), which yields the quartiles.
 #' @param baseline_risk The baseline risk that shall be used for grouping. If \code{NULL} (default), then the baseline risk in \code{x} is used.
-#' @param benefits_risk Logical. If \code{TRUE}, then the risk-based benefits are used (only applicable to survival models). Default is \code{FALSE}.
-#' @param time_eval Only applicable if \code{benefits_risk = TRUE}. Time at which we evaluate the risk predictions.
+#' @param time_eval Time at which we evaluate the risk predictions.
 #' @param odds_ratio Logical. If \code{TRUE}, odds ratios per quantile group will be computed. Default is \code{FALSE}.
 #' @param significance_level the significance level. Default is 0.05.
 #' 
@@ -213,7 +218,6 @@ predicted_benefit_inference <- function(x,
 get_benefits <- function(x, 
                          cutoffs = c(0.25, 0.5, 0.75),
                          baseline_risk = NULL,
-                         benefits_risk = FALSE,
                          time_eval = NULL,
                          odds_ratio = FALSE,
                          significance_level = 0.05){
@@ -268,7 +272,6 @@ get_benefits <- function(x,
     abs.pred.ben.mat[i, ] <- 
       predicted_benefit_inference(x = x, subset = group, 
                                   relative = FALSE, 
-                                  benefits_risk = benefits_risk, 
                                   time_eval = time_eval, 
                                   significance_level = significance_level)
 
@@ -280,7 +283,6 @@ get_benefits <- function(x,
     rel.pred.ben.mat[i, ] <- 
       predicted_benefit_inference(x = x, subset = group, 
                                   relative = TRUE, 
-                                  benefits_risk = benefits_risk, 
                                   time_eval = time_eval, 
                                   significance_level = significance_level)
     
