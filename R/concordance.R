@@ -85,10 +85,11 @@ concordance <- function(x){
                        w = x$inputs$w, 
                        pred_ben = as.numeric(x$benefits$absolute))
  
-  return(list(
+  return(structure(
+    list(
     outcome_baseline = outcome_baseline,
     outcome = outcome,
-    benefit = benefit
-  ))
+    benefit = benefit)
+    ), class = "concordance")
   
 } # FUN
