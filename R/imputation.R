@@ -576,3 +576,65 @@ impaccount_effect_model <- function(x)
               coefficients = coefficients,
               risk = risk)) 
 } # FOR
+
+
+#' void helper function that checks if all elements in a list \code{x}
+#' - are of the same class
+#' - are of one of the class listed in \code{what}
+#' 
+#' @noRd
+impaccount_classcheck <- function(x, what)
+{
+  if(!is.list(x))
+  {
+    stop("x must be a list")
+  } # IF
+  
+  m <- length(x)
+  classes <- sapply(seq_len(m), function(i) class(x[[i]]))
+  
+  if(!identical(length(unique(classes)), 1L))
+  {
+    stop("All elements in x must be of the same class")
+  }
+  
+  is_inherited <- sapply(seq_len(m), function(i) inherits(x[[i]], what = what))
+  
+  if(!all(is_inherited))
+  {
+    stop(paste("The elements in x are not of class:",
+               what))
+  } # IF
+  
+} # FUN
+
+
+
+#' Account for imputation uncertainty in predmod models
+#' 
+#' @param x a list of predmod model objects (imputed)
+#' @return A list of imputation-accounted stuff
+#' 
+#' @export
+impaccount <- function(x)
+{
+   # predmod classes
+   classes <-  c("risk_model_crss", 
+                "risk_model_surv", 
+                "effect_model_crss",
+                "effect_model_surv")
+
+  # input check
+  impaccount_classcheck(x = x, what = classes)
+  
+  # run correct function
+  if(inherits(x[[1L]], what = classes[c(1L,2L)]))
+  {
+    # case 1: risk model
+    impaccount_risk_model(x = x)
+  } else{
+    # case 2: effect model
+    impaccount_effect_model(x = x)
+  } # IF
+  
+} # FUN
