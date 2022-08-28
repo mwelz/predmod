@@ -89,7 +89,7 @@ concordance <- function(x){
     list(
     outcome_baseline = outcome_baseline,
     outcome = outcome,
-    benefit = benefit)
-    ), class = "concordance")
+    benefit = benefit
+    ), class = "concordance"))
   
 } # FUN

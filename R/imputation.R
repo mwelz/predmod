@@ -395,8 +395,9 @@ calibration_plot_grf_imputation <- function(x,
 } # FUN
 
 
-# C is list of concordance estimates, SE a list of associated standard errors
-impaccount_concordance <- function(C, SE)
+# C is list of concordance estimates of a given type, 
+# SE a list of associated standard errors
+impaccount_concordance_single <- function(C, SE)
 {
   m <- length(C)
   T_hat <- mean(sapply(1:m, function(i) C[[i]]))
@@ -405,6 +406,56 @@ impaccount_concordance <- function(C, SE)
   V_hat <- W_hat + (m+1)/m * B_hat
   
   return(list(estimate = T_hat, stderr = sqrt(V_hat)))
+  
+} # FUN
+
+
+# x is a list of concordance objects
+#' Account for imputation uncertainty in concordance estimates
+#' @param x A list of objects of type \code{"concordance"}
+#' @return Imputation accounted concordance estimates
+#' 
+#' @export
+impaccount_concordance <- function(x)
+{
+  # input check
+  impaccount_classcheck(x = x, what = "concordance")
+  
+  # initialize
+  m <- length(x)
+  concordance <- list(outcome_baseline = NULL,
+                      outcome = NULL,
+                      benefit = NULL)
+
+  # check if there is a concordance estimate for baseline risk models
+  c_logi  <- all(
+    sapply(seq_len(m), function(i) !is.null(x[[i]]$outcome_baseline$estimate )))
+  se_logi <- all(
+    sapply(seq_len(m), function(i) !is.null(x[[i]]$outcome_baseline$stderr )))
+  
+  # if yes, then add to list
+  if(c_logi && se_logi){
+    concordance$outcome_baseline <-
+      impaccount_concordance_single(
+        C  = lapply(seq_len(m), function(i) x[[i]]$outcome_baseline$estimate),
+        SE = lapply(seq_len(m), function(i) x[[i]]$outcome_baseline$stderr)
+        )
+  } # IF
+  
+  
+  # concordance estimates for C-outcome and C-for-benefit
+  concordance$outcome <-
+    impaccount_concordance_single(
+      C  = lapply(seq_len(m), function(i) x[[i]]$outcome$estimate),
+     SE = lapply(seq_len(m), function(i) x[[i]]$outcome$stderr))
+  
+  concordance$benefit <-
+    impaccount_concordance_single(
+      C  = lapply(seq_len(m), function(i) x[[i]]$benefit$estimate),
+      SE = lapply(seq_len(m), function(i) x[[i]]$benefit$stderr))
+  
+  # return
+  return(concordance)
   
 } # FUN
 
@@ -464,28 +515,6 @@ impaccount_risk_model <- function(x)
   {
     risk$baseline     <- as.matrix(rowMeans(sapply(1:m, function(i) x[[i]]$risk$baseline)))
   }
-  
-  
-  ## concordance
-  # concordance <- list(outcome_baseline = NULL,
-  #                     outcome = NULL,
-  #                     benefit = NULL)
-  # 
-  # c_logi  <- all(sapply(1:m, function(i) !is.null(x[[i]]$concordance$outcome_baseline$estimate )))
-  # se_logi <- all(sapply(1:m, function(i) !is.null(x[[i]]$concordance$outcome_baseline$stderr )))
-  # if(c_logi & se_logi){
-  #   concordance$outcome_baseline <- 
-  #     impaccount_concordance(C  = lapply(1:m, function(i) x[[i]]$concordance$outcome_baseline$estimate),
-  #                            SE = lapply(1:m, function(i) x[[i]]$concordance$outcome_baseline$stderr))
-  # }
-  # 
-  # concordance$outcome <- 
-  #   impaccount_concordance(C  = lapply(1:m, function(i) x[[i]]$concordance$outcome$estimate),
-  #                          SE = lapply(1:m, function(i) x[[i]]$concordance$outcome$stderr))
-  # concordance$benefit <- 
-  #   impaccount_concordance(C  = lapply(1:m, function(i) x[[i]]$concordance$benefit$estimate),
-  #                          SE = lapply(1:m, function(i) x[[i]]$concordance$benefit$stderr))
-  
   
   return(list(benefits = benefits,
               coefficients = coefficients,
@@ -550,28 +579,7 @@ impaccount_effect_model <- function(x)
   {
     risk$baseline     <- as.matrix(rowMeans(sapply(1:m, function(i) x[[i]]$risk$baseline)))
   }
-  
-  # # concordance
-  # concordance <- list(outcome_baseline = NULL,
-  #                     outcome = NULL,
-  #                     benefit = NULL)
-  # 
-  # concordance$outcome <- 
-  #   impaccount_concordance(C  = lapply(1:m, function(i) x[[i]]$concordance$outcome$estimate),
-  #                          SE = lapply(1:m, function(i) x[[i]]$concordance$outcome$stderr))
-  # concordance$benefit <- 
-  #   impaccount_concordance(C  = lapply(1:m, function(i) x[[i]]$concordance$benefit$estimate),
-  #                          SE = lapply(1:m, function(i) x[[i]]$concordance$benefit$stderr))
-  # 
-  # c_logi  <- all(sapply(1:m, function(i) !is.null(x[[i]]$concordance$outcome_baseline$estimate )))
-  # se_logi <- all(sapply(1:m, function(i) !is.null(x[[i]]$concordance$outcome_baseline$stderr )))
-  # if(c_logi & se_logi){
-  #   concordance$outcome_baseline <- 
-  #     impaccount_concordance(C  = lapply(1:m, function(i) x[[i]]$concordance$outcome_baseline$estimate),
-  #                            SE = lapply(1:m, function(i) x[[i]]$concordance$outcome_baseline$stderr))
-  # }
-  
-  
+
   return(list(benefits = benefits,
               coefficients = coefficients,
               risk = risk)) 
