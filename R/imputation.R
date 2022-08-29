@@ -477,7 +477,7 @@ impaccount_risk_model <- function(x)
   benefits$absolute <- rowMeans(sapply(1:m, function(i) x[[i]]$benefits$absolute))
   benefits$relative <- rowMeans(sapply(1:m, function(i) x[[i]]$benefits$relative))
   
-  # coefficients
+  ## coefficients
   coefficients <- list(baseline = NULL, stage2 = NULL)
   
   # account for the case that baseline risk is NULL
@@ -490,21 +490,8 @@ impaccount_risk_model <- function(x)
     coefficients$baseline <- cf
   }
   
-  decisions <- c("accepted", "rejected")
-  
-  for(decision in decisions)
-  {
-    p <- nrow(x[[1]]$coefficients$stage2[[decision]])
-    arr <- array(NA_real_, dim = c(p, 4L, m))
-    for(i in 1:m) arr[,,i] <- x[[i]]$coefficients$stage2[[decision]]
-    tmp <- impaccount_regression_array(x = arr, relative = FALSE)
-    z <- tmp[, "estimate"] / tmp[, "stderr"]
-    p <- 2 * stats::pnorm(abs(z), lower.tail = FALSE)
-    cf <- cbind(tmp[, "estimate"], tmp[, "stderr"], z, p)
-    dimnames(cf) <- dimnames(x[[1]]$coefficients$stage2[[decision]])
-    coefficients$stage2[[decision]] <- cf
-  } # FOR decision
-  
+  # coefficients stage 2
+  coefficients$stage2 <- impaccount_riskmodel_coefs(x)
   
   # risk
   risk <- list(baseline = NULL, regular = NULL, counterfactual = NULL)
@@ -650,7 +637,7 @@ impaccount <- function(x)
 
 #' internal function that accounts for imputation uncertainty the 2nd stage coefficient estimates in risk models
 #' @param x a list of effect model objects (imputed)
-#' @return A list of accpted and rejected coefficients
+#' @return A list of accepted and rejected coefficients
 #' 
 #' @noRd
 impaccount_riskmodel_coefs <- function(x)
