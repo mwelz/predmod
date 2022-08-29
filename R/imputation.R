@@ -737,7 +737,7 @@ impaccount_riskmodel_coefs <- function(x)
     
     
     ## occurrence counter
-    tmp <- table(dim_accepted)
+    tmp <- sort(table(dim_accepted), decreasing = TRUE) # from most to least occurring
     occ_nam <- as.integer(names(tmp))
     occ_ct <- unname(tmp)
     
