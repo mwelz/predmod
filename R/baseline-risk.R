@@ -28,55 +28,51 @@ baseline_risk <- function(X,
   
   if(is.null(alpha)){
     
-    ## case 1: no regularization
-    
-    # fit the model
-    model.obj <- stats::glm(status_bin~., 
-                            family = stats::binomial(link = "logit"), 
-                            data = data.frame(status_bin, X), ...)
-    
-    # store coefficient matrix as sparse matrix (for consistency with glmnet)
-    coefs <- Matrix::Matrix(model.obj$coefficients, sparse = TRUE, 
-                            dimnames = list(c("(Intercept)", colnames(X)), "Estimate"))
-    
-    # get linear predictor 
-    lp  <- as.numeric(cbind(1,X) %*% coefs)
-    
-    # empty lambda parameter (no regularization)
-    lambda.min <- NULL
+    ### case 1: no regularization
+    # there is no full model
+    model_full <- coefs_full <- NULL
+    kept_vars  <- seq_len(ncol(X))
     
   } else{
     
-    ## case 2: regularization
-  
+    ### case 2: regularization
+    
+    ## full model
     # fit model
-    model.obj     <- glmnet::cv.glmnet(x = X, y = status_bin, 
-                                       family = "binomial", 
-                                       alpha = alpha, ...)
+    model_full <- glmnet::cv.glmnet(x = X, y = status_bin, 
+                                    family = "binomial", 
+                                    alpha = alpha, ...)
     
     # get coefficients at best lambda
-    coefs <- glmnet::coef.glmnet(model.obj, s = "lambda.min")
-    colnames(coefs) <- "Estimate"
+    coefs_full <- glmnet::coef.glmnet(model_full, s = "lambda.min")
+    colnames(coefs_full) <- "Estimate"
     
-    # get indices of kept variables (account for zero indexing)
-    kept.vars     <- coefs@i + 1
+    # get indices of kept variables (zero-th index is intercept)
+    kept_vars <- coefs_full@i 
     
-    # get linear predictor 
-    lp  <- as.numeric(cbind(1,X)[,kept.vars,drop = FALSE] %*% coefs[kept.vars])
-    
-    # get minimizing lambda
-    lambda.min <- model.obj$lambda.min
-    
+    if(0L %in% kept_vars){
+      kept_vars <- kept_vars[-which(kept_vars == 0L)]
+    } # IF
+
   } # IF
   
+  ## reduced model
+  # fit the model
+  model_red <- stats::glm(status_bin~., 
+                          family = stats::binomial(link = "logit"), 
+                          data = data.frame(status_bin, 
+                                            X[,kept_vars,drop = FALSE]), ...)
+  
+  # get coefficients and linear predictor
+  coefs_red <- coefficients(summary(model_red))
+  lp        <- as.numeric(predict(model_red, type = "link"))
   
   # return
   return(structure(list(
     risk = as.matrix(stats::plogis(lp)),
     linear_predictor = lp,
-    coefficients = coefs,
-    model = model.obj,
-    lambda_min = lambda.min
+    coefficients = list(full = coefs_full, reduced = coefs_red),
+    model = list(full = model_full, reduced = model_red)
   ), class = "baseline_crss"))
   
 } # FUN
