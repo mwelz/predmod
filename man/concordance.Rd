@@ -4,7 +4,14 @@
 \alias{concordance}
 \title{Function to predict concordance}
 \usage{
-concordance(x)
+concordance(
+  x,
+  baseline_risk = NULL,
+  risk = NULL,
+  benefit = NULL,
+  status = NULL,
+  w = NULL
+)
 }
 \arguments{
 \item{x}{A predmod object. TODO}

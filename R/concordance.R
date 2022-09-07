@@ -9,6 +9,8 @@
 #' @export
 C_benefit <- function(y, w, pred_ben){
   
+  InputChecks_equal.length3(y, w, pred_ben)
+  
   # match cases based on observed benefit
   matched <- suppressWarnings(MatchIt::matchit(w ~ pb, data = data.frame(w = w, pb = pred_ben)))
   match.treated <- as.numeric(rownames(matched$match.matrix))
@@ -46,6 +48,8 @@ C_benefit <- function(y, w, pred_ben){
 #' @export
 C_outcome <- function(y, risk){
   
+  InputChecks_equal.length2(y, risk)
+  
   hmisc.obj <- Hmisc::rcorr.cens(risk, y)
   loc <- unname(hmisc.obj["C Index"])
   sd <-  unname(hmisc.obj["S.D."])
@@ -61,35 +65,94 @@ C_outcome <- function(y, risk){
 #' @param x A predmod object. TODO
 #' 
 #' @export
-concordance <- function(x){
+concordance <- function(x, 
+                        baseline_risk = NULL, 
+                        risk = NULL, 
+                        benefit = NULL,
+                        status = NULL,
+                        w = NULL ){
   
   stopifnot(inherits(x, what = c("risk_model_crss", 
                                  "risk_model_surv", 
                                  "effect_model_crss",
                                  "effect_model_surv")))
   
-  if(is.null(x$risk$baseline)){
-    
+  if(is.null(status))
+  {
+    status0 <- as.numeric(x$inputs$status_bin)
+  } else
+  {
+    status0 <- as.numeric(status)
+  }
+  
+  if(is.null(w))
+  {
+    w0 <- x$inputs$w
+  } else
+  {
+    w0 <- w
+  }
+  
+  
+  ## 1. C baseline
+  if(is.null(baseline_risk) && is.null(x$risk$baseline))
+  {
     outcome_baseline <- NULL
+  } else
+  {
+    if(is.null(baseline_risk)){
+      br <- x$risk$baseline
+    } else{
+      br <- baseline_risk
+    }
     
-  } else{
-    
-    outcome_baseline <- C_outcome(y    = x$inputs$status_bin, 
-                                  risk = as.numeric(x$risk$baseline))
+    # calculate C
+    outcome_baseline <- 
+      C_outcome(y    = status0, 
+                risk = as.numeric(br))
   } # IF
   
-  outcome <- C_outcome(y = x$inputs$status_bin,
-                       risk = as.numeric(x$risk$regular))
   
-  benefit <- C_benefit(y = x$inputs$status_bin,
-                       w = x$inputs$w, 
-                       pred_ben = as.numeric(x$benefits$absolute))
+  ## 2. C outcome
+  if(is.null(risk) && is.null(x$risk$regular))
+  {
+    Coutcome <- NULL
+  } else
+  {
+    if(is.null(risk))
+    {
+      risk0 <- as.numeric(x$risk$regular)
+    } else
+    {
+      risk0 <- as.numeric(risk)
+    } # IF
+    
+    Coutcome <- C_outcome(y = status0,
+                          risk = risk0)
+    
+  } # IF
+  
+  
+  
+  ## 3. predicted absolute benefit for C benefit
+  if(is.null(benefit))
+  {
+    benefit0 <- as.numeric(x$benefits$absolute)
+  } else
+  {
+    benefit0 <- as.numeric(benefit)
+  } # IF
+  
+  Cbenefit <- C_benefit(y = status0,
+                        w = w0, 
+                        pred_ben = benefit0)
+  
  
   return(structure(
     list(
     outcome_baseline = outcome_baseline,
-    outcome = outcome,
-    benefit = benefit
+    outcome = Coutcome,
+    benefit = Cbenefit
     ), class = "concordance"))
   
 } # FUN
