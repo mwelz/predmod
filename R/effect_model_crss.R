@@ -93,13 +93,20 @@ effect_model <- function(X,
                            alpha = alpha,
                            penalty.factor = penalty.factor)
   
+  
   # obtain risk estimates
-  risk_reg <- stats::plogis(as.numeric(
-    cbind(1, X_full[,fits$kept_vars, drop = FALSE]) %*% fits$coefficients$reduced))
+  risk_reg <- 
+    unname(
+      stats::predict.glm(
+        object = fits$models$reduced,
+        newdata = as.data.frame(X_full[,fits$kept_vars, drop = FALSE]), type = "response"))
   
-  risk_rev <- stats::plogis(as.numeric(
-    cbind(1, X_full_rev[,fits$kept_vars, drop = FALSE]) %*% fits$coefficients$reduced))
-  
+  risk_rev <- 
+    unname(
+      stats::predict.glm(
+        object = fits$models$reduced,
+        newdata = as.data.frame(X_full_rev[,fits$kept_vars, drop = FALSE]), type = "response"))
+
   # calculate predicted benefits
   benefits <- get_predicted_benefits(risk_reg = risk_reg, 
                                      risk_rev = risk_rev,
@@ -126,12 +133,14 @@ effect_model <- function(X,
                         risk = list(baseline = br,
                                     regular = as.matrix(risk_reg),
                                     counterfactual = as.matrix(risk_rev)),
-                        models = list(baseline = mod_baseline$model, 
+                        models = list(baseline = mod_baseline, 
                                       full = fits$models$full,
                                       reduced = fits$models$reduced),
                         inputs = list(status = status, status_bin = status_bin,
                                       w = w, failcode = failcode, alpha = alpha, 
-                                      alpha_baseline = alpha_baseline)
+                                      alpha_baseline = alpha_baseline, 
+                                      interacted = interacted,
+                                      covariates = colnames(X))
   ), 
   class = "effect_model_crss"))
   
