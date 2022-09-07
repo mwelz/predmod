@@ -77,11 +77,10 @@ InputChecks_newX_X <- function(newX, object, survival = FALSE)
 } # FUN
 
 
-check_and_adjust_newX <- function(newX, object)
+check_and_adjust_newX <- function(newX, covariates)
 {
-  # object must be of class baseline_risk_crss
-  nam <- object$covariates
-  p <- length(nam)
+  # covariates are the names of the variables in X that was used for fitting
+  p <- length(covariates)
   
   if(!identical(p, ncol(newX))){
     stop(sprintf("The number of variables in newX must be %i", p), 
@@ -93,14 +92,14 @@ check_and_adjust_newX <- function(newX, object)
   # don't check for column names if newX doesn't have any
   if(!is.null(nam_newX))
   {
-    samenames <- nam_newX == nam
+    samenames <- nam_newX == covariates
     if(!all(samenames))
     {
       stop(paste0("\nInvalid columns detected, namely ", nam_newX[!samenames]), 
            call. = FALSE)
     }
   } else{
-    colnames(newX) <- nam
+    colnames(newX) <- covariates
   } # IF
   
   return(newX)

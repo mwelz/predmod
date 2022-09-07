@@ -64,8 +64,8 @@ baseline_risk <- function(X,
                                             X[,kept_vars,drop = FALSE]), ...)
   
   # get coefficients and linear predictor
-  coefs_red <- coefficients(summary(model_red))
-  lp        <- as.numeric(predict(model_red, type = "link"))
+  coefs_red <- stats::coefficients(summary(model_red))
+  lp        <- as.numeric(stats::predict.glm(model_red, type = "link"))
   
   # return
   return(structure(list(
@@ -73,7 +73,11 @@ baseline_risk <- function(X,
     linear_predictor = lp,
     coefficients = list(full = coefs_full, reduced = coefs_red),
     model = list(full = model_full, reduced = model_red),
-    covariates = colnames(X)
+    inputs = list(status = status, 
+                  status_bin = status_bin,
+                  failcode = failcode,
+                  alpha = alpha, 
+                  covariates = colnames(X))
   ), class = "baseline_crss"))
   
 } # FUN
@@ -292,7 +296,8 @@ predict.baseline_risk <- function(object, newX, ...)
   }
   
   InputChecks_newX(newX)
-  newX <- check_and_adjust_newX(newX = newX, object = object)
+  newX <- check_and_adjust_newX(newX = newX,
+                                covariates = object$inputs$covariates)
   
   ## predict
   predict_baseline_crss_NoChecks(object = object, newX = newX, ... = ...)
