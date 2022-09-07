@@ -12,9 +12,9 @@
 predict.risk_model <- function(object, neww, newz = NULL, newX = NULL, ...)
 {
   ## input checks
-  if(!inherits(x = object, what = "predmod_crss", which = FALSE))
+  if(!inherits(x = object, what = "risk_model_crss", which = FALSE))
   {
-    stop("object must be an instance of predmod_crss()")
+    stop("object must be an instance of risk_model_crss()")
   }
   
   ## check correctness of neww
@@ -36,13 +36,15 @@ predict.risk_model <- function(object, neww, newz = NULL, newX = NULL, ...)
            call. = FALSE) 
     } else{
       
-      ## case 3: both baseline model and passed
+      ## case 3: both baseline model and newX passed
       # check if newX is correctly specified
       InputChecks_newX(newX)
       InputChecks_equal.length2(neww, newX)
-      InputChecks_newX_X(newX = newX,
-                         object = object$models$baseline, 
-                         survival = FALSE)
+      newX <- check_and_adjust_newX(newX = newX, 
+                                    object = object$models$baseline)
+      #InputChecks_newX_X(newX = newX,
+      #                   object = object$models$baseline$, 
+      #                   survival = FALSE)
     } # IF
   } # IF
   
@@ -57,8 +59,8 @@ predict.risk_model <- function(object, neww, newz = NULL, newX = NULL, ...)
 
 predict_risk_model_NoChecks <- function(object, neww, newX, newz, ...)
 {
-  ## get model object from 2nd stage
-  mod <- object$models$stage2$model
+  ## get accepted model object from 2nd stage
+  mod <- object$models$stage2$model$accepted
   
   ## if no newz provided, get it via the baseline risk model
   if(is.null(newz))
@@ -80,7 +82,7 @@ predict_risk_model_NoChecks <- function(object, neww, newX, newz, ...)
   w_flipped <- ifelse(neww == 1, 0, 1)
   
   ## prepare X for second stage
-  if(object$inputs$constant){
+  if(object$models$stage2$decision == "reduced"){
     
     # prepare X for second stage...
     X_stage2 <- cbind(w = neww, z = as.numeric(z))
@@ -122,8 +124,10 @@ predict_risk_model_NoChecks <- function(object, neww, newX, newz, ...)
     w = neww)
   
   return(cbind(
-    absolute = benefits$absolute,
-    relative = benefits$relative
+    benefit_absolute = benefits$absolute,
+    benefit_relative = benefits$relative,
+    risk_regular = risk_reg,
+    risk_counterfactual = risk_rev
   ))
 } # FUN
 

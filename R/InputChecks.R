@@ -79,7 +79,7 @@ InputChecks_newX_X <- function(newX, object, survival = FALSE)
 
 check_and_adjust_newX <- function(newX, object)
 {
-  
+  # object must be of class baseline_risk_crss
   nam <- object$covariates
   p <- length(nam)
   
