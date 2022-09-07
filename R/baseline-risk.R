@@ -72,7 +72,8 @@ baseline_risk <- function(X,
     risk = as.matrix(stats::plogis(lp)),
     linear_predictor = lp,
     coefficients = list(full = coefs_full, reduced = coefs_red),
-    model = list(full = model_full, reduced = model_red)
+    model = list(full = model_full, reduced = model_red),
+    covariates = colnames(X)
   ), class = "baseline_crss"))
   
 } # FUN
@@ -291,7 +292,7 @@ predict.baseline_risk <- function(object, newX, ...)
   }
   
   InputChecks_newX(newX)
-  InputChecks_newX_X(newX = newX, object = object, survival = FALSE)
+  newX <- check_and_adjust_newX(newX = newX, object = object)
   
   ## predict
   predict_baseline_crss_NoChecks(object = object, newX = newX, ... = ...)
@@ -302,19 +303,28 @@ predict.baseline_risk <- function(object, newX, ...)
 predict_baseline_crss_NoChecks <- function(object, newX, ...)
 {
   
-  ## case 1: glmnet object
-  if(inherits(x = object$model, what = "cv.glmnet"))
+  retained <- rownames(object$coefficients$reduced)
+  
+  if("(Intercept)" %in% retained)
   {
-    out <- glmnet:::predict.cv.glmnet(
-      object = object$model,
-      newx = newX, s = "lambda.min", 
-      type = "response", ... = ...)
-    
+    retained0 <- retained[-1L]
+    intercept <- object$coefficients$reduced["(Intercept)", "Estimate"]
   } else{
+    intercept <- 0.0
+  }
+  
+  if(identical(length(retained0), 0L))
+  {
+    # case 1: no variables were retained
+    out <- rep(intercept, nrow(newX))
+  } else
+  {
+    # case 2: at least one variable was retained
+    newX0 <- as.data.frame(newX[,retained0])
+    colnames(newX0) <- retained0
     
-    ## case 2: glm object
-    out <- unname(stats::predict.glm(object = object$model, 
-                                     newdata = as.data.frame(newX), 
+    out <- unname(stats::predict.glm(object = object$model$reduced, 
+                                     newdata = newX0, 
                                      type = "response", 
                                      ... = ...))
   } # IF

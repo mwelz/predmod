@@ -75,3 +75,34 @@ InputChecks_newX_X <- function(newX, object, survival = FALSE)
   } # IF
   
 } # FUN
+
+
+check_and_adjust_newX <- function(newX, object)
+{
+  
+  nam <- object$covariates
+  p <- length(nam)
+  
+  if(!identical(p, ncol(newX))){
+    stop(sprintf("The number of variables in newX must be %i", p), 
+         call. = FALSE)
+  } # IF
+  
+  nam_newX <- colnames(newX)
+  
+  # don't check for column names if newX doesn't have any
+  if(!is.null(nam_newX))
+  {
+    samenames <- nam_newX == nam
+    if(!all(samenames))
+    {
+      stop(paste0("\nInvalid columns detected, namely ", nam_newX[!samenames]), 
+           call. = FALSE)
+    }
+  } else{
+    colnames(newX) <- nam
+  } # IF
+  
+  return(newX)
+  
+} # FUN
