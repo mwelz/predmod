@@ -10,6 +10,8 @@
 #' @param xlim limits of x-axis
 #' @param ylim limits of y-xcis
 #' @param flip_sign logical. Shall the sign of the benefits be flipped?
+#' @param status Optional target variables to calculate benefits with
+#' @param w Optional treatment assignment variables to calculate benefits with
 #' 
 #' @import ggplot2
 #' 
@@ -23,7 +25,9 @@ calibration_plot <- function( x,
                               title = NULL,
                               xlim = NULL,
                               ylim = NULL,
-                              flip_sign = FALSE){
+                              flip_sign = FALSE,
+                              status = NULL,
+                              w = NULL){
   
   # appease the check (TODO: come up with better solution)
   pb.means <- ob.means <- ob.means.ci.lo <- ob.means.ci.up <- NULL
@@ -34,7 +38,9 @@ calibration_plot <- function( x,
                            baseline_risk      = baseline_risk,
                            time_eval          = time_eval,
                            odds_ratio         = FALSE,
-                           significance_level = significance_level)
+                           significance_level = significance_level, 
+                           status             = status, 
+                           w                  = w)
   
   # make sure risk quantile is in correct order
   risk.quantile <- factor(benefits$quantiles,

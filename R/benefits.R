@@ -213,6 +213,8 @@ predicted_benefit_inference <- function(x,
 #' @param time_eval Time at which we evaluate the risk predictions.
 #' @param odds_ratio Logical. If \code{TRUE}, odds ratios per quantile group will be computed. Default is \code{FALSE}.
 #' @param significance_level the significance level. Default is 0.05.
+#' @param status Optional target variables to calculate benefits with
+#' @param w Optional treatment assignment variables to calculate benefits with
 #' 
 #' @export
 get_benefits <- function(x, 
@@ -220,26 +222,66 @@ get_benefits <- function(x,
                          baseline_risk = NULL,
                          time_eval = NULL,
                          odds_ratio = FALSE,
-                         significance_level = 0.05){
+                         significance_level = 0.05, 
+                         status = NULL,
+                         w = NULL){
   
-  # extract outcome and treatment status
-  status <- x$inputs$status_bin
-  w      <- x$inputs$w
-  
-  # if baseline_risk is NULL, then x$baseline cannot be null
-  
-  # specify baseline risk that shall be used for grouping
-  if(is.null(baseline_risk)){
+  status_null <- is.null(status)
+  w_null <- is.null(w)
+  baseline_null <- is.null(baseline_risk)
+
+  if(is.null(status) && is.null(w))
+  {
     
-    tmp <- x$risk$baseline
+    # extract outcome and treatment status
+    status <- x$inputs$status_bin
+    w      <- x$inputs$w
     
-    if(is.null(tmp)){
-      stop("Both the argument 'baseline_risk' and x$risk$baseline are NULL. If x$risk$baseline = NULL, then baseline_risk cannot be NULL as well. Please provide estimates of baseline risks via 'baseline_risk'.", call. = FALSE)
+  } else if(!is.null(status) && !is.null(w))
+  {
+    
+    # nothing happens: take the supplied values as status and w, but run some tests
+    stopifnot(is.numeric(status) && is.numeric(w))
+    stopifnot(identical(length(status), length(w)))
+    InputChecks_W(w)
+    InputChecks_Y_binary(status)
+    
+  } else{
+    stop(paste0("w and status must either be both NULL or both non-NULL"))
+  } # IF
+  
+  ## if no baseline risk provided, take the baseline risk from x
+  # but there might be no baseline risk in x if x didn't estimate a baseline risk.
+  # in this case, throw an error.
+  if(baseline_null)
+  {
+    br <- x$risk$baseline
+    
+    if(is.null(br)){
+      
+      # error if x$risk$baseline is NULL
+      stop("Both the argument 'baseline_risk' and x$risk$baseline are NULL. ",
+           "If x$risk$baseline = NULL, then baseline_risk cannot be NULL ",
+           "as well. Please provide estimates of baseline risks via 'baseline_risk'.",
+           call. = FALSE)
     } else{
-      baseline_risk <- as.numeric(tmp)
+      
+      # x$risk$baseline contains baseline risk predictions. But they must be of same length as w and status!
+      baseline_risk <- as.numeric(br)
     } # IF
-  }  # IF
+  } # IF baseline_null
   
+  ## we now have a baseline_risk object available, either implicitly obtained 
+  # from x or explicitly as an argument. We now check for
+  # equal length with w and status 
+  if(!identical(length(baseline_risk), length(w)))
+  {
+    warning(paste0("You have not passed baseline_risk and ",
+                   "the baseline_risk in x is of different length than ",
+                   "w and status. This imbalance is no issue for the quantile ",
+                   "grouping, but may be unintentional. So be careful here."))
+  }
+
   # group observations by their quantile of predicted baseline risk
   quantile.groups <- quantile_group_NoChecks(baseline_risk, cutoffs)
   

@@ -11,7 +11,9 @@ get_benefits(
   baseline_risk = NULL,
   time_eval = NULL,
   odds_ratio = FALSE,
-  significance_level = 0.05
+  significance_level = 0.05,
+  status = NULL,
+  w = NULL
 )
 }
 \arguments{
@@ -26,6 +28,10 @@ get_benefits(
 \item{odds_ratio}{Logical. If \code{TRUE}, odds ratios per quantile group will be computed. Default is \code{FALSE}.}
 
 \item{significance_level}{the significance level. Default is 0.05.}
+
+\item{status}{Optional target variables to calculate benefits with}
+
+\item{w}{Optional treatment assignment variables to calculate benefits with}
 }
 \description{
 Calculates group-level benefits from a prediction model, and the associated confidence intervals.
