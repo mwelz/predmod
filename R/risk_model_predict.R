@@ -41,7 +41,7 @@ predict.risk_model <- function(object, neww, newz = NULL, newX = NULL, ...)
       InputChecks_newX(newX)
       InputChecks_equal.length2(neww, newX)
       newX <- check_and_adjust_newX(newX = newX, 
-                                    object = object$models$baseline)
+                                    covariates = object$inputs$covariates)
       #InputChecks_newX_X(newX = newX,
       #                   object = object$models$baseline$, 
       #                   survival = FALSE)

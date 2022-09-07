@@ -10,7 +10,9 @@ get_benefits_imputation(
   cutoffs = c(0.25, 0.5, 0.75),
   baseline_risk = NULL,
   time_eval = NULL,
-  significance_level = 0.05
+  significance_level = 0.05,
+  status = NULL,
+  w = NULL
 )
 }
 \arguments{
@@ -23,6 +25,10 @@ get_benefits_imputation(
 \item{time_eval}{Time at which we evaluate the risk predictions.}
 
 \item{significance_level}{the significance level. Default is 0.05.}
+
+\item{status}{Optional list of target variables to calculate benefits with}
+
+\item{w}{Optional list of treatment assignment variables to calculate benefits with}
 }
 \description{
 Calculates imputation-adjusted group-level benefits from a prediction model, and the associated confidence intervals.

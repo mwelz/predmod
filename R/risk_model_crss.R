@@ -128,7 +128,8 @@ risk_model <- function(X,
                                       stage2 = stage2),
                         inputs = list(status = status, status_bin = status_bin,
                                       w = w, failcode = failcode, z = z, 
-                                      constant = constant, alpha = alpha)
+                                      constant = constant, alpha = alpha, 
+                                      covariates = colnames(X))
   ), 
   class = "risk_model_crss"))
   

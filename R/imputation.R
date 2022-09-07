@@ -49,19 +49,25 @@ impaccount_regression_array <- function(x,
 #' @param baseline_risk A list of baseline risks that shall be used for grouping. If \code{NULL} (default), then the baseline risks in \code{x} are used.
 #' @param time_eval Time at which we evaluate the risk predictions.
 #' @param significance_level the significance level. Default is 0.05.
+#' @param status Optional list of target variables to calculate benefits with
+#' @param w Optional list of treatment assignment variables to calculate benefits with
 #' 
 #' @export
 get_benefits_imputation <- function(x, 
                                     cutoffs = c(0.25, 0.5, 0.75),
                                     baseline_risk = NULL,
                                     time_eval = NULL,
-                                    significance_level = 0.05)
+                                    significance_level = 0.05,
+                                    status = NULL,
+                                    w = NULL)
 {
   # number of imputation runs
   m <- length(x)
   
   # sanity check
   if(!is.null(baseline_risk)) stopifnot(is.list(baseline_risk) & length(baseline_risk) == m)
+  if(!is.null(status)) stopifnot(is.list(status) & length(status) == m)
+  if(!is.null(w)) stopifnot(is.list(w) & length(w) == m)
   
   # initialize array of results
   arr <- array(data = NA_real_, 
@@ -82,8 +88,10 @@ get_benefits_imputation <- function(x,
                         cutoffs = cutoffs,
                         baseline_risk = baseline_risk[[i]], 
                         time_eval = time_eval, 
-                        odds_ratio = FALSE,
-                        significance_level = significance_level)
+                        odds_ratio = FALSE, 
+                        significance_level = significance_level, 
+                        status = status[[i]], 
+                        w = w[[i]])
     
     # assign results matrices
     arr_ls$pb_abs[,,i] <- ben$predicted_benefit$absolute[,c("estimate", "stderr")]
@@ -125,6 +133,17 @@ get_benefits_imputation <- function(x,
   } else{
     br <- rowMeans(sapply(1:m, function(i) baseline_risk[[i]]))
   } # IF
+  
+  ## we now have a baseline_risk object available, either implicitly obtained 
+  # from x or explicitly as an argument. We now check for
+  # equal length with w and status 
+  if(!identical(length(br), length(w[[1L]])))
+  {
+    warning(paste0("You have not passed baseline_risk and ",
+                   "the baseline_risk in x is of different length than ",
+                   "w and status. This imbalance is no issue for the quantile ",
+                   "grouping, but may be unintentional. So be careful here."))
+  }
   
   # group observations by their quantile of predicted baseline risk (imputation-adjusted)
   quantile_groups <- quantile_group_NoChecks(br, cutoffs)
@@ -219,6 +238,8 @@ get_benefits_grf_imputation <- function(x,
 #' @param xlim limits of x-axis
 #' @param ylim limits of y-xcis
 #' @param flip_sign logical. Shall the sign of the benefits be flipped?
+#' @param status Optional list of target variables to calculate benefits with
+#' @param w Optional list of treatment assignment variables to calculate benefits with
 #' 
 #' @import ggplot2
 #' 
@@ -232,7 +253,9 @@ calibration_plot_imputation <- function(x,
                                         title = NULL,
                                         xlim = NULL,
                                         ylim = NULL,
-                                        flip_sign = FALSE){
+                                        flip_sign = FALSE, 
+                                        status = NULL, 
+                                        w = NULL){
   
   # appease the check (TODO: come up with better solution)
   pb.means <- ob.means <- ob.means.ci.lo <- ob.means.ci.up <- NULL
@@ -242,7 +265,9 @@ calibration_plot_imputation <- function(x,
                                       cutoffs            = cutoffs,
                                       baseline_risk      = baseline_risk,
                                       time_eval          = time_eval,
-                                      significance_level = significance_level)
+                                      significance_level = significance_level, 
+                                      status             = status, 
+                                      w                  = w)
   
   
   

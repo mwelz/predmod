@@ -14,7 +14,9 @@ calibration_plot_imputation(
   title = NULL,
   xlim = NULL,
   ylim = NULL,
-  flip_sign = FALSE
+  flip_sign = FALSE,
+  status = NULL,
+  w = NULL
 )
 }
 \arguments{
@@ -37,6 +39,10 @@ calibration_plot_imputation(
 \item{ylim}{limits of y-xcis}
 
 \item{flip_sign}{logical. Shall the sign of the benefits be flipped?}
+
+\item{status}{Optional list of target variables to calculate benefits with}
+
+\item{w}{Optional list of treatment assignment variables to calculate benefits with}
 }
 \description{
 makes an imputation-accounted calibration plot for imputed prediction models
