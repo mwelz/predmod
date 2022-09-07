@@ -7,7 +7,7 @@
 dml(
   X,
   w,
-  y,
+  status,
   ml_g = "random.forest",
   ml_m = "random.forest",
   significance.level = 0.05,
@@ -25,7 +25,7 @@ dml(
 
 \item{w}{a binary vector of treatment status}
 
-\item{y}{a binary vector of outcomes}
+\item{status}{a binary vector of outcomes}
 
 \item{ml_g}{a regression machine learner; refers to the nuisance function \code{g0(X) = E[Y|X,W]}. Either  'glm', 'random.forest', or 'tree'. Can alternatively be specified by using the mlr3 framework, for example ml_g = mlr3::lrn("regr.ranger", num.trees = 500, mtry = NULL, min.node.size = NULL, max.depth = NULL) for a classification forest, which is also the default.}
 

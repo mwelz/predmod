@@ -3,7 +3,7 @@
 #' 
 #' @param X a matrix or data frame of covariates
 #' @param w a binary vector of treatment status
-#' @param y a binary vector of outcomes
+#' @param status a binary vector of outcomes
 #' @param ml_g a regression machine learner; refers to the nuisance function \code{g0(X) = E[Y|X,W]}. Either  'glm', 'random.forest', or 'tree'. Can alternatively be specified by using the mlr3 framework, for example ml_g = mlr3::lrn("regr.ranger", num.trees = 500, mtry = NULL, min.node.size = NULL, max.depth = NULL) for a classification forest, which is also the default. 
 #' @param ml_m a classification machine learner; refers to the nuisance function \code{m0(X) = E[W|X]}. Either  'glm', 'random.forest', or 'tree'. Can alternatively be specified by using the mlr3 framework, for example ml_m = mlr3::lrn("classif.ranger", num.trees = 500, mtry = NULL, min.node.size = NULL, max.depth = NULL) for a classification forest, which is also the default.
 #' @param significance.level TODO
@@ -19,7 +19,7 @@
 #' 
 #' 
 #' @export
-dml <- function(X, w, y, 
+dml <- function(X, w, status, 
                 ml_g = "random.forest",
                 ml_m = "random.forest",
                 significance.level = 0.05,
@@ -39,7 +39,7 @@ dml <- function(X, w, y,
     ml_g <- ml_g
   } else if(ml_g == "glm"){
     
-    ml_g <- mlr3::lrn("regr.cv_glmnet", s = "lambda.min")
+    ml_g <- mlr3::lrn("regr.cv_glmnet", s = "lambda.1se")
     
   } else if(ml_g == "random.forest"){
     
@@ -61,7 +61,7 @@ dml <- function(X, w, y,
     ml_m <- ml_m
   } else if(ml_m == "glm"){
     
-    ml_m <- mlr3::lrn("classif.cv_glmnet", s = "lambda.min")
+    ml_m <- mlr3::lrn("classif.cv_glmnet", s = "lambda.1se")
     
   } else if(ml_m == "random.forest"){
     
@@ -86,7 +86,7 @@ dml <- function(X, w, y,
   # Tree: lrn("regr.rpart")
   
   # matrix interface to DoubleMLData
-  dml.data <- DoubleML::double_ml_data_from_matrix(X = X, y = y, d = w)
+  dml.data <- DoubleML::double_ml_data_from_matrix(X = X, y = status, d = w)
   
   # specify PLR model
   dml.obj <- DoubleML::DoubleMLIRM$new(dml.data,
@@ -111,15 +111,11 @@ dml <- function(X, w, y,
                CI.upper = dml.obj$confint(level = 1 - significance.level)[2],
                t.test   = as.numeric(dml.obj$t_stat), 
                p.value  = as.numeric(dml.obj$pval))
+  names(summary) <- 
+    c("Estimate", "Std. Error", "95CI lower", "95CI upper", "t test", "p value")
   
   return(list(summary = summary,
-              Estimate = as.numeric(summary["Estimate"]),
-              StDError = as.numeric(summary["StdError"]), 
-              confidence.interval = c(lower = as.numeric(summary["CI.lower"]), 
-                                      upper = as.numeric(summary["CI.upper"])),
-              t.test = as.numeric(summary["t.test"]),
-              p.value = as.numeric(summary["p.value"]),
-              significance.level = significance.level,
-              dml.object = dml.obj))
+              significance_level = significance.level,
+              model = dml.obj))
   
 } # END function
