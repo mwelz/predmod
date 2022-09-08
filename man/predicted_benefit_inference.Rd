@@ -9,7 +9,10 @@ predicted_benefit_inference(
   subset = NULL,
   relative = FALSE,
   time_eval = NULL,
-  significance_level = 0.05
+  significance_level = 0.05,
+  neww = NULL,
+  newX = NULL,
+  newz = NULL
 )
 }
 \arguments{
