@@ -16,7 +16,8 @@ calibration_plot(
   ylim = NULL,
   flip_sign = FALSE,
   status = NULL,
-  w = NULL
+  w = NULL,
+  X = NULL
 )
 }
 \arguments{

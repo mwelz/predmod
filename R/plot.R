@@ -27,7 +27,8 @@ calibration_plot <- function( x,
                               ylim = NULL,
                               flip_sign = FALSE,
                               status = NULL,
-                              w = NULL){
+                              w = NULL,
+                              X = NULL){
   
   # appease the check (TODO: come up with better solution)
   pb.means <- ob.means <- ob.means.ci.lo <- ob.means.ci.up <- NULL
@@ -40,7 +41,8 @@ calibration_plot <- function( x,
                            odds_ratio         = FALSE,
                            significance_level = significance_level, 
                            status             = status, 
-                           w                  = w)
+                           w                  = w, 
+                           X                  = X)
   
   # make sure risk quantile is in correct order
   risk.quantile <- factor(benefits$quantiles,
