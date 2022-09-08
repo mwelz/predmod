@@ -174,13 +174,19 @@ predicted_benefit_inference <- function(x,
                                         subset = NULL, 
                                         relative = FALSE,
                                         time_eval = NULL,
-                                        significance_level = 0.05){
+                                        significance_level = 0.05,
+                                        neww = NULL, 
+                                        newX = NULL,
+                                        newz = NULL){
   
-  ate_obj <- average_treatment_effect_NoChecks(
+  ate_obj <- average_treatment_effect(
                                       x = x, 
                                       subset = subset,
                                       relative = relative,
-                                      time_eval = time_eval)
+                                      time_eval = time_eval, 
+                                      neww = neww, 
+                                      newX = newX,
+                                      newz = newz)
   
   se  <- unname(ate_obj["Std. Error"])
   ate <- unname(ate_obj["ATE"])
@@ -213,75 +219,31 @@ predicted_benefit_inference <- function(x,
 #' @param time_eval Time at which we evaluate the risk predictions.
 #' @param odds_ratio Logical. If \code{TRUE}, odds ratios per quantile group will be computed. Default is \code{FALSE}.
 #' @param significance_level the significance level. Default is 0.05.
+#' @param X Optional covariate matrix to calculate benefits with
 #' @param status Optional target variables to calculate benefits with
 #' @param w Optional treatment assignment variables to calculate benefits with
 #' 
 #' @export
-get_benefits <- function(x, 
+get_benefits <- function(x,
                          cutoffs = c(0.25, 0.5, 0.75),
                          baseline_risk = NULL,
                          time_eval = NULL,
                          odds_ratio = FALSE,
                          significance_level = 0.05, 
                          status = NULL,
-                         w = NULL){
+                         w = NULL,
+                         X = NULL){
   
-  status_null <- is.null(status)
-  w_null <- is.null(w)
-  baseline_null <- is.null(baseline_risk)
-
-  if(is.null(status) && is.null(w))
-  {
-    
-    # extract outcome and treatment status
-    status <- x$inputs$status_bin
-    w      <- x$inputs$w
-    
-  } else if(!is.null(status) && !is.null(w))
-  {
-    
-    # nothing happens: take the supplied values as status and w, but run some tests
-    stopifnot(is.numeric(status) && is.numeric(w))
-    stopifnot(identical(length(status), length(w)))
-    InputChecks_W(w)
-    InputChecks_Y_binary(status)
-    
-  } else{
-    stop(paste0("w and status must either be both NULL or both non-NULL"))
-  } # IF
+  # do input checks and get risk, w, y in right form
+  init <- initialize_benefits(x = x, 
+                              baseline_risk = baseline_risk,
+                              status = status,
+                              w = w)
+  baseline_risk <- init$baseline_risk
+  w             <- init$w
+  status        <- init$status
+  z             <- stats::qlogis(baseline_risk)
   
-  ## if no baseline risk provided, take the baseline risk from x
-  # but there might be no baseline risk in x if x didn't estimate a baseline risk.
-  # in this case, throw an error.
-  if(baseline_null)
-  {
-    br <- x$risk$baseline
-    
-    if(is.null(br)){
-      
-      # error if x$risk$baseline is NULL
-      stop("Both the argument 'baseline_risk' and x$risk$baseline are NULL. ",
-           "If x$risk$baseline = NULL, then baseline_risk cannot be NULL ",
-           "as well. Please provide estimates of baseline risks via 'baseline_risk'.",
-           call. = FALSE)
-    } else{
-      
-      # x$risk$baseline contains baseline risk predictions. But they must be of same length as w and status!
-      baseline_risk <- as.numeric(br)
-    } # IF
-  } # IF baseline_null
-  
-  ## we now have a baseline_risk object available, either implicitly obtained 
-  # from x or explicitly as an argument. We now check for
-  # equal length with w and status 
-  if(!identical(length(baseline_risk), length(w)))
-  {
-    warning(paste0("You have not passed baseline_risk and ",
-                   "the baseline_risk in x is of different length than ",
-                   "w and status. This imbalance is no issue for the quantile ",
-                   "grouping, but may be unintentional. So be careful here."))
-  }
-
   # group observations by their quantile of predicted baseline risk
   quantile.groups <- quantile_group_NoChecks(baseline_risk, cutoffs)
   
@@ -300,7 +262,7 @@ get_benefits <- function(x,
   } # IF
   
   
-  for(i in 1:ncol(quantile.groups)){
+  for(i in seq_len(ncol(quantile.groups))){
     
     group <- which(quantile.groups[,i])
 
@@ -315,18 +277,22 @@ get_benefits <- function(x,
       predicted_benefit_inference(x = x, subset = group, 
                                   relative = FALSE, 
                                   time_eval = time_eval, 
-                                  significance_level = significance_level)
+                                  significance_level = significance_level, 
+                                  neww = w, newX = X, newz = z)
 
     # relative observed benefit
     rel.obs.ben.mat[i, ] <- 
-      observed_benefit_relative(status[group], w[group], significance_level = significance_level)
+      observed_benefit_relative(status = status[group], 
+                                w = w[group], 
+                                significance_level = significance_level)
     
     # relative predicted benefit
     rel.pred.ben.mat[i, ] <- 
       predicted_benefit_inference(x = x, subset = group, 
                                   relative = TRUE, 
                                   time_eval = time_eval, 
-                                  significance_level = significance_level)
+                                  significance_level = significance_level,
+                                  neww = w, newX = X, newz = z)
     
     # odds ratio
     if(odds_ratio)
@@ -414,4 +380,73 @@ get_benefits_grf <- function(x,
               quantiles = colnames(quantile.groups),
               membership = quantile.groups))
  
+} # FUN
+
+
+# helper function for get_beenfits(). x is any predmod object
+initialize_benefits <- function(x, 
+                                baseline_risk = NULL,
+                                status = NULL,
+                                w = NULL)
+{
+  status_null <- is.null(status)
+  w_null <- is.null(w)
+  baseline_null <- is.null(baseline_risk)
+  
+  if(is.null(status) && is.null(w))
+  {
+    
+    # extract outcome and treatment status
+    status <- x$inputs$status_bin
+    w      <- x$inputs$w
+    
+  } else if(!is.null(status) && !is.null(w))
+  {
+    
+    # nothing happens: take the supplied values as status and w, but run some tests
+    stopifnot(is.numeric(status) && is.numeric(w))
+    stopifnot(identical(length(status), length(w)))
+    InputChecks_W(w)
+    InputChecks_Y_binary(status)
+    
+  } else{
+    stop(paste0("w and status must either be both NULL or both non-NULL"))
+  } # IF
+  
+  ## if no baseline risk provided, take the baseline risk from x
+  # but there might be no baseline risk in x if x didn't estimate a baseline risk.
+  # in this case, throw an error.
+  if(baseline_null)
+  {
+    br <- x$risk$baseline
+    
+    if(is.null(br)){
+      
+      # error if x$risk$baseline is NULL
+      stop("Both the argument 'baseline_risk' and x$risk$baseline are NULL. ",
+           "If x$risk$baseline = NULL, then baseline_risk cannot be NULL ",
+           "as well. Please provide estimates of baseline risks via 'baseline_risk'.",
+           call. = FALSE)
+    } else{
+      
+      # x$risk$baseline contains baseline risk predictions
+      baseline_risk <- as.numeric(br)
+    } # IF
+  } # IF baseline_null
+  
+  ## we now have a baseline_risk object available, either implicitly obtained 
+  # from x or explicitly as an argument. We now check for
+  # equal length with w and status 
+  if(!identical(length(baseline_risk), length(w)))
+  {
+    warning(paste0("You have not passed baseline_risk and ",
+                   "the baseline_risk in x is of different length than ",
+                   "w and status. This imbalance is no issue for the quantile ",
+                   "grouping, but may be unintentional. So be careful here."))
+  }
+  
+  # return
+  return(list(baseline_risk = baseline_risk,
+              w = w, status = status))
+  
 } # FUN
