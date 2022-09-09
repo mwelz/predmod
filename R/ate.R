@@ -17,6 +17,7 @@ average_treatment_effect <- function(x,
   stopifnot(inherits(x, what = c("risk_model_crss", "risk_model_surv",
                                  "effect_model_crss", "effect_model_surv",
                                  "grf_crss")))
+  clss <- class(x)
   
   # prepare subset object
   if(!is.null(subset)){
@@ -25,8 +26,34 @@ average_treatment_effect <- function(x,
     subset <- seq_along(x$inputs$w)
   } # IF
   
+  nullX <- is.null(X)
+  nullw <- is.null(w)
+  nullz <- is.null(newz)
   
-  ## another input check TODO: come up with better check
+ if(clss == "effect_model_crss")
+ {
+   if(nullX && nullw && nullz)
+   {
+     ## no new data passed, so use data that model was fitted on
+     # in effect model, the contained X are the reduced data, so stack the 
+     # non-retain variables with zeros
+     Xraw <- as.matrix(x$models$reduced$data[,-1L]) # drop y
+     nam_full <- rownames(x$coefficients$full)
+     if("(Intercept)" %in% nam_full) nam_full <- nam_full[-1L]
+     nam_reduced <- colnames(Xraw)
+     Xstacked <- matrix(0.0, nrow = nrow(Xraw), ncol = length(nam_full))
+     colnames(Xstacked) <- nam_full
+     Xstacked[,nam_reduced] <- Xraw
+     w0 <- x$inputs$w
+     z0 <- x$inputs$z # TODO: doesn't yet exist!
+     ############################
+     continue here!
+     
+
+   }
+ }
+  
+  
   #if(any(c(!is.null(neww), !is.null(newz), !is.null(newX), !is.null(subset))))
   #{
   #  stop("if one of neww, newX, newz, subset is not NULL, all must be non-null")
