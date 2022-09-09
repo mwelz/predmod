@@ -59,7 +59,8 @@ get_benefits_imputation <- function(x,
                                     time_eval = NULL,
                                     significance_level = 0.05,
                                     status = NULL,
-                                    w = NULL)
+                                    w = NULL, 
+                                    X = NULL)
 {
   # number of imputation runs
   m <- length(x)
@@ -91,7 +92,8 @@ get_benefits_imputation <- function(x,
                         odds_ratio = FALSE, 
                         significance_level = significance_level, 
                         status = status[[i]], 
-                        w = w[[i]])
+                        w = w[[i]], 
+                        X = X[[i]])
     
     # assign results matrices
     arr_ls$pb_abs[,,i] <- ben$predicted_benefit$absolute[,c("estimate", "stderr")]
@@ -137,7 +139,7 @@ get_benefits_imputation <- function(x,
   ## we now have a baseline_risk object available, either implicitly obtained 
   # from x or explicitly as an argument. We now check for
   # equal length with w and status 
-  if(!identical(length(br), length(w[[1L]])))
+  if(!is.null(w) & !identical(length(br), length(w[[1L]])))
   {
     warning(paste0("You have not passed baseline_risk and ",
                    "the baseline_risk in x is of different length than ",
@@ -255,7 +257,8 @@ calibration_plot_imputation <- function(x,
                                         ylim = NULL,
                                         flip_sign = FALSE, 
                                         status = NULL, 
-                                        w = NULL){
+                                        w = NULL,
+                                        X = NULL){
   
   # appease the check (TODO: come up with better solution)
   pb.means <- ob.means <- ob.means.ci.lo <- ob.means.ci.up <- NULL
@@ -267,7 +270,8 @@ calibration_plot_imputation <- function(x,
                                       time_eval          = time_eval,
                                       significance_level = significance_level, 
                                       status             = status, 
-                                      w                  = w)
+                                      w                  = w,
+                                      X                  = X)
   
   
   
