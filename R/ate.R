@@ -96,13 +96,13 @@ average_treatment_effect <- function(x,
   
 } # FUN
 
-
+# all arguments are non-null, come from average_treatment_effect()
 average_treatment_effect_crss_NoChecks <- function(x, 
-                                                   subset = NULL, 
-                                                   relative = FALSE,
-                                                   neww = NULL, 
-                                                   newX = NULL,
-                                                   newz = NULL)
+                                                   subset , 
+                                                   relative,
+                                                   neww, 
+                                                   newX,
+                                                   newz)
 {
   if(relative)
   {
@@ -121,48 +121,33 @@ average_treatment_effect_crss_NoChecks <- function(x,
 } # FUN
 
 
+# all arguments are non-null, come from average_treatment_effect()
 ATE_absolute_crss <- function(x, 
-                              subset = NULL, 
-                              neww = NULL, 
-                              newX = NULL,
-                              newz = NULL)
+                              subset, 
+                              neww, 
+                              newX,
+                              newz)
 {
   
-  ## if neww is NULL, this means that user has not provided new data
-  # in a call to average_treatment_effect()
-  # note: we don't check newz or newX to be NULL because this would cause
-  # incompatibilities in effect models (which don't have z) or risk
-  # models (which don't have X)
-  # The corresponding checks and error prompts are in  average_treatment_effect()
-  if(is.null(neww)) # TODO: we may not need this!
+  if(inherits(x = x, what = "risk_model_crss"))
   {
-    x_reg <- x$risk$regular
-    x_rev <- x$risk$counterfactual
-    w     <- x$inputs$w
-  } else
+    pred <- predict.risk_model(object = x, 
+                               neww = neww, 
+                               newz = newz)
+  } else if(inherits(x = x, what = "effect_model_crss"))
   {
-    
-    if(inherits(x = x, what = "risk_model_crss"))
-    {
-      pred <- predict.risk_model(object = x, 
+    pred <- predict.effect_model(object = x, 
                                  neww = neww, 
-                                 newz = newz)
-    } else if(inherits(x = x, what = "effect_model_crss"))
-    {
-      pred <- predict.effect_model(object = x, 
-                                   neww = neww, 
-                                   newX = newX)
-    } else{
-      pred <- predict.grf_model(object = x, 
-                                newX = newX)
-    } # IF inherits
-    
-    # get risks
-    x_reg <- pred[,"risk_regular"]
-    x_rev <- pred[,"risk_counterfactual"]
-    w     <- neww
-    
-  } # IF is null
+                                 newX = newX)
+  } else{
+    pred <- predict.grf_model(object = x, 
+                              newX = newX)
+  } # IF inherits
+  
+  # get risks
+  x_reg <- pred[,"risk_regular"]
+  x_rev <- pred[,"risk_counterfactual"]
+  w     <- neww
   
   # adjust signs to ensure that x_reg - x_rev = (predicted absolute benefit) 
   x_reg[w == 0] <- -x_reg[w == 0]
@@ -181,12 +166,12 @@ ATE_absolute_crss <- function(x,
 
 
 
-
+# all arguments are non-null, come from average_treatment_effect()
 ATE_relative_crss <- function(x, 
-                              subset = NULL, 
-                              neww = NULL, 
-                              newX = NULL,
-                              newz = NULL)
+                              subset, 
+                              neww, 
+                              newX,
+                              newz )
 {
   # relative effect: here we can simply use the direct estimated benefits
   ## if neww is NULL, this means that user has not provided new data
