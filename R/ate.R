@@ -26,58 +26,74 @@ average_treatment_effect <- function(x,
     subset <- seq_along(x$inputs$w)
   } # IF
   
-  nullX <- is.null(X)
-  nullw <- is.null(w)
+  nullX <- is.null(newX)
+  nullw <- is.null(neww)
   nullz <- is.null(newz)
   
  if(clss == "effect_model_crss")
  {
-   if(nullX && nullw && nullz)
+   if(nullX && nullw)
    {
      ## no new data passed, so use data that model was fitted on
-     # in effect model, the contained X are the reduced data, so stack the 
-     # non-retain variables with zeros
-     Xraw <- as.matrix(x$models$reduced$data[,-1L]) # drop y
-     nam_full <- rownames(x$coefficients$full)
-     if("(Intercept)" %in% nam_full) nam_full <- nam_full[-1L]
-     nam_reduced <- colnames(Xraw)
-     Xstacked <- matrix(0.0, nrow = nrow(Xraw), ncol = length(nam_full))
-     colnames(Xstacked) <- nam_full
-     Xstacked[,nam_reduced] <- Xraw
+     X0 <- x$inputs$X
      w0 <- x$inputs$w
-     z0 <- x$inputs$z # TODO: doesn't yet exist!
-     ############################
-     continue here!
      
-
+   } else if(!nullX && !nullw)
+   {
+     ## new data passed, so use the new data
+     # checks for the correct format of the new data will be done in
+     # predict.effect_model(), which will be called later
+     w0 <- neww
+     X0 <- newX
+   } else{
+     stop("newX and neww must either be both NULL or non-NULL for effect models")
    }
- }
+   
+   # effect models don't have a 'z' component, so set it to NULL
+   z0 <- NULL
+   
+ } else if(clss == "risk_model_crss")
+ {
+   
+   if(nullw && nullz)
+   {
+     ## no new data passed, so use data that model was fitted on
+     # that is, recover z and w: these are always present in 2nd stage of risk model
+     z0 <- x$inputs$z
+     w0 <- x$inputs$w
+   } else if(!nullw && !nullz)
+   {
+     ## new data passed, so use the new data
+     # checks for the correct format of the new data will be done in
+     # predict.risk_model(), which will be called later
+     z0 <- newz
+     w0 <- neww
+   } else{
+     stop("newz and neww must either be both NULL or non-NULL for risk models")
+   }
+   
+   # risk models don't have a 'X0' component, so set it to NULL
+   X0 <- NULL
+    
+ } else 
+ {
+   stop("ATE functions not yet implemented for survival models")
+   ## the below works, but is incomplete for external validation
+   # average_treatment_effect_surv(x, 
+   #                               subset = subset, 
+   #                               relative = relative,
+   #                               time_eval = time_eval)
+   
+ } # IF clss
   
+  ## call the main function
+  average_treatment_effect_crss_NoChecks(x = x, 
+                                         subset = subset, 
+                                         relative = relative,
+                                         neww = w0, 
+                                         newX = X0,
+                                         newz = z0)
   
-  #if(any(c(!is.null(neww), !is.null(newz), !is.null(newX), !is.null(subset))))
-  #{
-  #  stop("if one of neww, newX, newz, subset is not NULL, all must be non-null")
-  #} # IF
-  
-  # call the correct function
-  if(inherits(x, 
-              what = c("risk_model_crss", "effect_model_crss", 
-                       "grf_crss")))
-  {
-    average_treatment_effect_crss_NoChecks(x = x, 
-                                           subset = subset, 
-                                           relative = relative,
-                                           neww = neww, 
-                                           newX = newX,
-                                           newz = newz)
-  } else{
-    stop("ATE for survival models not yet implemented")
-    ## the below works, but is incomplete for external validation
-    # average_treatment_effect_surv(x, 
-    #                               subset = subset, 
-    #                               relative = relative,
-    #                               time_eval = time_eval)
-  } # IF
 } # FUN
 
 
@@ -112,7 +128,13 @@ ATE_absolute_crss <- function(x,
                               newz = NULL)
 {
   
-  if(is.null(neww) && is.null(newX) && is.null(newz))
+  ## if neww is NULL, this means that user has not provided new data
+  # in a call to average_treatment_effect()
+  # note: we don't check newz or newX to be NULL because this would cause
+  # incompatibilities in effect models (which don't have z) or risk
+  # models (which don't have X)
+  # The corresponding checks and error prompts are in  average_treatment_effect()
+  if(is.null(neww)) # TODO: we may not need this!
   {
     x_reg <- x$risk$regular
     x_rev <- x$risk$counterfactual
@@ -124,8 +146,7 @@ ATE_absolute_crss <- function(x,
     {
       pred <- predict.risk_model(object = x, 
                                  neww = neww, 
-                                 newz = newz, 
-                                 newX = newX)
+                                 newz = newz)
     } else if(inherits(x = x, what = "effect_model_crss"))
     {
       pred <- predict.effect_model(object = x, 
@@ -168,7 +189,13 @@ ATE_relative_crss <- function(x,
                               newz = NULL)
 {
   # relative effect: here we can simply use the direct estimated benefits
-  if(is.null(neww) && is.null(newX) && is.null(newz))
+  ## if neww is NULL, this means that user has not provided new data
+  # in a call to average_treatment_effect()
+  # note: we don't check newz or newX to be NULL because this would cause
+  # incompatibilities in effect models (which don't have z) or risk
+  # models (which don't have X)
+  # The corresponding checks and error prompts are in  average_treatment_effect()
+  if(is.null(newz))
   {
     ate <- mean(x$benefits$relative[subset])
   } else
@@ -178,8 +205,7 @@ ATE_relative_crss <- function(x,
     {
       pred <- predict.risk_model(object = x, 
                                  neww = neww, 
-                                 newz = newz, 
-                                 newX = newX)
+                                 newz = newz)
     } else if(inherits(x = x, what = "effect_model_crss"))
     {
       pred <- predict.effect_model(object = x, 
@@ -190,7 +216,7 @@ ATE_relative_crss <- function(x,
                                 newX = newX)
     } # IF inherits
     
-    ate <- mean(pred[,"benefit_relative"])
+    ate <- mean(pred[subset,"benefit_relative"])
 
   } # IF is null
   

@@ -28,7 +28,7 @@ predict.effect_model <- function(object,
   InputChecks_newX(newX)
   InputChecks_equal.length2(neww, newX)
   newX <- check_and_adjust_newX(newX = newX, 
-                                covariates = object$inputs$covariates)
+                                covariates = colnames(object$inputs$X))
    
   ## predict
   predict_effect_model_NoChecks(object = object,
@@ -91,21 +91,21 @@ predict_effect_model_NoChecks <- function(object,
   } else
   {
     # case 2: at least one variable was retained
-    X_full0 <- as.data.frame(X_full[,retained0])
-    X_full_rev0 <- as.data.frame(X_full_rev[,retained0])
+    X_full0 <- X_full[,retained0, drop = FALSE]
+    X_full_rev0 <- X_full_rev[,retained0,drop = FALSE]
     
     colnames(X_full0) <- colnames(X_full_rev0) <- retained0
     
-    # now, obtain risk estimates
-    risk_reg <- unname(stats::predict.glm(object = object$models$reduced, 
-                                          newdata = X_full0, 
-                                          type = "response", 
-                                          ... = ...))
+    ## predict risk with regular w... 
+    risk_reg <- as.numeric(
+      stats::plogis(cbind(1.0, X_full0) %*% object$models$reduced$coefficients)
+    )
     
-    risk_rev <- unname(stats::predict.glm(object = object$models$reduced, 
-                                          newdata = X_full_rev0, 
-                                          type = "response", 
-                                          ... = ...))
+    ## ... and with flipped w
+    risk_rev <- as.numeric(
+      stats::plogis(cbind(1.0, X_full_rev0) %*% object$models$reduced$coefficients)
+    )
+    
   } # IF
   
   # calculate predicted benefits

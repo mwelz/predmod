@@ -9,7 +9,7 @@
 #' @param ... Additional arguments
 #' 
 #' @noRd
-LRT_crss <- function(status, w, w_flipped, z, significance_level, ...)
+LRT_crss <- function(status, w, w_flipped, z, significance_level, glm_data, ...)
 {
   
   ## fit restricted and full model
@@ -19,6 +19,7 @@ LRT_crss <- function(status, w, w_flipped, z, significance_level, ...)
                       w_flipped = w_flipped, 
                       z = z, 
                       constant = TRUE, 
+                      glm_data = glm_data,
                       ... = ...)
   
   stage2_full <- 
@@ -27,6 +28,7 @@ LRT_crss <- function(status, w, w_flipped, z, significance_level, ...)
                       w_flipped = w_flipped, 
                       z = z, 
                       constant = FALSE, 
+                      glm_data = glm_data,
                       ... = ...)
   
   mod_0    <- stage2_0$model

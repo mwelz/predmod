@@ -12,7 +12,8 @@ get_benefits_imputation(
   time_eval = NULL,
   significance_level = 0.05,
   status = NULL,
-  w = NULL
+  w = NULL,
+  X = NULL
 )
 }
 \arguments{
