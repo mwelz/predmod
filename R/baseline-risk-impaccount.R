@@ -6,6 +6,8 @@
 #' @export
 impaccount_baseline_risk <- function(x) 
 {
+  impaccount_classcheck(x, what = "baseline_crss")
+  
   m <- length(x)
   risk <- rowMeans(sapply(seq_len(m), function(i) as.numeric(x[[i]]$risk)))
   lp <- rowMeans(sapply(seq_len(m), function(i) as.numeric(x[[i]]$linear_predictor)))
