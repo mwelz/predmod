@@ -53,7 +53,7 @@ test_that("check that get_benefits() behaves as expected when new data are passe
 })
 
 
-test_that("check that benefits are the same on default as when passing in-sample data",{
+test_that("check that benefits and plot are the same on default as when passing in-sample data",{
   
   expect_equal(unlist(get_benefits(EM)), 
                unlist(get_benefits(EM, newstatus = status, newX = X, neww = w)))
@@ -62,4 +62,16 @@ test_that("check that benefits are the same on default as when passing in-sample
                unlist(get_benefits(RM, newstatus = status, neww = w, 
                                    newz = BR$linear_predictor, baseline_risk = baseline_risk)))
   
+  # do the same for the calibration plots, which are derivatives of get_benefits()
+  p0 <- calibration_plot(EM)
+  p1 <- calibration_plot(EM, newstatus = status, newX = X, neww = w)
+  expect_equal(unlist(p0$data), 
+               unlist(p1$data))
+  
+  p0 <- calibration_plot(RM)
+  p1 <- calibration_plot(RM, newstatus = status, neww = w, 
+                         newz = BR$linear_predictor, baseline_risk = baseline_risk)
+  expect_equal(unlist(p0$data), 
+               unlist(p1$data))
+
 })
