@@ -15,9 +15,10 @@ calibration_plot(
   xlim = NULL,
   ylim = NULL,
   flip_sign = FALSE,
-  status = NULL,
-  w = NULL,
-  X = NULL
+  newX = NULL,
+  newstatus = NULL,
+  neww = NULL,
+  newz = NULL
 )
 }
 \arguments{
@@ -40,10 +41,6 @@ calibration_plot(
 \item{ylim}{limits of y-xcis}
 
 \item{flip_sign}{logical. Shall the sign of the benefits be flipped?}
-
-\item{status}{Optional target variables to calculate benefits with}
-
-\item{w}{Optional treatment assignment variables to calculate benefits with}
 }
 \description{
 makes a calibration plot for a prediction model
