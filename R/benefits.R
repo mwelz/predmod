@@ -235,6 +235,8 @@ get_benefits <- function(x,
                          neww = NULL,
                          newz = NULL){
   
+  stopifnot(inherits(x = x, what = c("risk_model_crss", "effect_model_crss", "grf_model_crss")))
+  
   ## the input checks of newX, neww, newz will be performed in the ATE functions,
   ## so no need to do them here. Instead, check for consistency with baseline risk
   NULLw <- is.null(neww)
@@ -344,15 +346,19 @@ get_benefits_grf <- function(x,
                              baseline_risk = NULL,
                              significance_level = 0.05){
   
+  stopifnot(inherits(x, what = "grf_crss"))
+  
   # extract outcome and treatment status
   status <- x$inputs$status_bin
   w      <- x$inputs$w
   
   # specify baseline risk that shall be used for grouping
-  if(is.null(baseline_risk)){
-    if(class(x) == "grf_surv") stop("Baseline risk calculation in survival forests not yet implemented!")
-    baseline_risk <- as.numeric(x$risk$baseline)
-  } # IF
+  # input check and return adjusted baseline risks
+  baseline_risk <- InputChecks_get_benefits_and_return_br(
+    x = x, 
+    status = x$inputs$status_bin, 
+    w = x$inputs$w, 
+    baseline_risk = baseline_risk)
   
   
   # group observations by their quantile of predicted baseline risk
@@ -364,6 +370,9 @@ get_benefits_grf <- function(x,
   colnames(abs.obs.ben.mat) <- c("estimate", "ci_lower", "ci_upper", "stderr")
   rownames(abs.obs.ben.mat) <- colnames(quantile.groups)
   abs.pred.ben.mat          <- abs.obs.ben.mat
+  
+  # quantile of the standard normal distribution
+  z <- stats::qnorm(1 - significance_level/2)
   
   for(i in 1:ncol(quantile.groups)){
     
@@ -378,9 +387,6 @@ get_benefits_grf <- function(x,
                                                subset = group)
     ate <- unname(ate.group["estimate"])
     se  <- unname(ate.group["std.err"]) 
-    
-    # quantile of the standard normal distribution
-    z <- stats::qnorm(1 - significance_level/2)
     
     abs.pred.ben.mat[i, "estimate"] <- ate
     abs.pred.ben.mat[i, "stderr"]   <- se

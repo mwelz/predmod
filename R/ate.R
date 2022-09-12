@@ -140,6 +140,7 @@ ATE_absolute_crss <- function(x,
                                  neww = neww, 
                                  newX = newX)
   } else{
+    stop("predict methods for GRF aren't yet implemented")
     pred <- predict.grf_model(object = x, 
                               newX = newX)
   } # IF inherits
@@ -197,6 +198,7 @@ ATE_relative_crss <- function(x,
                                    neww = neww, 
                                    newX = newX)
     } else{
+      stop("predict methods for GRF aren't yet implemented")
       pred <- predict.grf_model(object = x, 
                                 newX = newX)
     } # IF inherits
