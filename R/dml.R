@@ -17,6 +17,7 @@
 #' 
 #' @return Estimates of the causal parameter and a 'DoubleML' object 
 #' 
+#' @import mlr3verse
 #' 
 #' @export
 dml <- function(X, w, status, 
