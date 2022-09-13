@@ -7,6 +7,7 @@
 calibration_plot_imputation(
   x,
   cutoffs = c(0.25, 0.5, 0.75),
+  breaks = NULL,
   relative = FALSE,
   baseline_risk = NULL,
   time_eval = NULL,
@@ -25,6 +26,8 @@ calibration_plot_imputation(
 \item{x}{A list of prediction model objects}
 
 \item{cutoffs}{the cutoff points of quantiles that shall be used for GATES grouping. Default is \code{c(0.25, 0.5, 0.75)}, which corresponds to the quartiles.}
+
+\item{breaks}{List of breaks along which to perform the grouping. If passed, overrules the grouping implied by \code{cutoffs}}
 
 \item{relative}{logical. If \code{TRUE}, then relative benefits will be plotted. Default is \code{FALSE}}
 

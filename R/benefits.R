@@ -215,6 +215,7 @@ predicted_benefit_inference <- function(x,
 #' 
 #' @param x prediction model object
 #' @param cutoffs the quantile cutoff points. Default is c(0.25, 0.5, 0.75), which yields the quartiles.
+#' @param breaks Breaks along which to perform the grouping. If passed, overrules the grouping implied by \code{cutoffs}
 #' @param baseline_risk The baseline risk that shall be used for grouping. If \code{NULL} (default), then the baseline risk in \code{x} is used.
 #' @param time_eval Time at which we evaluate the risk predictions.
 #' @param odds_ratio Logical. If \code{TRUE}, odds ratios per quantile group will be computed. Default is \code{FALSE}.
@@ -226,6 +227,7 @@ predicted_benefit_inference <- function(x,
 #' @export
 get_benefits <- function(x,
                          cutoffs = c(0.25, 0.5, 0.75),
+                         breaks = NULL,
                          baseline_risk = NULL,
                          time_eval = NULL,
                          odds_ratio = FALSE,
@@ -236,6 +238,10 @@ get_benefits <- function(x,
                          newz = NULL){
   
   stopifnot(inherits(x = x, what = c("risk_model_crss", "effect_model_crss", "grf_model_crss")))
+  if(!is.null(cutoffs) && !is.null(breaks))
+  {
+    message("Both cutoffs and breaks were passed. Breaks will be used for grouping")
+  }
   
   ## the input checks of newX, neww, newz will be performed in the ATE functions,
   ## so no need to do them here. Instead, check for consistency with baseline risk
@@ -263,7 +269,13 @@ get_benefits <- function(x,
                                                baseline_risk = baseline_risk)
   
   # group observations by their quantile of predicted baseline risk
-  quantile.groups <- quantile_group_NoChecks(br, cutoffs)
+  if(is.null(breaks))
+  {
+    quantile.groups <- quantile_group_NoChecks(br, cutoffs)
+  } else{
+    quantile.groups <- group_matrix(x = br, breaks = c(-Inf, breaks, Inf))
+  } # IF
+  
   
   ## calculate observed benefit and predicted benefit for each quantile group
   # initialize
@@ -337,16 +349,22 @@ get_benefits <- function(x,
 #' 
 #' @param x GRF model object
 #' @param cutoffs the quantile cutoff points. Default is \code{c(0.25, 0.5, 0.75)}, which yields the quartiles.
+#' @param breaks Breaks along which to perform the grouping. If passed, overrules the grouping implied by \code{cutoffs}
 #' @param baseline_risk The baseline risk that shall be used for grouping. If \code{NULL} (default), then the baseline risk in \code{x} is used.
 #' @param significance_level the significance level. Default is 0.05.
 #' 
 #' @export
 get_benefits_grf <- function(x, 
                              cutoffs = c(0.25, 0.5, 0.75),
+                             breaks = NULL,
                              baseline_risk = NULL,
                              significance_level = 0.05){
   
   stopifnot(inherits(x, what = "grf_crss"))
+  if(!is.null(cutoffs) && !is.null(breaks))
+  {
+    message("Both cutoffs and breaks were passed. Breaks will be used for grouping")
+  }
   
   # extract outcome and treatment status
   status <- x$inputs$status_bin
@@ -360,9 +378,13 @@ get_benefits_grf <- function(x,
     w = x$inputs$w, 
     baseline_risk = baseline_risk)
   
-  
   # group observations by their quantile of predicted baseline risk
-  quantile.groups <- quantile_group_NoChecks(baseline_risk, cutoffs)
+  if(is.null(breaks))
+  {
+    quantile.groups <- quantile_group_NoChecks(baseline_risk, cutoffs)
+  } else{
+    quantile.groups <- group_matrix(x = baseline_risk, breaks = c(-Inf, breaks, Inf))
+  } # IF
   
   ## calculate observed benefit and predicted benefit for each quantile group
   # initialize

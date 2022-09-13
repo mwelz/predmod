@@ -3,6 +3,7 @@
 #' 
 #' @param x a list of prediction model object
 #' @param cutoffs the quantile cutoff points. Default is c(0.25, 0.5, 0.75), which yields the quartiles.
+#' @param breaks List of breaks along which to perform the grouping. If passed, overrules the grouping implied by \code{cutoffs}
 #' @param baseline_risk A list of baseline risks that shall be used for grouping. If \code{NULL} (default), then the baseline risks in \code{x} are used.
 #' @param time_eval Time at which we evaluate the risk predictions.
 #' @param significance_level the significance level. Default is 0.05.
@@ -12,6 +13,7 @@
 #' @export
 get_benefits_imputation <- function(x, 
                                     cutoffs = c(0.25, 0.5, 0.75),
+                                    breaks = NULL,
                                     baseline_risk = NULL,
                                     time_eval = NULL,
                                     significance_level = 0.05,
@@ -44,7 +46,8 @@ get_benefits_imputation <- function(x,
   {
     # get benefits
     ben <- get_benefits(x = x[[i]], 
-                        cutoffs = cutoffs,
+                        cutoffs = cutoffs, 
+                        breaks = breaks[[i]],
                         baseline_risk = baseline_risk[[i]], 
                         time_eval = time_eval, 
                         odds_ratio = FALSE, 
@@ -106,8 +109,16 @@ get_benefits_imputation <- function(x,
                    "grouping, but may be unintentional. So be careful here."))
   }
   
+  # group observations by their quantile of predicted baseline risk
+  if(is.null(breaks))
+  {
+    quantile_groups <- quantile_group_NoChecks(br, cutoffs)
+  } else{
+    breaks0 <- rowMeans(sapply(1:m, function(i) breaks[[i]])) # average breaks value
+    quantile_groups <- group_matrix(x = br, breaks = c(-Inf, breaks0, Inf))
+  } # IF
+  
   # group observations by their quantile of predicted baseline risk (imputation-adjusted)
-  quantile_groups <- quantile_group_NoChecks(br, cutoffs)
   quantiles <- colnames(quantile_groups)
   
   # name the groups
@@ -133,12 +144,14 @@ get_benefits_imputation <- function(x,
 #' 
 #' @param x GRF model object
 #' @param cutoffs the quantile cutoff points. Default is \code{c(0.25, 0.5, 0.75)}, which yields the quartiles.
+#' @param breaks List of breaks along which to perform the grouping. If passed, overrules the grouping implied by \code{cutoffs}
 #' @param baseline_risk A list of baseline risks that shall be used for grouping. If \code{NULL} (default), then the baseline risks in \code{x} are used.
 #' @param significance_level the significance level. Default is 0.05.
 #' 
 #' @export
 get_benefits_grf_imputation <- function(x, 
                                         cutoffs = c(0.25, 0.5, 0.75),
+                                        breaks = NULL,
                                         baseline_risk = NULL,
                                         significance_level = 0.05)
 {
@@ -161,7 +174,8 @@ get_benefits_grf_imputation <- function(x,
   {
     # get benefits
     ben <- get_benefits_grf(x = x[[i]], 
-                            cutoffs = cutoffs,
+                            cutoffs = cutoffs, 
+                            breaks = breaks[[i]],
                             baseline_risk = baseline_risk[[i]],
                             significance_level = significance_level)
     
@@ -200,7 +214,14 @@ get_benefits_grf_imputation <- function(x,
   }
   
   # group observations by their quantile of predicted baseline risk (imputation-adjusted)
-  quantile_groups <- quantile_group_NoChecks(br, cutoffs)
+  if(is.null(breaks))
+  {
+    quantile_groups <- quantile_group_NoChecks(br, cutoffs)
+  } else{
+    breaks0 <- rowMeans(sapply(1:m, function(i) breaks[[i]])) # average breaks value
+    quantile_groups <- group_matrix(x = br, breaks = c(-Inf, breaks0, Inf))
+  } # IF
+  
   quantiles <- colnames(quantile_groups)
   
   # name the groups

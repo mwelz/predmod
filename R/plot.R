@@ -2,6 +2,7 @@
 #' 
 #' @param x prediction model object, as returned by risk.modeling() or effect.modeling()
 #' @param cutoffs the cutoff points of quantiles that shall be used for GATES grouping. Default is `c(0.25, 0.5, 0.75)`, which corresponds to the quartiles.
+#' @param breaks Breaks along which to perform the grouping. If passed, overrules the grouping implied by \code{cutoffs}
 #' @param relative logical. If `TRUE`, then relative benefits will be plotted. Default is `FALSE`
 #' @param baseline_risk The baseline risk that shall be used for grouping. If \code{NULL} (default), then the baseline risk in \code{x} is used.
 #' @param time_eval Time at which we evaluate the risk predictions.
@@ -16,6 +17,7 @@
 #' @export
 calibration_plot <- function( x,
                               cutoffs = c(0.25, 0.5, 0.75), 
+                              breaks = NULL,
                               relative = FALSE,
                               baseline_risk = NULL,
                               time_eval = NULL,
@@ -34,7 +36,8 @@ calibration_plot <- function( x,
   
   # get observed and predicted benefit by quantile group
   benefits <- get_benefits(x                  = x,
-                           cutoffs            = cutoffs,
+                           cutoffs            = cutoffs, 
+                           breaks             = breaks,
                            baseline_risk      = baseline_risk,
                            time_eval          = time_eval,
                            odds_ratio         = FALSE,
@@ -105,6 +108,7 @@ calibration_plot <- function( x,
 #' 
 #' @param x grf model
 #' @param cutoffs the cutoff points of quantiles that shall be used for GATES grouping. Default is `c(0.25, 0.5, 0.75)`, which corresponds to the quartiles.
+#' @param breaks Breaks along which to perform the grouping. If passed, overrules the grouping implied by \code{cutoffs}
 #' @param baseline_risk The baseline risk that shall be used for grouping. If \code{NULL} (default), then the baseline risk in \code{x} is used.
 #' @param significance_level significance level for the confidence intervals. Default is 0.05
 #' @param title optional title of the plot
@@ -117,6 +121,7 @@ calibration_plot <- function( x,
 #' @export
 calibration_plot_grf <- function(x,
                                  cutoffs = c(0.25, 0.5, 0.75), 
+                                 breaks = NULL,
                                  baseline_risk = NULL,
                                  significance_level = 0.05,
                                  title = NULL,
@@ -128,7 +133,7 @@ calibration_plot_grf <- function(x,
   pb.means <- ob.means <- ob.means.ci.lo <- ob.means.ci.up <- NULL
   
   # get observed and predicted benefit by quantile group
-  benefits <- get_benefits_grf(x = x, cutoffs = cutoffs, 
+  benefits <- get_benefits_grf(x = x, cutoffs = cutoffs, breaks = breaks,
                                baseline_risk = baseline_risk,
                                significance_level = significance_level)
   

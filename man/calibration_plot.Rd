@@ -7,6 +7,7 @@
 calibration_plot(
   x,
   cutoffs = c(0.25, 0.5, 0.75),
+  breaks = NULL,
   relative = FALSE,
   baseline_risk = NULL,
   time_eval = NULL,
@@ -25,6 +26,8 @@ calibration_plot(
 \item{x}{prediction model object, as returned by risk.modeling() or effect.modeling()}
 
 \item{cutoffs}{the cutoff points of quantiles that shall be used for GATES grouping. Default is \code{c(0.25, 0.5, 0.75)}, which corresponds to the quartiles.}
+
+\item{breaks}{Breaks along which to perform the grouping. If passed, overrules the grouping implied by \code{cutoffs}}
 
 \item{relative}{logical. If \code{TRUE}, then relative benefits will be plotted. Default is \code{FALSE}}
 

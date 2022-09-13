@@ -8,6 +8,7 @@ The returned benefits are the observed and predicted relative and absolute benef
 get_benefits(
   x,
   cutoffs = c(0.25, 0.5, 0.75),
+  breaks = NULL,
   baseline_risk = NULL,
   time_eval = NULL,
   odds_ratio = FALSE,
@@ -22,6 +23,8 @@ get_benefits(
 \item{x}{prediction model object}
 
 \item{cutoffs}{the quantile cutoff points. Default is c(0.25, 0.5, 0.75), which yields the quartiles.}
+
+\item{breaks}{Breaks along which to perform the grouping. If passed, overrules the grouping implied by \code{cutoffs}}
 
 \item{baseline_risk}{The baseline risk that shall be used for grouping. If \code{NULL} (default), then the baseline risk in \code{x} is used.}
 

@@ -7,6 +7,7 @@
 calibration_plot_grf(
   x,
   cutoffs = c(0.25, 0.5, 0.75),
+  breaks = NULL,
   baseline_risk = NULL,
   significance_level = 0.05,
   title = NULL,
@@ -19,6 +20,8 @@ calibration_plot_grf(
 \item{x}{grf model}
 
 \item{cutoffs}{the cutoff points of quantiles that shall be used for GATES grouping. Default is \code{c(0.25, 0.5, 0.75)}, which corresponds to the quartiles.}
+
+\item{breaks}{Breaks along which to perform the grouping. If passed, overrules the grouping implied by \code{cutoffs}}
 
 \item{baseline_risk}{The baseline risk that shall be used for grouping. If \code{NULL} (default), then the baseline risk in \code{x} is used.}
 

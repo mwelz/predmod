@@ -106,7 +106,22 @@ quantile_group_NoChecks <- function(x = x,
     q <- c(-Inf, q, Inf)
   } # IF
   
-  groups    <- as.character(cut(x, breaks = q, include.lowest = TRUE, right = FALSE, dig.lab = 3))
+  # get the grouping matrix
+  group.mat <- group_matrix(x = x, breaks = q)
+  
+  # return
+  return(structure(group.mat, type = "quantile_group"))
+  
+} # FUN
+
+
+# returns a grouping matrix
+group_matrix <- function(x, breaks)
+{
+  stopifnot(is.infinite(breaks[1L]) && is.infinite(breaks[length(breaks)]))
+  
+  groups    <- as.character(cut(x, breaks = breaks,
+                                include.lowest = TRUE, right = FALSE, dig.lab = 3))
   group.nam <- unique(groups)
   group.nam <- group.nam[order(
     as.numeric(substr(sub("\\,.*", "", group.nam), 2, stop = 1e8L)),
@@ -115,11 +130,9 @@ quantile_group_NoChecks <- function(x = x,
   # get the grouping matrix
   group.mat <- sapply(1:length(group.nam), function(j) groups == group.nam[j])
   colnames(group.mat) <- gsub(",", ", ", gsub(" ", "", group.nam))
-  
-  # return
-  return(structure(group.mat, type = "quantile_group"))
-  
-} # FUN
+  return(group.mat)
+}
+
 
 intervals.quantile <- function(cutoffs){
   K   <- length(cutoffs) + 1
