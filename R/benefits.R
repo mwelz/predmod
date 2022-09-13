@@ -230,22 +230,40 @@ get_benefits <- function(x,
                          time_eval = NULL,
                          odds_ratio = FALSE,
                          significance_level = 0.05, 
-                         status = NULL,
-                         w = NULL,
-                         X = NULL){
+                         newX = NULL,
+                         newstatus = NULL,
+                         neww = NULL,
+                         newz = NULL){
   
-  # do input checks and get risk, w, y in right form
-  init <- initialize_benefits(x = x, 
-                              baseline_risk = baseline_risk,
-                              status = status,
-                              w = w)
-  baseline_risk <- init$baseline_risk
-  w             <- init$w
-  status        <- init$status
-  z             <- stats::qlogis(baseline_risk)
+  stopifnot(inherits(x = x, what = c("risk_model_crss", "effect_model_crss", "grf_model_crss")))
+  
+  ## the input checks of newX, neww, newz will be performed in the ATE functions,
+  ## so no need to do them here. Instead, check for consistency with baseline risk
+  NULLw <- is.null(neww)
+  NULLy <- is.null(newstatus)
+  
+  if(NULLw && NULLy)
+  {
+    w0      <- x$inputs$w
+    status0 <- x$inputs$status_bin
+  } else if(!NULLw && !NULLy)
+  {
+    w0      <- neww
+    status0 <- newstatus
+
+  } else
+  {
+    stop("neww and newstatus must be either both NULL or both non-NULL")
+  }
+  
+  # input check and return adjusted baseline risks
+  br <- InputChecks_get_benefits_and_return_br(x = x, 
+                                               status = status0, 
+                                               w = w0, 
+                                               baseline_risk = baseline_risk)
   
   # group observations by their quantile of predicted baseline risk
-  quantile.groups <- quantile_group_NoChecks(baseline_risk, cutoffs)
+  quantile.groups <- quantile_group_NoChecks(br, cutoffs)
   
   ## calculate observed benefit and predicted benefit for each quantile group
   # initialize
@@ -266,11 +284,11 @@ get_benefits <- function(x,
     
     group <- which(quantile.groups[,i])
 
-    # absolute observed benefit
+    # absolute observed benefit 
     abs.obs.ben.mat[i, ] <- 
-      observed_benefit_absolute(status = status[group], 
-                                w = w[group], 
-                                significance_level = significance_level)
+      observed_benefit_absolute(status = status0[group], 
+                                w = w0[group], 
+                                significance_level = significance_level) # w cannot be NULL here
     
     # absolute predicted benefit
     abs.pred.ben.mat[i, ] <- 
@@ -278,13 +296,13 @@ get_benefits <- function(x,
                                   relative = FALSE, 
                                   time_eval = time_eval, 
                                   significance_level = significance_level, 
-                                  neww = w, newX = X, newz = z)
+                                  neww = neww, newX = newX, newz = newz) # keep them as passed
 
     # relative observed benefit
     rel.obs.ben.mat[i, ] <- 
-      observed_benefit_relative(status = status[group], 
-                                w = w[group], 
-                                significance_level = significance_level)
+      observed_benefit_relative(status = status0[group], 
+                                w = w0[group], 
+                                significance_level = significance_level)  # w cannot be NULL here
     
     # relative predicted benefit
     rel.pred.ben.mat[i, ] <- 
@@ -292,13 +310,13 @@ get_benefits <- function(x,
                                   relative = TRUE, 
                                   time_eval = time_eval, 
                                   significance_level = significance_level,
-                                  neww = w, newX = X, newz = z)
+                                  neww = neww, newX = newX, newz = newz) # keep them as passed
     
     # odds ratio
     if(odds_ratio)
     {
       or.mat[i, ] <- 
-        odds_ratio(status[group], w[group], significance_level = significance_level)
+        odds_ratio(status0[group], w0[group], significance_level = significance_level)
     } # IF
     
   } # FOR
@@ -328,15 +346,19 @@ get_benefits_grf <- function(x,
                              baseline_risk = NULL,
                              significance_level = 0.05){
   
+  stopifnot(inherits(x, what = "grf_crss"))
+  
   # extract outcome and treatment status
   status <- x$inputs$status_bin
   w      <- x$inputs$w
   
   # specify baseline risk that shall be used for grouping
-  if(is.null(baseline_risk)){
-    if(class(x) == "grf_surv") stop("Baseline risk calculation in survival forests not yet implemented!")
-    baseline_risk <- as.numeric(x$risk$baseline)
-  } # IF
+  # input check and return adjusted baseline risks
+  baseline_risk <- InputChecks_get_benefits_and_return_br(
+    x = x, 
+    status = x$inputs$status_bin, 
+    w = x$inputs$w, 
+    baseline_risk = baseline_risk)
   
   
   # group observations by their quantile of predicted baseline risk
@@ -348,6 +370,9 @@ get_benefits_grf <- function(x,
   colnames(abs.obs.ben.mat) <- c("estimate", "ci_lower", "ci_upper", "stderr")
   rownames(abs.obs.ben.mat) <- colnames(quantile.groups)
   abs.pred.ben.mat          <- abs.obs.ben.mat
+  
+  # quantile of the standard normal distribution
+  z <- stats::qnorm(1 - significance_level/2)
   
   for(i in 1:ncol(quantile.groups)){
     
@@ -362,9 +387,6 @@ get_benefits_grf <- function(x,
                                                subset = group)
     ate <- unname(ate.group["estimate"])
     se  <- unname(ate.group["std.err"]) 
-    
-    # quantile of the standard normal distribution
-    z <- stats::qnorm(1 - significance_level/2)
     
     abs.pred.ben.mat[i, "estimate"] <- ate
     abs.pred.ben.mat[i, "stderr"]   <- se
@@ -384,38 +406,24 @@ get_benefits_grf <- function(x,
 
 
 # helper function for get_beenfits(). x is any predmod object
-initialize_benefits <- function(x, 
-                                baseline_risk = NULL,
-                                status = NULL,
-                                w = NULL)
+# returns baseline risk vector
+InputChecks_get_benefits_and_return_br <- 
+  function(x, 
+           status, # non-NULL
+           w, # non-NULL
+           baseline_risk = NULL)
 {
-  status_null <- is.null(status)
-  w_null <- is.null(w)
-  baseline_null <- is.null(baseline_risk)
-  
-  if(is.null(status) && is.null(w))
-  {
-    
-    # extract outcome and treatment status
-    status <- x$inputs$status_bin
-    w      <- x$inputs$w
-    
-  } else if(!is.null(status) && !is.null(w))
-  {
-    
-    # nothing happens: take the supplied values as status and w, but run some tests
-    stopifnot(is.numeric(status) && is.numeric(w))
-    stopifnot(identical(length(status), length(w)))
-    InputChecks_W(w)
-    InputChecks_Y_binary(status)
-    
-  } else{
-    stop(paste0("w and status must either be both NULL or both non-NULL"))
-  } # IF
+ 
+  # nothing happens: take the supplied values as status and w, but run some tests
+  stopifnot(is.numeric(status) && is.numeric(w))
+  stopifnot(identical(length(status), length(w)))
+  InputChecks_W(w)
+  InputChecks_Y_binary(status)
   
   ## if no baseline risk provided, take the baseline risk from x
   # but there might be no baseline risk in x if x didn't estimate a baseline risk.
   # in this case, throw an error.
+  baseline_null <- is.null(baseline_risk)
   if(baseline_null)
   {
     br <- x$risk$baseline
@@ -443,10 +451,8 @@ initialize_benefits <- function(x,
                    "the baseline_risk in x is of different length than ",
                    "w and status. This imbalance is no issue for the quantile ",
                    "grouping, but may be unintentional. So be careful here."))
-  }
+  } # IF
   
-  # return
-  return(list(baseline_risk = baseline_risk,
-              w = w, status = status))
+  return(baseline_risk)
   
 } # FUN

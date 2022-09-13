@@ -15,6 +15,7 @@ effect_model(
   retain_w = TRUE,
   baseline_risk = NULL,
   alpha_baseline = 1,
+  glm_data = FALSE,
   ...
 )
 }
@@ -38,6 +39,8 @@ effect_model(
 \item{baseline_risk}{User-defined baseline risk. If \code{NULL} (default), then baseline risk if estimated with \code{(X, status)} using \code{\link{baseline_risk}}.}
 
 \item{alpha_baseline}{The elasticnet mixing parameter for regularization in a potential baseline risk model to obtain baseline risk. Only applicable if \code{z = NULL}. See \code{\link{baseline_risk}} for details.}
+
+\item{glm_data}{TODO}
 
 \item{...}{Additional arguments to be passed.}
 }

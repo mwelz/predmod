@@ -5,6 +5,7 @@
 #' @param alpha The elasticnet mixing parameter for regularization, with \eqn{0\le\alpha\le 1}.
 #' The penalty is defined as \deqn{(1-\alpha)/2||\beta||_2^2+\alpha||\beta||_1.} \code{alpha=1} (default) is the lasso penalty, and \code{alpha=0} the ridge penalty. If \code{NULL}, no regularization is used.
 #' @param failcode Code of status that denotes the failure type of interest. Default is one.
+#' @param glm_data Shall data in glm object be returned?
 #' @param ... Additional arguments to be passed
 #' 
 #' @export
@@ -12,6 +13,7 @@ baseline_risk <- function(X,
                           status, 
                           alpha = 1,
                           failcode = 1,
+                          glm_data = FALSE,
                           ...)
 {
   
@@ -61,11 +63,14 @@ baseline_risk <- function(X,
   model_red <- stats::glm(status_bin~., 
                           family = stats::binomial(link = "logit"), 
                           data = data.frame(status_bin, 
-                                            X[,kept_vars,drop = FALSE]), ...)
+                                            X[,kept_vars,drop = FALSE]), 
+                          model = FALSE, x = FALSE, y = FALSE, ...)
   
   # get coefficients and linear predictor
   coefs_red <- stats::coefficients(summary(model_red))
-  lp        <- as.numeric(stats::predict.glm(model_red, type = "link"))
+  lp        <- as.numeric(model_red$linear.predictors)
+  
+  if(!glm_data) model_red$data <- NULL
   
   # return
   return(structure(list(
@@ -77,7 +82,7 @@ baseline_risk <- function(X,
                   status_bin = status_bin,
                   failcode = failcode,
                   alpha = alpha, 
-                  covariates = colnames(X))
+                  X = X)
   ), class = "baseline_crss"))
   
 } # FUN
@@ -325,13 +330,9 @@ predict_baseline_crss_NoChecks <- function(object, newX, ...)
   } else
   {
     # case 2: at least one variable was retained
-    newX0 <- as.data.frame(newX[,retained0])
-    colnames(newX0) <- retained0
+    lp <- cbind(1.0, newX[,retained0,drop = FALSE]) %*% object$model$reduced$coefficients
+    out <- as.numeric(stats::plogis(lp))
     
-    out <- unname(stats::predict.glm(object = object$model$reduced, 
-                                     newdata = newX0, 
-                                     type = "response", 
-                                     ... = ...))
   } # IF
   
   return(matrix(out))

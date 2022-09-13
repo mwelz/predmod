@@ -1,7 +1,6 @@
 #' Predict method for a \code{predmod_crss} object
 #' 
 #' @param object A \code{predmod_crss} object.
-#' @param newX A numeric matrix at which predictions should be performed
 #' @param neww Treatment assignment
 #' @param newz TODO
 #' @param ... Additional parameters to be passed down
@@ -9,7 +8,7 @@
 #' @return A matrix of risk predictions
 #' 
 #' @export
-predict.risk_model <- function(object, neww, newz = NULL, newX = NULL, ...)
+predict.risk_model <- function(object, neww, newz, ...)
 {
   ## input checks
   if(!inherits(x = object, what = "risk_model_crss", which = FALSE))
@@ -17,66 +16,23 @@ predict.risk_model <- function(object, neww, newz = NULL, newX = NULL, ...)
     stop("object must be an instance of risk_model_crss()")
   }
   
-  ## check correctness of neww
+  ## check correctness of neww and newz
   InputChecks_W(neww)
-  
-  ## if no newz is passed, we need both newX and baseline model
-  if(is.null(newz))
-  {
-    if(is.null(object$models$baseline))
-    {
-      ## case 1: no baseline model => stop
-      stop(paste0("No baseline risk model was fitted in 'object'. ",
-                  " Therefore, please provide a vector 'newz'"), 
-           call. = FALSE)
-    } else if(is.null(newX)){
-      
-      ## case 2: no newX => stop
-      stop("Please pass a matrix 'newX' to generate baseline risk predictions", 
-           call. = FALSE) 
-    } else{
-      
-      ## case 3: both baseline model and newX passed
-      # check if newX is correctly specified
-      InputChecks_newX(newX)
-      InputChecks_equal.length2(neww, newX)
-      newX <- check_and_adjust_newX(newX = newX, 
-                                    covariates = object$inputs$covariates)
-      #InputChecks_newX_X(newX = newX,
-      #                   object = object$models$baseline$, 
-      #                   survival = FALSE)
-    } # IF
-  } # IF
+  stopifnot(is.numeric(newz))
+  InputChecks_equal.length2(neww, newz)
   
   ## predict
   predict_risk_model_NoChecks(object = object,
                               neww = neww, 
-                              newX = newX,
                               newz = newz, ... = ...)
   
 } # FUN
 
 
-predict_risk_model_NoChecks <- function(object, neww, newX, newz, ...)
+predict_risk_model_NoChecks <- function(object, neww, newz, ...)
 {
   ## get accepted model object from 2nd stage
   mod <- object$models$stage2$model$accepted
-  
-  ## if no newz provided, get it via the baseline risk model
-  if(is.null(newz))
-  {
-    
-    ## get baseline risk
-    risk0 <- predict_baseline_crss_NoChecks(
-      object = object$models$baseline, 
-      newX = newX, ... = ...)
-    
-    ## take as z the linear predictor of risk
-    z <- stats::qlogis(p = risk0)
-    
-  } else{
-    z <- newz
-  } # IF
   
   ## flip w
   w_flipped <- ifelse(neww == 1, 0, 1)
@@ -85,37 +41,36 @@ predict_risk_model_NoChecks <- function(object, neww, newX, newz, ...)
   if(object$models$stage2$decision == "reduced"){
     
     # prepare X for second stage...
-    X_stage2 <- cbind(w = neww, z = as.numeric(z))
+    X_stage2 <- cbind(w = neww, z = as.numeric(newz))
     
     # ... and its counterpart with flipped w
-    X_stage2_rev <- cbind(w = w_flipped, z = as.numeric(z))
+    X_stage2_rev <- cbind(w = w_flipped, z = as.numeric(newz))
     
   } else{
     
     # prepare X for second stage...
     X_stage2 <- cbind(w = neww,
-                      z = as.numeric(z), 
-                      w.z = as.numeric(neww * z))
+                      z = as.numeric(newz), 
+                      w.z = as.numeric(neww * newz))
     
     # ... and its counterpart with flipped w
     X_stage2_rev <- cbind(w = w_flipped,
-                          z = as.numeric(z),
-                          w.z = as.numeric(w_flipped * z))
+                          z = as.numeric(newz),
+                          w.z = as.numeric(w_flipped * newz))
     
   } # IF
   
   
   ## predict risk with regular w... 
   risk_reg <- as.numeric(
-    stats::predict.glm(object = mod, 
-                       newdata = as.data.frame(X_stage2),
-                       type = "response"))
+    stats::plogis(cbind(1.0, X_stage2) %*% mod$coefficients)
+  )
   
   ## ... and with flipped w
   risk_rev <- as.numeric(
-    stats::predict.glm(object = mod, 
-                       newdata = as.data.frame(X_stage2_rev),
-                       type = "response"))
+    stats::plogis(cbind(1.0, X_stage2_rev) %*% mod$coefficients)
+  )
+  
   
   ## calculate predicted benefits
   benefits <- get_predicted_benefits_NoChecks(

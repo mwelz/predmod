@@ -4,7 +4,7 @@
 \alias{baseline_risk}
 \title{baseline risk prediction via penalized logistic regression (treatment assignment is not used)}
 \usage{
-baseline_risk(X, status, alpha = 1, failcode = 1, ...)
+baseline_risk(X, status, alpha = 1, failcode = 1, glm_data = FALSE, ...)
 }
 \arguments{
 \item{X}{Matrix of fixed covariates.}
@@ -15,6 +15,8 @@ baseline_risk(X, status, alpha = 1, failcode = 1, ...)
 The penalty is defined as \deqn{(1-\alpha)/2||\beta||_2^2+\alpha||\beta||_1.} \code{alpha=1} (default) is the lasso penalty, and \code{alpha=0} the ridge penalty. If \code{NULL}, no regularization is used.}
 
 \item{failcode}{Code of status that denotes the failure type of interest. Default is one.}
+
+\item{glm_data}{Shall data in glm object be returned?}
 
 \item{...}{Additional arguments to be passed}
 }

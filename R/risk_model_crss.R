@@ -13,6 +13,7 @@
 #' @param constant Shall \eqn{\beta_3 = 0} be enforced in the logistic regression model above? If \code{TRUE}, then this is equivalent to assuming that there is a constant treatment effect. Default is \code{FALSE}.
 #' @param LRT shall likelihood ratio test performed to test if there is a constant treatment effect? Default is \code{FALSE}.
 #' @param significance_level Significance level of possible likelihood ratio test. Only applicable if \code{LRT = TRUE}.
+#' @param glm_data TODO
 #' @param ... Additional arguments to be passed.
 #' 
 #' @return A \code{predmod_ordinary} object.
@@ -27,6 +28,7 @@ risk_model <- function(X,
                        constant = FALSE,
                        LRT = TRUE,
                        significance_level = 0.05,
+                       glm_data = FALSE,
                        ...){
   
   # input checks
@@ -46,7 +48,7 @@ risk_model <- function(X,
     
     # in case no z is supplied, fit a baseline risk model
     stage1 <- baseline_risk(X = X, status = status,
-                            alpha = alpha, 
+                            alpha = alpha, glm_data = glm_data,
                             failcode = failcode,...)
     
     # take the baseline model's linear predictor as z
@@ -71,6 +73,7 @@ risk_model <- function(X,
                     w_flipped = ifelse(w == 1, 0, 1), 
                     z = z, 
                     significance_level = significance_level,
+                    glm_data = glm_data,
                     ... = ...)
     
     # extract risk estimates
@@ -92,6 +95,7 @@ risk_model <- function(X,
                                 w_flipped = ifelse(w == 1, 0, 1), 
                                 z = z, 
                                 constant = constant,
+                                glm_data = glm_data,
                                 ...  = ...)
     
     # extract risk estimates
@@ -142,6 +146,7 @@ risk_model <- function(X,
 #' @param A binary treatment assignment status.
 #' @param w_flipped Treatment assignment status, but flipped .
 #' @param constant Do we assume constant treatment effect?
+#' @param glm_data TODO
 #' @param ... Additional arguments,
 #' 
 #' @return A list with a \code{glm} object as well as the two risk predictions.
@@ -150,6 +155,7 @@ risk_model <- function(X,
 risk_model_stage2 <- function(status_bin, w, z,
                               w_flipped = ifelse(w == 1, 0, 1), 
                               constant = FALSE,
+                              glm_data = FALSE,
                               ...)
 {
   if(constant){
@@ -175,13 +181,16 @@ risk_model_stage2 <- function(status_bin, w, z,
   model <- stats::glm(status_bin~., 
                       family = stats::binomial(link = "logit"), 
                       data = as.data.frame(X_stage2, status_bin),
-                      x = FALSE, y = FALSE, ...)
+                      x = FALSE, y = FALSE, model = FALSE, ...)
   
   # get the responses with the regular w ( = F_logistic(x'beta + z))
-  risk_reg <- as.numeric(stats::predict.glm(model, type = "response"))
+  risk_reg <- as.numeric(stats::plogis(cbind(1.0, X_stage2) %*% model$coefficients))
   
   # get responses with flipped W
-  risk_rev <- as.numeric(stats::plogis(cbind(1, X_stage2_rev) %*% model$coefficients))
+  risk_rev <- as.numeric(stats::plogis(cbind(1.0, X_stage2_rev) %*% model$coefficients))
+  
+  # drop data from glm object if desired
+  if(!glm_data) model$data <- NULL
   
   # return
   return(list(model = model,

@@ -10,6 +10,7 @@
 #' @param retain_w Logical. Shall treatment assignment \code{w} be retained? Defalt is \code{TRUE}.
 #' @param baseline_risk User-defined baseline risk. If \code{NULL} (default), then baseline risk if estimated with \code{(X, status)} using \code{\link{baseline_risk}}.
 #' @param alpha_baseline The elasticnet mixing parameter for regularization in a potential baseline risk model to obtain baseline risk. Only applicable if \code{z = NULL}. See \code{\link{baseline_risk}} for details.
+#' @param glm_data TODO
 #' @param ... Additional arguments to be passed.
 #' 
 #' @return A \code{predmod_ordinary} object.
@@ -25,6 +26,7 @@ effect_model <- function(X,
                          retain_w = TRUE,
                          baseline_risk = NULL,
                          alpha_baseline = 1,
+                         glm_data = FALSE,
                          ...){
   
   # input checks
@@ -91,21 +93,18 @@ effect_model <- function(X,
   fits <- effect_model_fit(X = X_full, 
                            status = status_bin, 
                            alpha = alpha,
+                           glm_data = glm_data,
                            penalty.factor = penalty.factor)
   
+  # get the responses (=risk) with the regular w ( = F_logistic(x'beta + z))
+  lp_reg <- 
+    cbind(1.0, X_full[,fits$kept_vars, drop = FALSE]) %*% fits$models$reduced$coefficients
+  risk_reg <- as.numeric(stats::plogis(lp_reg))
   
-  # obtain risk estimates
-  risk_reg <- 
-    unname(
-      stats::predict.glm(
-        object = fits$models$reduced,
-        newdata = as.data.frame(X_full[,fits$kept_vars, drop = FALSE]), type = "response"))
-  
-  risk_rev <- 
-    unname(
-      stats::predict.glm(
-        object = fits$models$reduced,
-        newdata = as.data.frame(X_full_rev[,fits$kept_vars, drop = FALSE]), type = "response"))
+  # get responses with flipped W
+  lp_rev <- 
+    cbind(1.0, X_full_rev[,fits$kept_vars, drop = FALSE]) %*% fits$models$reduced$coefficients
+  risk_rev <- as.numeric(stats::plogis(lp_rev))
 
   # calculate predicted benefits
   benefits <- get_predicted_benefits(risk_reg = risk_reg, 
@@ -116,7 +115,7 @@ effect_model <- function(X,
   if(is.null(baseline_risk)){
     
     mod_baseline <- baseline_risk(X = X, status = status,
-                                  alpha = alpha_baseline, 
+                                  alpha = alpha_baseline, glm_data = glm_data,
                                   failcode = failcode,...)
     br <- mod_baseline$risk
     
@@ -140,7 +139,7 @@ effect_model <- function(X,
                                       w = w, failcode = failcode, alpha = alpha, 
                                       alpha_baseline = alpha_baseline, 
                                       interacted = interacted,
-                                      covariates = colnames(X))
+                                      X = X)
   ), 
   class = "effect_model_crss"))
   
@@ -148,7 +147,7 @@ effect_model <- function(X,
 } # FUN
 
 
-effect_model_fit <- function(X, status, alpha, penalty.factor){
+effect_model_fit <- function(X, status, alpha, penalty.factor, glm_data){
   
   # fit penalized regression for full model
   model_full <- glmnet::cv.glmnet(x = X, y = status, 
@@ -167,12 +166,15 @@ effect_model_fit <- function(X, status, alpha, penalty.factor){
   # fit final model
   X_reduced     <- X[,kept.vars, drop = FALSE]
   model_reduced <- stats::glm(y~., data = data.frame(y = status, X_reduced),
-                              family =  stats::binomial(link = "logit"), x = FALSE, y = FALSE)
+                              family =  stats::binomial(link = "logit"), 
+                              x = FALSE, y = FALSE, model = FALSE)
   
   # store coefficient matrix as sparse matrix (for consistency with glmnet)
   coefs_reduced <- Matrix::Matrix(model_reduced$coefficients, sparse = TRUE, 
                                   dimnames = list(c("(Intercept)", colnames(X_reduced)), "Estimate"))
   
+  if(!glm_data) model_reduced$data <- NULL
+
   return(list(models = list(full = model_full, reduced = model_reduced),
               coefficients = list(full = coefs_full, reduced = coefs_reduced),
               kept_vars = kept.vars,

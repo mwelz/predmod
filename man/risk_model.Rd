@@ -14,6 +14,7 @@ risk_model(
   constant = FALSE,
   LRT = TRUE,
   significance_level = 0.05,
+  glm_data = FALSE,
   ...
 )
 }
@@ -35,6 +36,8 @@ risk_model(
 \item{LRT}{shall likelihood ratio test performed to test if there is a constant treatment effect? Default is \code{FALSE}.}
 
 \item{significance_level}{Significance level of possible likelihood ratio test. Only applicable if \code{LRT = TRUE}.}
+
+\item{glm_data}{TODO}
 
 \item{...}{Additional arguments to be passed.}
 }
