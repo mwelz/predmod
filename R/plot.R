@@ -54,11 +54,26 @@ calibration_plot <- function( x,
   # adjust for relative and absolute benefit
   if(relative){
     
-    df <- data.frame(pb.means = benefits$predicted_benefit$relative[,"estimate"],
-                     ob.means = benefits$observed_benefit$relative[,"estimate"],
-                     ob.means.ci.lo = benefits$observed_benefit$relative[,"ci_lower"],
-                     ob.means.ci.up = benefits$observed_benefit$relative[,"ci_upper"],
-                     risk.quantile = risk.quantile)
+    if(!flip_sign)
+    {
+      df <- data.frame(pb.means = benefits$predicted_benefit$relative[,"estimate"],
+                       ob.means = benefits$observed_benefit$relative[,"estimate"],
+                       ob.means.ci.lo = benefits$observed_benefit$relative[,"ci_lower"],
+                       ob.means.ci.up = benefits$observed_benefit$relative[,"ci_upper"],
+                       risk.quantile = risk.quantile)
+    } else
+    {
+      # flipping signs in a relative estimate means multiplying it by (-1) and adding one, 
+      # that is, 1 - RR. We do the same for the CIs, which means that the originally 
+      # "upper" bound of the CI becomes the lower bound and vice versa
+      df <- data.frame(pb.means = 1.0 - benefits$predicted_benefit$relative[,"estimate"],
+                       ob.means = 1.0 - benefits$observed_benefit$relative[,"estimate"],
+                       ob.means.ci.lo = 1.0 - benefits$observed_benefit$relative[,"ci_upper"],
+                       ob.means.ci.up = 1.0 - benefits$observed_benefit$relative[,"ci_lower"],
+                       risk.quantile = risk.quantile)
+    }
+    
+   
   } else{
     
     if(!flip_sign){
@@ -71,10 +86,12 @@ calibration_plot <- function( x,
       
     } else{
       
+      # when flipping signs, the originally "upper" bound of the CI becomes the lower bound
+      # and vice versa
       df <- data.frame(pb.means = -benefits$predicted_benefit$absolute[,"estimate"],
                        ob.means = -benefits$observed_benefit$absolute[,"estimate"],
-                       ob.means.ci.lo = -benefits$observed_benefit$absolute[,"ci_lower"],
-                       ob.means.ci.up = -benefits$observed_benefit$absolute[,"ci_upper"],
+                       ob.means.ci.lo = -benefits$observed_benefit$absolute[,"ci_upper"],
+                       ob.means.ci.up = -benefits$observed_benefit$absolute[,"ci_lower"],
                        risk.quantile = risk.quantile)
       
     }
