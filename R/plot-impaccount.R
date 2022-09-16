@@ -111,8 +111,8 @@ calibration_plot_imputation <- function(x,
     geom_point() +
     geom_errorbar(mapping = aes(ymin = ob.means.ci.lo,
                                 ymax = ob.means.ci.up)) +
-    geom_hline(yintercept = 0, linetype = 2) +
-    geom_vline(xintercept = 0, linetype = 2) +
+    geom_hline(yintercept = 0, linetype = 3) +
+    geom_vline(xintercept = 0, linetype = 3) +
     geom_abline(intercept = 0, slope = 1) +
     coord_cartesian(xlim = xlim, ylim = ylim) +
     labs(x = ifelse(relative, "Predicted relative benefit", "Predicted absolute benefit"),
@@ -191,8 +191,8 @@ calibration_plot_grf_imputation <- function(x,
     geom_point() +
     geom_errorbar(mapping = aes(ymin = ob.means.ci.lo,
                                 ymax = ob.means.ci.up)) +
-    geom_hline(yintercept = 0, linetype = 2) +
-    geom_vline(xintercept = 0, linetype = 2) +
+    geom_hline(yintercept = 0, linetype = 3) +
+    geom_vline(xintercept = 0, linetype = 3) +
     geom_abline(intercept = 0, slope = 1) +
     coord_cartesian(xlim = xlim, ylim = ylim) +
     labs(x = "Predicted absolute benefit",
