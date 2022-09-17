@@ -4,7 +4,7 @@
 \alias{predict.effect_model}
 \title{Predict method for a \code{effect_model_crss} object}
 \usage{
-\method{predict}{effect_model}(object, neww, newX, ...)
+\method{predict}{effect_model}(object, neww, newX, shrunk = FALSE, ...)
 }
 \arguments{
 \item{object}{A \code{effect_model_crss} object.}
@@ -12,6 +12,8 @@
 \item{neww}{Treatment assignment}
 
 \item{newX}{A numeric matrix at which predictions should be performed}
+
+\item{shrunk}{Shall 1st (TRUE) or 2nd (FALSE) stage be used for predictions?}
 
 \item{...}{Additional parameters to be passed down}
 }
