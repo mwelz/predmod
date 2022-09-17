@@ -303,7 +303,7 @@ predict.baseline_risk <- function(object, newX, shrunk = FALSE, ...)
   
   InputChecks_newX(newX)
   newX <- check_and_adjust_newX(newX = newX,
-                                covariates = object$inputs$covariates)
+                                covariates = colnames(object$inputs$X))
   
   ## predict
   predict_baseline_crss_NoChecks(object = object, newX = newX, shrunk = shrunk, ... = ...)
