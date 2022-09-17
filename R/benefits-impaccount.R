@@ -20,7 +20,8 @@ get_benefits_imputation <- function(x,
                                     newX = NULL,
                                     newstatus = NULL,
                                     neww = NULL,
-                                    newz = NULL)
+                                    newz = NULL,
+                                    shrunk = FALSE)
 {
   # number of imputation runs
   m <- length(x)
@@ -55,7 +56,8 @@ get_benefits_imputation <- function(x,
                         newX = newX[[i]], 
                         newstatus = newstatus[[i]], 
                         neww = neww[[i]], 
-                        newz = newz[[i]])
+                        newz = newz[[i]], 
+                        shrunk = shrunk)
     
     # assign results matrices
     arr_ls$pb_abs[,,i] <- ben$predicted_benefit$absolute[,c("estimate", "stderr")]

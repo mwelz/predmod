@@ -12,7 +12,8 @@ average_treatment_effect <- function(x,
                                      time_eval = NULL,
                                      neww = NULL, 
                                      newX = NULL,
-                                     newz = NULL){
+                                     newz = NULL,
+                                     shrunk = FALSE){
   
   stopifnot(inherits(x, what = c("risk_model_crss", "risk_model_surv",
                                  "effect_model_crss", "effect_model_surv",
@@ -92,7 +93,8 @@ average_treatment_effect <- function(x,
                                          relative = relative,
                                          neww = w0, 
                                          newX = X0,
-                                         newz = z0)
+                                         newz = z0,
+                                         shrunk = shrunk)
   
 } # FUN
 
@@ -102,7 +104,8 @@ average_treatment_effect_crss_NoChecks <- function(x,
                                                    relative,
                                                    neww, 
                                                    newX,
-                                                   newz)
+                                                   newz,
+                                                   shrunk)
 {
   if(relative)
   {
@@ -110,13 +113,15 @@ average_treatment_effect_crss_NoChecks <- function(x,
                       subset = subset, 
                       neww = neww, 
                       newX = newX,
-                      newz = newz)
+                      newz = newz,
+                      shrunk = shrunk)
   } else{
     ATE_absolute_crss(x = x, 
                       subset = subset, 
                       neww = neww, 
                       newX = newX,
-                      newz = newz)
+                      newz = newz,
+                      shrunk = shrunk)
   } # IF
 } # FUN
 
@@ -126,7 +131,8 @@ ATE_absolute_crss <- function(x,
                               subset, 
                               neww, 
                               newX,
-                              newz)
+                              newz,
+                              shrunk)
 {
   
   if(inherits(x = x, what = "risk_model_crss"))
@@ -138,7 +144,8 @@ ATE_absolute_crss <- function(x,
   {
     pred <- predict.effect_model(object = x, 
                                  neww = neww, 
-                                 newX = newX)
+                                 newX = newX, 
+                                 shrunk = shrunk)
   } else{
     stop("predict methods for GRF aren't yet implemented")
     pred <- predict.grf_model(object = x, 
@@ -172,7 +179,8 @@ ATE_relative_crss <- function(x,
                               subset, 
                               neww, 
                               newX,
-                              newz )
+                              newz,
+                              shrunk)
 {
   # relative effect: here we can simply use the direct estimated benefits
   ## if neww is NULL, this means that user has not provided new data
@@ -196,7 +204,8 @@ ATE_relative_crss <- function(x,
     {
       pred <- predict.effect_model(object = x, 
                                    neww = neww, 
-                                   newX = newX)
+                                   newX = newX,
+                                   shrunk = shrunk)
     } else{
       stop("predict methods for GRF aren't yet implemented")
       pred <- predict.grf_model(object = x, 

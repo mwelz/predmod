@@ -11,7 +11,8 @@ average_treatment_effect(
   time_eval = NULL,
   neww = NULL,
   newX = NULL,
-  newz = NULL
+  newz = NULL,
+  shrunk = FALSE
 )
 }
 \arguments{

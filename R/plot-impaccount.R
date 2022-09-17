@@ -31,7 +31,8 @@ calibration_plot_imputation <- function(x,
                                         newX = NULL,
                                         newstatus = NULL,
                                         neww = NULL,
-                                        newz = NULL){
+                                        newz = NULL,
+                                        shrunk = FALSE){
   
   # appease the check (TODO: come up with better solution)
   pb.means <- ob.means <- ob.means.ci.lo <- ob.means.ci.up <- NULL
@@ -46,7 +47,8 @@ calibration_plot_imputation <- function(x,
                                       newX               = newX, 
                                       newstatus          = newstatus, 
                                       neww               = neww, 
-                                      newz               = newz)
+                                      newz               = newz,
+                                      shrunk             = shrunk)
   
   
   

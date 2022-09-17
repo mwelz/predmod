@@ -177,7 +177,8 @@ predicted_benefit_inference <- function(x,
                                         significance_level = 0.05,
                                         neww = NULL, 
                                         newX = NULL,
-                                        newz = NULL){
+                                        newz = NULL,
+                                        shrunk = FALSE){
   
   ate_obj <- average_treatment_effect(
                                       x = x, 
@@ -186,7 +187,8 @@ predicted_benefit_inference <- function(x,
                                       time_eval = time_eval, 
                                       neww = neww, 
                                       newX = newX,
-                                      newz = newz)
+                                      newz = newz,
+                                      shrunk = shrunk)
   
   se  <- unname(ate_obj["Std. Error"])
   ate <- unname(ate_obj["ATE"])
@@ -235,7 +237,8 @@ get_benefits <- function(x,
                          newX = NULL,
                          newstatus = NULL,
                          neww = NULL,
-                         newz = NULL){
+                         newz = NULL,
+                         shrunk = FALSE){
   
   stopifnot(inherits(x = x, what = c("risk_model_crss", "effect_model_crss", "grf_model_crss")))
   if(!is.null(cutoffs) && !is.null(breaks))
@@ -308,7 +311,7 @@ get_benefits <- function(x,
                                   relative = FALSE, 
                                   time_eval = time_eval, 
                                   significance_level = significance_level, 
-                                  neww = neww, newX = newX, newz = newz) # keep them as passed
+                                  neww = neww, newX = newX, newz = newz, shrunk = shrunk) # keep them as passed
 
     # relative observed benefit
     rel.obs.ben.mat[i, ] <- 
@@ -322,7 +325,7 @@ get_benefits <- function(x,
                                   relative = TRUE, 
                                   time_eval = time_eval, 
                                   significance_level = significance_level,
-                                  neww = neww, newX = newX, newz = newz) # keep them as passed
+                                  neww = neww, newX = newX, newz = newz, shrunk = shrunk) # keep them as passed
     
     # odds ratio
     if(odds_ratio)

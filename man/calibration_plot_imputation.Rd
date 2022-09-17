@@ -19,7 +19,8 @@ calibration_plot_imputation(
   newX = NULL,
   newstatus = NULL,
   neww = NULL,
-  newz = NULL
+  newz = NULL,
+  shrunk = FALSE
 )
 }
 \arguments{

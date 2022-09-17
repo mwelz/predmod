@@ -16,7 +16,8 @@ get_benefits(
   newX = NULL,
   newstatus = NULL,
   neww = NULL,
-  newz = NULL
+  newz = NULL,
+  shrunk = FALSE
 )
 }
 \arguments{

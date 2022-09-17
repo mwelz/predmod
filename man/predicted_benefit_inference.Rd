@@ -12,7 +12,8 @@ predicted_benefit_inference(
   significance_level = 0.05,
   neww = NULL,
   newX = NULL,
-  newz = NULL
+  newz = NULL,
+  shrunk = FALSE
 )
 }
 \arguments{
