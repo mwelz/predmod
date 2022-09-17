@@ -4,12 +4,14 @@
 \alias{predict.baseline_risk}
 \title{Predict method for a \code{baseline_crss} object}
 \usage{
-\method{predict}{baseline_risk}(object, newX, ...)
+\method{predict}{baseline_risk}(object, newX, shrunk = FALSE, ...)
 }
 \arguments{
 \item{object}{A \code{baseline_crss} object.}
 
 \item{newX}{A numeric matrix at which predictions should be performed}
+
+\item{shrunk}{Shall 1st (TRUE) or 2nd (FALSE) stage be used for predictions?}
 
 \item{...}{Additional parameters to be passed down}
 }

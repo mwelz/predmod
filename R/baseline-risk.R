@@ -287,12 +287,13 @@ baseline_survival_nocmprsk <- function(X,
 #' 
 #' @param object A \code{baseline_crss} object.
 #' @param newX A numeric matrix at which predictions should be performed
+#' @param shrunk Shall 1st (TRUE) or 2nd (FALSE) stage be used for predictions?
 #' @param ... Additional parameters to be passed down
 #' 
 #' @return A matrix of risk predictions
 #' 
 #' @export
-predict.baseline_risk <- function(object, newX, ...)
+predict.baseline_risk <- function(object, newX, shrunk = FALSE, ...)
 {
   ## input checks
   if(!inherits(x = object, what = "baseline_crss", which = FALSE))
@@ -305,20 +306,21 @@ predict.baseline_risk <- function(object, newX, ...)
                                 covariates = object$inputs$covariates)
   
   ## predict
-  predict_baseline_crss_NoChecks(object = object, newX = newX, ... = ...)
+  predict_baseline_crss_NoChecks(object = object, newX = newX, shrunk = shrunk, ... = ...)
   
 } # FUN
 
 
-predict_baseline_crss_NoChecks <- function(object, newX, ...)
+predict_baseline_crss_NoChecks <- function(object, newX, shrunk, ...)
 {
   
-  retained <- rownames(object$coefficients$reduced)
+  mod_type <- ifelse(shrunk, "full", "reduced")
+  retained <- rownames(object$coefficients$reduced) # gives us coefs with nonzero 1st stage estimates
   
   if("(Intercept)" %in% retained)
   {
     retained0 <- retained[-1L]
-    intercept <- object$coefficients$reduced["(Intercept)", "Estimate"]
+    intercept <- object$coefficients[[mod_type]]["(Intercept)", "Estimate"]
   } else{
     intercept <- 0.0
   }
@@ -330,7 +332,8 @@ predict_baseline_crss_NoChecks <- function(object, newX, ...)
   } else
   {
     # case 2: at least one variable was retained
-    lp <- cbind(1.0, newX[,retained0,drop = FALSE]) %*% object$model$reduced$coefficients
+    cf <- as.numeric(object$coefficients[[mod_type]][retained, "Estimate"])
+    lp <- cbind(1.0, newX[,retained0,drop = FALSE]) %*% cf
     out <- as.numeric(stats::plogis(lp))
     
   } # IF
