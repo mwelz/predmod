@@ -29,10 +29,13 @@ impaccount_effect_model <- function(x)
     coefficients$baseline <- brimp$coefficients
   }
   
-  coefficients$full <- 
+  cfull <- 
     Matrix::Matrix(rowMeans(sapply(1:m, 
                                    function(i) as.matrix(x[[i]]$coefficients$full))),
                    sparse = TRUE)
+  rownames(cfull) <- rownames(x[[1L]]$coefficients$full)
+  coefficients$full <- cfull
+    
   
   # jointly retained variables
   var_names <- Reduce(intersect, lapply(1:m, function(i) rownames(x[[i]]$coefficients$reduced)))
