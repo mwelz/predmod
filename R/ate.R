@@ -134,7 +134,10 @@ ATE_absolute_crss <- function(x,
                               newz,
                               shrunk)
 {
-  
+  # note: we don't check newz or newX to be NULL because this would cause
+  # incompatibilities in effect models (which don't have z) or risk
+  # models (which don't have X)
+  # The corresponding checks and error prompts are in  average_treatment_effect()
   if(inherits(x = x, what = "risk_model_crss"))
   {
     pred <- predict.risk_model(object = x, 
@@ -182,39 +185,29 @@ ATE_relative_crss <- function(x,
                               newz,
                               shrunk)
 {
-  # relative effect: here we can simply use the direct estimated benefits
-  ## if neww is NULL, this means that user has not provided new data
-  # in a call to average_treatment_effect()
   # note: we don't check newz or newX to be NULL because this would cause
   # incompatibilities in effect models (which don't have z) or risk
   # models (which don't have X)
   # The corresponding checks and error prompts are in  average_treatment_effect()
-  if(is.null(newz))
+  if(inherits(x = x, what = "risk_model_crss"))
   {
-    ate <- mean(x$benefits$relative[subset])
-  } else
+    pred <- predict.risk_model(object = x, 
+                               neww = neww, 
+                               newz = newz)
+  } else if(inherits(x = x, what = "effect_model_crss"))
   {
-    
-    if(inherits(x = x, what = "risk_model_crss"))
-    {
-      pred <- predict.risk_model(object = x, 
+    pred <- predict.effect_model(object = x, 
                                  neww = neww, 
-                                 newz = newz)
-    } else if(inherits(x = x, what = "effect_model_crss"))
-    {
-      pred <- predict.effect_model(object = x, 
-                                   neww = neww, 
-                                   newX = newX,
-                                   shrunk = shrunk)
-    } else{
-      stop("predict methods for GRF aren't yet implemented")
-      pred <- predict.grf_model(object = x, 
-                                newX = newX)
-    } # IF inherits
-    
-    ate <- mean(pred[subset,"benefit_relative"])
-
-  } # IF is null
+                                 newX = newX,
+                                 shrunk = shrunk)
+  } else{
+    stop("predict methods for GRF aren't yet implemented")
+    pred <- predict.grf_model(object = x, 
+                              newX = newX)
+  } # IF inherits
+  
+  # get ATE
+  ate <- mean(pred[subset,"benefit_relative"])
   
   # no SE can be computed for relative risk TODO: maybe via bootstrap
   sderr <- NA_real_
