@@ -472,10 +472,10 @@ InputChecks_get_benefits_and_return_br <-
   # equal length with w and status 
   if(!identical(length(baseline_risk), length(w)))
   {
-    warning(paste0("You have not passed baseline_risk and ",
+    stop(paste0("You have not passed baseline_risk and ",
                    "the baseline_risk in x is of different length than ",
-                   "w and status. This imbalance is no issue for the quantile ",
-                   "grouping, but may be unintentional. So be careful here."))
+                   "the length of treatment assignment and status that you",
+                   " wish to use for the calculation of benefits"))
   } # IF
   
   return(baseline_risk)

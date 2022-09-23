@@ -21,9 +21,16 @@ RM <- risk_model(X = X, status = status, w = w)
 EM <- effect_model(X = X, status = status, w = w)
 
 # new data
-newX <- matrix(runif(100 * p), 100) # new X
-newz <- runif(100)
-neww <- rbinom(100, 1, 0.5)
+newX <- matrix(runif(300 * p), 300) # new X
+newz <- runif(300)
+neww <- rbinom(300, 1, 0.5)
+newstatus <- rbinom(300, 1, 0.5)
+
+newX2 <- matrix(runif(n * p), n) # new X
+newz2 <- runif(n)
+neww2 <- rbinom(n, 1, 0.5)
+newstatus2 <- rbinom(n, 1, 0.5)
+
 
 
 test_that("check that get_benefits() behaves as expected when new data are passed",{
@@ -42,12 +49,12 @@ test_that("check that get_benefits() behaves as expected when new data are passe
   expect_equal(unlist(get_benefits(EM)),
                unlist(get_benefits(EM, newz = newz)))
   
-  # passing a baseline risk with different length should throw a warning
-  expect_warning(get_benefits(RM, baseline_risk = newz))
-  expect_warning(get_benefits(EM, baseline_risk = newz))
-  expect_warning(get_benefits(RM, newstatus = status, neww = w, 
+  # passing a baseline risk with different length should throw an error
+  expect_error(get_benefits(RM, baseline_risk = newz))
+  expect_error(get_benefits(EM, baseline_risk = newz))
+  expect_error(get_benefits(RM, newstatus = status, neww = w, 
                               newz = BR$linear_predictor, baseline_risk = newz))
-  expect_warning(get_benefits(EM, newstatus = status, neww = w, 
+  expect_error(get_benefits(EM, newstatus = status, neww = w, 
                               newX = X, baseline_risk = newz))
   
 })
@@ -61,6 +68,15 @@ test_that("check that benefits and plot are the same on default as when passing 
   expect_equal(unlist(get_benefits(RM)), 
                unlist(get_benefits(RM, newstatus = status, neww = w, 
                                    newz = BR$linear_predictor, baseline_risk = baseline_risk)))
+  
+  # different data => different results
+  b0 <- get_benefits(EM)
+  b1 <- get_benefits(EM, newX = newX2, newstatus = newstatus2, neww = neww2)
+  expect_false(isTRUE(all.equal(b0, b1))) 
+  b0 <- get_benefits(RM)
+  b1 <- get_benefits(RM, newz = newz2, newstatus = newstatus2, neww = neww2)
+  expect_false(isTRUE(all.equal(b0, b1))) 
+  
   
   # do the same for the calibration plots, which are derivatives of get_benefits()
   p0 <- calibration_plot(EM)
