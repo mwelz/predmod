@@ -5,6 +5,8 @@ Predictive modeling of heterogeneous treatment effects in medicine.
 - [ ] Can we bootstrap standard error of relative risk estimate? No we cannot, so don't compute SE for relative risks 
 - [ ] fix baseline risk imbalance for GRF
 - [ ] do risk grouping based on predicted benefit
+- [ ] import Matrix package in prediction methods (required)
+- [ ] make the g function in DML a classifier (not regression)
 
 # Examples
 ## Complete case
