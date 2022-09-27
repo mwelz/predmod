@@ -1,5 +1,5 @@
 
-#' Performs DML estimation
+#' Performs DML estimation by using an interactive regression model
 #' 
 #' @param X a matrix or data frame of covariates
 #' @param w a binary vector of treatment status
@@ -40,15 +40,15 @@ dml <- function(X, w, status,
     ml_g <- ml_g
   } else if(ml_g == "glm"){
     
-    ml_g <- mlr3::lrn("regr.cv_glmnet", s = "lambda.1se")
+    ml_g <- mlr3::lrn("classif.cv_glmnet", s = "lambda.1se")
     
   } else if(ml_g == "random.forest"){
     
-    ml_g <- mlr3::lrn("regr.ranger", num.trees = 500)
+    ml_g <- mlr3::lrn("classif.ranger", num.trees = 500)
     
   } else if(ml_g == "tree"){
     
-    ml_g <- mlr3::lrn("regr.rpart")
+    ml_g <- mlr3::lrn("classif.rpart")
     
   } else{
     
@@ -89,7 +89,8 @@ dml <- function(X, w, status,
   # matrix interface to DoubleMLData
   dml.data <- DoubleML::double_ml_data_from_matrix(X = X, y = status, d = w)
   
-  # specify PLR model
+  # specify MLIRM model (estimates ATE if there is treatment effect heterogeneity)
+  # -> generalizes PLM
   dml.obj <- DoubleML::DoubleMLIRM$new(dml.data,
                                        ml_g = ml_g,
                                        ml_m = ml_m,
@@ -105,15 +106,19 @@ dml <- function(X, w, status,
   # fit PLR model
   dml.obj$fit(store_predictions = TRUE)
   
+  # get CI
+  ci <- dml.obj$confint(level = 1 - significance.level)
+  cinam <- paste0(paste0(100 * (1 - significance.level), "CI "), c("lower", "upper"))
+  
   # evaluate model
   summary <- c(Estimate = dml.obj$all_coef,
                StdError = dml.obj$all_se, 
-               CI.lower = dml.obj$confint(level = 1 - significance.level)[1],
-               CI.upper = dml.obj$confint(level = 1 - significance.level)[2],
+               CI.lower = ci[1],
+               CI.upper = ci[2],
                t.test   = as.numeric(dml.obj$t_stat), 
                p.value  = as.numeric(dml.obj$pval))
   names(summary) <- 
-    c("Estimate", "Std. Error", "95CI lower", "95CI upper", "t test", "p value")
+    c("Estimate", "Std. Error", cinam, "t test", "p value")
   
   return(list(summary = summary,
               significance_level = significance.level,

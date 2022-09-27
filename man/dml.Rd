@@ -2,7 +2,7 @@
 % Please edit documentation in R/dml.R
 \name{dml}
 \alias{dml}
-\title{Performs DML estimation}
+\title{Performs DML estimation by using an interactive regression model}
 \usage{
 dml(
   X,
@@ -51,5 +51,5 @@ dml(
 Estimates of the causal parameter and a 'DoubleML' object
 }
 \description{
-Performs DML estimation
+Performs DML estimation by using an interactive regression model
 }
