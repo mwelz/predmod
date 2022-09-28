@@ -1,5 +1,5 @@
 # load package
-library("predmod", quietly = TRUE)
+library("predmod", quietly = TRUE) 
 
 set.seed(1)
 n <- 200

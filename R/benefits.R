@@ -370,7 +370,7 @@ get_benefits_grf <- function(x,
   }
   
   # extract outcome and treatment status
-  status <  - x$inputs$status_bin
+  status   <- x$inputs$status_bin
   w        <- x$inputs$w
   predbens <- x$benefits$absolute
   
