@@ -35,7 +35,7 @@ calibration_plot_imputation <- function(x,
                                         shrunk = FALSE){
   
   # appease the check (TODO: come up with better solution)
-  pb.means <- ob.means <- ob.means.ci.lo <- ob.means.ci.up <- NULL
+  pb.means <- ob.means <- ob.means.ci.lo <- ob.means.ci.up <- risk.quantile <- NULL
   
   # get observed and predicted benefit by quantile group (imputation-adjusted)
   benefits <- get_benefits_imputation(x                  = x,
@@ -152,7 +152,7 @@ calibration_plot_grf_imputation <- function(x,
                                             flip_sign = FALSE){
   
   # appease the check (TODO: come up with better solution)
-  pb.means <- ob.means <- ob.means.ci.lo <- ob.means.ci.up <- NULL
+  pb.means <- ob.means <- ob.means.ci.lo <- ob.means.ci.up <- risk.quantile <- NULL
   
   # get observed and predicted benefit by quantile group (imputation-adjusted)
   benefits <- get_benefits_grf_imputation(x                  = x,

@@ -370,8 +370,9 @@ get_benefits_grf <- function(x,
   }
   
   # extract outcome and treatment status
-  status <- x$inputs$status_bin
-  w      <- x$inputs$w
+  status <  - x$inputs$status_bin
+  w        <- x$inputs$w
+  predbens <- x$benefits$absolute
   
   # specify baseline risk that shall be used for grouping
   # input check and return adjusted baseline risks
@@ -407,11 +408,17 @@ get_benefits_grf <- function(x,
     abs.obs.ben.mat[i,] <- 
       observed_benefit_absolute(status[group], w[group], significance_level = significance_level)
     
-    ## absolute predicted benefit
-    ate.group <- grf::average_treatment_effect(x$models, 
-                                               subset = group)
-    ate <- unname(ate.group["estimate"])
-    se  <- unname(ate.group["std.err"]) 
+    ## absolute predicted benefit. Don't do the AIPW-ATE of the GRF package, as this may mess up the order of the predbens
+    # think of the AIPW-ATE as a weighted mean of predbens: if the weights are nonequal, the sorted (weighted) predbens may
+    # give rise to a different size ordering than the unweighted predbens
+    t <- stats::t.test(x = predbens[group])
+    ate <- unname(t$estimate)
+    se  <- t$stderr
+
+    # ate.group <- grf::average_treatment_effect(x$models, 
+    #                                            subset = group)
+    # ate <- unname(ate.group["estimate"])
+    # se  <- unname(ate.group["std.err"]) 
     
     abs.pred.ben.mat[i, "estimate"] <- ate
     abs.pred.ben.mat[i, "stderr"]   <- se
