@@ -109,7 +109,7 @@ calibration_plot_imputation <- function(x,
   } # IF
   
   ggplot(mapping = aes(x = pb.means,
-                       y = ob.means, color = risk_quantile), data = df) +
+                       y = ob.means, color = risk.quantile), data = df) +
     geom_point() +
     geom_errorbar(mapping = aes(ymin = ob.means.ci.lo,
                                 ymax = ob.means.ci.up)) +
@@ -178,8 +178,8 @@ calibration_plot_grf_imputation <- function(x,
     
     df <- data.frame(pb.means = -benefits$absolute_predicted_benefit[,"estimate"],
                      ob.means = -benefits$absolute_observed_benefit[,"estimate"],
-                     ob.means.ci.lo = -benefits$absolute_observed_benefit[,"ci_lower"],
-                     ob.means.ci.up = -benefits$absolute_observed_benefit[,"ci_upper"],
+                     ob.means.ci.lo = -benefits$absolute_observed_benefit[,"ci_upper"],
+                     ob.means.ci.up = -benefits$absolute_observed_benefit[,"ci_lower"],
                      risk.quantile = risk_quantile)
     
   } # IF
@@ -189,7 +189,7 @@ calibration_plot_grf_imputation <- function(x,
   } # IF
   
   ggplot(mapping = aes(x = pb.means,
-                       y = ob.means, color = risk_quantile), data = df) +
+                       y = ob.means, color = risk.quantile), data = df) +
     geom_point() +
     geom_errorbar(mapping = aes(ymin = ob.means.ci.lo,
                                 ymax = ob.means.ci.up)) +

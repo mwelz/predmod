@@ -172,8 +172,8 @@ calibration_plot_grf <- function(x,
     
     df <- data.frame(pb.means = -benefits$absolute_predicted_benefit[,"estimate"],
                      ob.means = -benefits$absolute_observed_benefit[,"estimate"],
-                     ob.means.ci.lo = -benefits$absolute_observed_benefit[,"ci_lower"],
-                     ob.means.ci.up = -benefits$absolute_observed_benefit[,"ci_upper"],
+                     ob.means.ci.lo = -benefits$absolute_observed_benefit[,"ci_upper"],
+                     ob.means.ci.up = -benefits$absolute_observed_benefit[,"ci_lower"],
                      risk.quantile = risk.quantile)
     
   } # IF
