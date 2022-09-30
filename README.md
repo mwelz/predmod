@@ -6,7 +6,7 @@ Predictive modeling of heterogeneous treatment effects in medicine.
 - [ ] fix baseline risk imbalance for GRF
 - [ ] do risk grouping based on predicted benefit
 - [ ] import Matrix package in prediction methods (required)
-- [ ] make the g function in DML a classifier (not regression)
+- [ ] load mlr3verse in DML and GenericML
 
 # Examples
 ## Complete case
