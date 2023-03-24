@@ -2,7 +2,7 @@
 Predictive modeling of heterogeneous treatment effects in medicine.
 
 # Todo list
-- [ ] Can we bootstrap standard error of relative risk estimate? No we cannot, so don't compute SE for relative risks 
+- [x] Can we bootstrap standard error of relative risk estimate? No we cannot, so don't compute SE for relative risks 
 - [ ] fix baseline risk imbalance for GRF
 - [ ] do risk grouping based on predicted benefit
 - [ ] import Matrix package in prediction methods (required)
