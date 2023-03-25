@@ -8,7 +8,6 @@ predicted_benefit_inference(
   x,
   subset = NULL,
   relative = FALSE,
-  time_eval = NULL,
   significance_level = 0.05,
   neww = NULL,
   newX = NULL,
@@ -22,8 +21,6 @@ predicted_benefit_inference(
 \item{subset}{The indices of the subgroup of interest}
 
 \item{relative}{Shall relative ATE be calculated?}
-
-\item{time_eval}{Time at which to evaluate the failure risk predictions.}
 
 \item{significance_level}{The significance level, default is 0.05}
 }

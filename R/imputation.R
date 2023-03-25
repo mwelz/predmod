@@ -150,9 +150,7 @@ impaccount <- function(x)
 {
    # predmod classes
    classes <-  c("risk_model_crss", 
-                "risk_model_surv", 
-                "effect_model_crss",
-                "effect_model_surv")
+                "effect_model_crss")
 
   # input check
   impaccount_classcheck(x = x, what = classes)

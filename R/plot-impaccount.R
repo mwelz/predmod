@@ -5,7 +5,6 @@
 #' @param breaks List of breaks along which to perform the grouping. If passed, overrules the grouping implied by \code{cutoffs}
 #' @param relative logical. If `TRUE`, then relative benefits will be plotted. Default is `FALSE`
 #' @param baseline_risk A list of baseline risks that shall be used for grouping. If \code{NULL} (default), then the baseline risks as in \code{x} are used.
-#' @param time_eval Time at which we evaluate the risk predictions.
 #' @param significance_level significance level for the confidence intervals. Default is 0.05
 #' @param title optional title of the plot
 #' @param xlim limits of x-axis
@@ -22,7 +21,6 @@ calibration_plot_imputation <- function(x,
                                         breaks = NULL,
                                         relative = FALSE,
                                         baseline_risk = NULL,
-                                        time_eval = NULL,
                                         significance_level = 0.05,
                                         title = NULL,
                                         xlim = NULL,
@@ -42,7 +40,6 @@ calibration_plot_imputation <- function(x,
                                       cutoffs            = cutoffs,
                                       breaks             = breaks,
                                       baseline_risk      = baseline_risk,
-                                      time_eval          = time_eval,
                                       significance_level = significance_level,
                                       newX               = newX, 
                                       newstatus          = newstatus, 

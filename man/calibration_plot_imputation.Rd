@@ -10,7 +10,6 @@ calibration_plot_imputation(
   breaks = NULL,
   relative = FALSE,
   baseline_risk = NULL,
-  time_eval = NULL,
   significance_level = 0.05,
   title = NULL,
   xlim = NULL,
@@ -33,8 +32,6 @@ calibration_plot_imputation(
 \item{relative}{logical. If \code{TRUE}, then relative benefits will be plotted. Default is \code{FALSE}}
 
 \item{baseline_risk}{A list of baseline risks that shall be used for grouping. If \code{NULL} (default), then the baseline risks as in \code{x} are used.}
-
-\item{time_eval}{Time at which we evaluate the risk predictions.}
 
 \item{significance_level}{significance level for the confidence intervals. Default is 0.05}
 

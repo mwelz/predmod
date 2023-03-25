@@ -3,21 +3,19 @@
 #' @param x A predmod object
 #' @param subset The indices of the subgroup of interest
 #' @param relative Shall relative ATE be calculated?
-#' @param time_eval Time at which to evaluate the failure risk predictions.
 #' 
 #' @export
 average_treatment_effect <- function(x, 
                                      subset = NULL, 
                                      relative = FALSE,
-                                     time_eval = NULL,
                                      neww = NULL, 
                                      newX = NULL,
                                      newz = NULL,
                                      shrunk = FALSE){
   
-  stopifnot(inherits(x, what = c("risk_model_crss", "risk_model_surv",
-                                 "effect_model_crss", "effect_model_surv",
-                                 "grf_crss")))
+  stopifnot(inherits(x, what = c("risk_model_crss",
+                                 "effect_model_crss",
+                                 "causal_forest")))
   clss <- class(x)
   
   # prepare subset object
@@ -53,7 +51,7 @@ average_treatment_effect <- function(x,
    # effect models don't have a 'z' component, so set it to NULL
    z0 <- NULL
    
- } else if(clss == "risk_model_crss")
+ } else #if(clss == "risk_model_crss")
  {
    
    if(nullw && nullz)
@@ -76,15 +74,6 @@ average_treatment_effect <- function(x,
    # risk models don't have a 'X0' component, so set it to NULL
    X0 <- NULL
     
- } else 
- {
-   stop("ATE functions not yet implemented for survival models")
-   ## the below works, but is incomplete for external validation
-   # average_treatment_effect_surv(x, 
-   #                               subset = subset, 
-   #                               relative = relative,
-   #                               time_eval = time_eval)
-   
  } # IF clss
   
   ## call the main function
@@ -215,43 +204,4 @@ ATE_relative_crss <- function(x,
   # return
   return(structure(c(ate, sderr), names = c("ATE", "Std. Error")))
   
-} # FUN
-
-
-## TODO: this is work in progress
-average_treatment_effect_surv <- function(x, 
-                                          subset = NULL, 
-                                          relative = FALSE,
-                                          time_eval = NULL)
-{
-  w <- x$inputs$w
-  
-  if(!relative)
-  {
-    # case 1: absolute effect: benefits concern risk at time of interest
-    x_reg <- as.numeric(1.0 - x$funs$regular$surv(time_eval))
-    x_rev <- as.numeric(1.0 - x$funs$counterfactual$surv(time_eval))
-    
-    # adjust signs to ensure that x_reg - x_rev = (predicted absolute benefit) 
-    x_reg[w == 0] <- -x_reg[w == 0]
-    x_rev[w == 0] <- -x_rev[w == 0]
-    
-    # perform t-test
-    t <- stats::t.test(x = x_reg[subset], y = x_rev[subset], paired = FALSE, var.equal = FALSE)
-    
-    # get ATE
-    ate <- unname(t$estimate[1] - t$estimate[2])
-    sderr <- t$stderr
-    
-  } else{
-    
-    # case 2: relative effect: benefits concern risk at time of interest
-    ate <- mean(x$benefits$relative[subset])
-    
-    # no SE can be computed for relative risk TODO: maybe via bootstrap
-    sderr <- NA_real_
-  } # IF
-  
-  # return
-  return(structure(c(ate, sderr), names = c("ATE", "Std. Error")))
 } # FUN

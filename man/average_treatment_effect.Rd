@@ -8,7 +8,6 @@ average_treatment_effect(
   x,
   subset = NULL,
   relative = FALSE,
-  time_eval = NULL,
   neww = NULL,
   newX = NULL,
   newz = NULL,
@@ -21,8 +20,6 @@ average_treatment_effect(
 \item{subset}{The indices of the subgroup of interest}
 
 \item{relative}{Shall relative ATE be calculated?}
-
-\item{time_eval}{Time at which to evaluate the failure risk predictions.}
 }
 \description{
 computes the average treatment effect (ATE) of a predmod object

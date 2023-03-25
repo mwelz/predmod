@@ -27,23 +27,17 @@ RoxygenNote: 7.2.1
 Depends: ggplot2
 Imports: 
     glmnet,
-    utils,
     stats,
     MatchIt,
     Hmisc,
-    survival,
-    hdnom,
-    cmprsk,
+    lmtest,
     grf,
     lgr,
     mlr3,
     mlr3verse,
     DoubleML,
     rateratio.test,
-    VIM,
-    fastcmprsk,
-    Matrix,
-    plm
+    Matrix
 Suggests: 
     testthat (>= 3.0.0)
 Config/testthat/edition: 3

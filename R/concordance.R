@@ -73,9 +73,7 @@ concordance <- function(x,
                         w = NULL ){
   
   stopifnot(inherits(x, what = c("risk_model_crss", 
-                                 "risk_model_surv", 
-                                 "effect_model_crss",
-                                 "effect_model_surv")))
+                                 "effect_model_crss")))
   
   if(is.null(status))
   {
