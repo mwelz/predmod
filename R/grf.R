@@ -44,5 +44,11 @@ causal_forest <- function(X,
 } # FUN
 
 
-#pred <- predict.grf_model(object = x, 
-#                          newX = newX)
+predict.causal_forest <- function(object, newX = NULL, ...)
+{
+  # get unexported function 'predict.causal_forest'
+  predict_cf <- utils::getFromNamespace("predict.causal_forest ", "grf")
+  
+  # make predictions
+  predict_cf(object = object, newdata = newX, ... = ...)
+}

@@ -235,7 +235,7 @@ get_benefits <- function(x,
                          newz = NULL,
                          shrunk = FALSE){
   
-  stopifnot(inherits(x = x, what = c("risk_model_crss", "effect_model_crss", "grf_model_crss")))
+  stopifnot(inherits(x = x, what = c("risk_model_crss", "effect_model_crss", "causal_forest")))
   if(!is.null(cutoffs) && !is.null(breaks))
   {
     message("Both cutoffs and breaks were passed. Breaks will be used for grouping")
@@ -340,17 +340,17 @@ get_benefits <- function(x,
 } # FUN
 
 
-#' Calculates group-level benefits from a GRF model, and the associated confidence intervals.
+#' Calculates group-level benefits from a causal_forest model, and the associated confidence intervals.
 #' The returned benefits are the observed and predicted relative and absolute benefits as well as the odds ratio
 #' 
-#' @param x GRF model object
+#' @param x causal_forest model object
 #' @param cutoffs the quantile cutoff points. Default is \code{c(0.25, 0.5, 0.75)}, which yields the quartiles.
 #' @param breaks Breaks along which to perform the grouping. If passed, overrules the grouping implied by \code{cutoffs}
 #' @param baseline_risk The baseline risk that shall be used for grouping. If \code{NULL} (default), then the baseline risk in \code{x} is used.
 #' @param significance_level the significance level. Default is 0.05.
 #' 
 #' @export
-get_benefits_grf <- function(x, 
+get_benefits_causal_forest <- function(x, 
                              cutoffs = c(0.25, 0.5, 0.75),
                              breaks = NULL,
                              baseline_risk = NULL,

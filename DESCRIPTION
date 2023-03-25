@@ -37,7 +37,8 @@ Imports:
     mlr3verse,
     DoubleML,
     rateratio.test,
-    Matrix
+    Matrix,
+    utils
 Suggests: 
     testthat (>= 3.0.0)
 Config/testthat/edition: 3

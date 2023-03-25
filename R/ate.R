@@ -139,9 +139,8 @@ ATE_absolute_crss <- function(x,
                                  newX = newX, 
                                  shrunk = shrunk)
   } else{
-    stop("predict methods for GRF aren't yet implemented")
-    pred <- predict.grf_model(object = x, 
-                              newX = newX)
+    pred <- predict.causal_forest(object = x, 
+                                  newX = newX)
   } # IF inherits
   
   # get risks
@@ -190,8 +189,7 @@ ATE_relative_crss <- function(x,
                                  newX = newX,
                                  shrunk = shrunk)
   } else{
-    stop("predict methods for GRF aren't yet implemented")
-    pred <- predict.grf_model(object = x, 
+    pred <- predict.causal_forest(object = x, 
                               newX = newX)
   } # IF inherits
   
