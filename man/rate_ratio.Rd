@@ -2,7 +2,7 @@
 % Please edit documentation in R/one-variable-at-a-time.R
 \name{rate_ratio}
 \alias{rate_ratio}
-\title{Returns a rateratio object as in the package rateratio.test as well as an estimate of the rate ratio.}
+\title{Evaluate the rate ratio between two groups}
 \usage{
 rate_ratio(status, time, w, subgroup = NULL, ...)
 }
@@ -18,8 +18,12 @@ rate_ratio(status, time, w, subgroup = NULL, ...)
 \item{...}{Additional arguments for rateratio.test()}
 }
 \value{
-a rateratio object and an estimate of the rate ratio
+a rateratio object containing an estimate of the rate ratio between the two groups, as well as the 95\% confidence interval and p-value
 }
 \description{
-Returns a rateratio object as in the package rateratio.test as well as an estimate of the rate ratio.
+Evaluates the rate ratio between two groups using the rateratio.test package
+}
+\references{
+Fay, M. P. (2010). Two-sided exact tests and matching confidence intervals for discrete data. R
+Journal, 2(1), 53-58. DOI: https://doi.org/10.32614/RJ-2010-008
 }

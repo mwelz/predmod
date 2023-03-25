@@ -23,6 +23,14 @@ predicted_benefit_inference(
 \item{relative}{Shall relative ATE be calculated?}
 
 \item{significance_level}{The significance level, default is 0.05}
+
+\item{neww}{Optional treatment assignment variables to calculate benefits with}
+
+\item{newX}{Optional covariate matrix to calculate benefits with}
+
+\item{newz}{Optional linear predictors}
+
+\item{shrunk}{TODO}
 }
 \description{
 performs inference on the per-individual predicted benefits

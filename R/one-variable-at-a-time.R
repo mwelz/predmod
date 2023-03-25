@@ -1,12 +1,14 @@
-#' Returns a rateratio object as in the package rateratio.test as well as an estimate of the rate ratio.
+#' Evaluate the rate ratio between two groups
 #' 
+#' Evaluates the rate ratio between two groups using the rateratio.test package
 #' @param status Numeric vector with a unique code for each failure type. Code 0 denotes a censored observation.
 #' @param time vector of failure/censoring times.
 #' @param w Binary vector of treatment assignment status. Equal to 1 for treatment group and 0 for control group.
 #' @param subgroup A integer-valued vector indicating a subgroup
 #' @param ... Additional arguments for rateratio.test()
-#' @return a rateratio object and an estimate of the rate ratio
-#' 
+#' @return a rateratio object containing an estimate of the rate ratio between the two groups, as well as the 95% confidence interval and p-value
+#' @references  Fay, M. P. (2010). Two-sided exact tests and matching confidence intervals for discrete data. R
+#'Journal, 2(1), 53-58. DOI: https://doi.org/10.32614/RJ-2010-008
 #' @export
 rate_ratio <- function(status, time, w, subgroup = NULL, ...){
   

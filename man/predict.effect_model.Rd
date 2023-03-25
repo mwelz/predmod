@@ -18,7 +18,7 @@
 \item{...}{Additional parameters to be passed down}
 }
 \value{
-A matrix of risk predictions
+A matrix of risk predictions, predicted absolute benefits, predicted relative benefits
 }
 \description{
 Predict method for a \code{effect_model_crss} object

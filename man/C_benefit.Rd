@@ -17,5 +17,11 @@ C_benefit(y, w, pred_ben)
 point estimate and standard error of C index for benefit
 }
 \description{
-calculates C index for benefit
+Calculates the C index for benefit as proposed by van Klaveren et al (2018)
+}
+\references{
+van Klaveren D., Steyerberg E.W., Seeruys P.W., Kent D.M. (2018).
+The proposed concordance-statistic for benefit provided
+a useful metric when modeling heterogeneous treatment effects
+J Clin Epidemiol. 2018 Feb;94:59-68. doi: 10.1016/j.jclinepi.2017.10.021. Epub 2017 Nov 11. PMID: 29132832; PMCID: PMC7448760.
 }

@@ -2,8 +2,7 @@
 % Please edit documentation in R/benefits-impaccount.R
 \name{get_benefits_imputation}
 \alias{get_benefits_imputation}
-\title{Calculates imputation-adjusted group-level benefits from a prediction model, and the associated confidence intervals.
-The returned benefits are the observed and predicted relative and absolute benefits as well as the odds ratio}
+\title{Calculates imputation-adjusted group-level benefits}
 \usage{
 get_benefits_imputation(
   x,
@@ -29,11 +28,16 @@ get_benefits_imputation(
 
 \item{significance_level}{the significance level. Default is 0.05.}
 
+\item{newX}{Optional covariate matrix to calculate benefits with}
+
 \item{newstatus}{Optional list of target variables to calculate benefits with}
 
 \item{neww}{Optional list of treatment assignment variables to calculate benefits with}
+
+\item{newz}{Optional linear predictors}
+
+\item{shrunk}{TODO}
 }
 \description{
-Calculates imputation-adjusted group-level benefits from a prediction model, and the associated confidence intervals.
-The returned benefits are the observed and predicted relative and absolute benefits as well as the odds ratio
+Calculates imputation-adjusted group-level benefits  from a prediction model, and the associated confidence intervals.The returned benefits are the observed and predicted relative and absolute benefits as well as the odds ratio.
 }

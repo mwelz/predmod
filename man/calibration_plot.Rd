@@ -42,6 +42,16 @@ calibration_plot(
 \item{ylim}{limits of y-xcis}
 
 \item{flip_sign}{logical. Shall the sign of the benefits be flipped?}
+
+\item{newX}{Optional covariate matrix to calculate benefits with}
+
+\item{newstatus}{Optional target variables to calculate benefits with}
+
+\item{neww}{Optional treatment assignment variables to calculate benefits with}
+
+\item{newz}{Optional linear predictors}
+
+\item{shrunk}{TODO}
 }
 \description{
 makes a calibration plot for a prediction model

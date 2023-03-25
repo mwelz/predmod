@@ -10,7 +10,7 @@ impaccount_effect_model(x)
 \item{x}{a list of effect model objects (imputed)}
 }
 \value{
-A list of imputation-accounted stuff
+A list of effect model outcomes (model coefficients, baseline risk, regular risk estimates, counterfactual risk estimates, absolute benefits, relative benefits) which account for imputation uncertainty
 }
 \description{
 Account for imputation uncertainty in effect models
