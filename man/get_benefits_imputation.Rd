@@ -10,7 +10,6 @@ get_benefits_imputation(
   cutoffs = c(0.25, 0.5, 0.75),
   breaks = NULL,
   baseline_risk = NULL,
-  time_eval = NULL,
   significance_level = 0.05,
   newX = NULL,
   newstatus = NULL,
@@ -27,8 +26,6 @@ get_benefits_imputation(
 \item{breaks}{List of breaks along which to perform the grouping. If passed, overrules the grouping implied by \code{cutoffs}}
 
 \item{baseline_risk}{A list of baseline risks that shall be used for grouping. If \code{NULL} (default), then the baseline risks in \code{x} are used.}
-
-\item{time_eval}{Time at which we evaluate the risk predictions.}
 
 \item{significance_level}{the significance level. Default is 0.05.}
 
