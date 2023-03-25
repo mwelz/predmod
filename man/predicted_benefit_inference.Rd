@@ -27,11 +27,11 @@ predicted_benefit_inference(
 
 \item{significance_level}{The significance level, default is 0.05}
 
-\item{neww}{TODO}
+\item{neww}{Optional treatment assignment variables to calculate benefits with}
 
-\item{newX}{TODO}
+\item{newX}{Optional covariate matrix to calculate benefits with}
 
-\item{newz}{TODO}
+\item{newz}{Optional linear predictors}
 
 \item{shrunk}{TODO}
 }

@@ -46,13 +46,13 @@ calibration_plot_imputation(
 
 \item{flip_sign}{logical. Shall the sign of the benefits be flipped?}
 
-\item{newX}{TODO}
+\item{newX}{Optional covariate matrix to calculate benefits with}
 
 \item{newstatus}{Optional list of target variables to calculate benefits with}
 
 \item{neww}{Optional list of treatment assignment variables to calculate benefits with}
 
-\item{newz}{TODO}
+\item{newz}{Optional linear predictors}
 
 \item{shrunk}{TODO}
 }

@@ -9,9 +9,9 @@
 \arguments{
 \item{object}{A \code{predmod_crss} object.}
 
-\item{neww}{TODO}
+\item{neww}{Optional treatment assignment variables to calculate benefits with}
 
-\item{newz}{TODO}
+\item{newz}{Optional linear predictors}
 
 \item{...}{Additional parameters to be passed down}
 }

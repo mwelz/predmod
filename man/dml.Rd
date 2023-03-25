@@ -31,25 +31,28 @@ dml(
 
 \item{ml_m}{a classification machine learner; refers to the nuisance function \code{m0(X) = E[W|X]}. Either  'glm', 'random.forest', or 'tree'. Can alternatively be specified by using the mlr3 framework, for example ml_m = mlr3::lrn("classif.ranger", num.trees = 500, mtry = NULL, min.node.size = NULL, max.depth = NULL) for a classification forest, which is also the default.}
 
-\item{significance.level}{TODO}
+\item{significance.level}{the significance level. Default is 0.05.}
 
-\item{n_folds}{TODO}
+\item{n_folds}{number of folds. Default is 5.}
 
-\item{score}{TODO}
+\item{score}{the score. Default is "ATE"}
 
-\item{trimming_rule}{TODO}
+\item{trimming_rule}{the trimming rule. Default is "truncate"}
 
-\item{trimming_threshold}{TODO}
+\item{trimming_threshold}{the trimming rule. Default is "1e-12"}
 
-\item{dml_procedure}{TODO}
+\item{dml_procedure}{the DML procedure. Default is "dm12"}
 
-\item{draw_sample_splitting}{TODO}
+\item{draw_sample_splitting}{Indicates whether the sample splitting should be drawn during initialization of the object. Default is TRUE.}
 
-\item{apply_cross_fitting}{TODO}
+\item{apply_cross_fitting}{ndicates whether cross-fitting should be applied. Default is TRUE.}
 }
 \value{
 Estimates of the causal parameter and a 'DoubleML' object
 }
 \description{
-Performs DML estimation by using an interactive regression model
+Performs DML using the DoubleML package.
+}
+\references{
+Bach P, Chernozhukov V, Kurz M, Spindler M (2021). “DoubleML – An Object-Oriented Implementation of Double Machine Learning in R.” arXiv: https://arxiv.org/abs/2103.09603, 2103.09603.
 }

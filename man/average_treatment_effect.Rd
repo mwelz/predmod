@@ -24,11 +24,11 @@ average_treatment_effect(
 
 \item{time_eval}{Time at which to evaluate the failure risk predictions.}
 
-\item{neww}{TODO}
+\item{neww}{Optional treatment assignment variables to calculate benefits with}
 
-\item{newX}{TODO}
+\item{newX}{Optional covariate matrix to calculate benefits with}
 
-\item{newz}{TODO}
+\item{newz}{Optional linear predictors}
 
 \item{shrunk}{TODO}
 }

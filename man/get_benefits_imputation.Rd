@@ -31,13 +31,13 @@ get_benefits_imputation(
 
 \item{significance_level}{the significance level. Default is 0.05.}
 
-\item{newX}{TODO}
+\item{newX}{Optional covariate matrix to calculate benefits with}
 
 \item{newstatus}{Optional list of target variables to calculate benefits with}
 
 \item{neww}{Optional list of treatment assignment variables to calculate benefits with}
 
-\item{newz}{TODO}
+\item{newz}{Optional linear predictors}
 
 \item{shrunk}{TODO}
 }

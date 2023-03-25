@@ -15,7 +15,7 @@
 #' @param dml_procedure the DML procedure. Default is "dm12"
 #' @param draw_sample_splitting Indicates whether the sample splitting should be drawn during initialization of the object. Default is TRUE.
 #' @param apply_cross_fitting ndicates whether cross-fitting should be applied. Default is TRUE.
-#' @references Bach P, Chernozhukov V, Kurz M, Spindler M (2021). “DoubleML – An Object-Oriented Implementation of Double Machine Learning in R.” arXiv:2103.09603 [stat.ML], 2103.09603. 
+#' @references Bach P, Chernozhukov V, Kurz M, Spindler M (2021). “DoubleML – An Object-Oriented Implementation of Double Machine Learning in R.” arXiv: https://arxiv.org/abs/2103.09603, 2103.09603. 
 #' @return Estimates of the causal parameter and a 'DoubleML' object 
 #' 
 #' @import mlr3verse
