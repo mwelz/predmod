@@ -1,5 +1,5 @@
 # predmod
-Predictive modeling of heterogeneous treatment effects. Implements risk modeling, effect modeling, ratio ratio estimation,  and enables estimation via double/debiased machine learning and causal random forests. Risk modeling and effetc modeling are described in detail in the [PATH statement](https://www.acpjournals.org/doi/full/10.7326/M18-3668?rfr_dat=cr_pub++0pubmed&url_ver=Z39.88-2003&rfr_id=ori%3Arid%3Acrossref.org) of Kent et al. (2020, Annals of Internal Medicine).
+Predictive modeling of heterogeneous treatment effects. Implements risk modeling, effect modeling, ratio ratio estimation,  and enables estimation via double/debiased machine learning and causal random forests. Risk modeling and effetc modeling are described in detail in the [PATH statement](https://www.acpjournals.org/doi/full/10.7326/M18-3668?rfr_dat=cr_pub++0pubmed&url_ver=Z39.88-2003&rfr_id=ori%3Arid%3Acrossref.org) of Kent et al. (2020, Annals of Internal Medicine). This package is developed by [Max Welz](https://mwelz.github.io/), [Kevin ten Haaf](https://employees.publichealthrotterdam.com/profile/kevin-ten-haaf/), and [Andreas Alfons](https://personal.eur.nl/alfons/).
 
 **This package is in development and we cannot yet guarantee stability or correctness.** In case of questions, please get in touch with Max Welz (`welz <at> ese <dot> eur <dot> nl`).
 
