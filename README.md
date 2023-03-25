@@ -1,49 +1,48 @@
-# predictive-modeling
-Predictive modeling of heterogeneous treatment effects in medicine.
+# predmod
+Predictive modeling of heterogeneous treatment effects. Implements risk modeling, effect modeling, ratio ratio estimation,  and enables estimation via double/debiased machine learning and causal random forests. Risk modeling and effetc modeling are described in detail in the [PATH statement](https://www.acpjournals.org/doi/full/10.7326/M18-3668?rfr_dat=cr_pub++0pubmed&url_ver=Z39.88-2003&rfr_id=ori%3Arid%3Acrossref.org) of Kent et al. (2020, Annals of Internal Medicine).
 
-# Todo list
-- [x] Can we bootstrap standard error of relative risk estimate? No we cannot, so don't compute SE for relative risks 
-- [ ] fix baseline risk imbalance for GRF
-- [ ] do risk grouping based on predicted benefit
-- [ ] import Matrix package in prediction methods (required)
-- [ ] load mlr3verse in DML and GenericML
+**This package is in development and we cannot yet guarantee stability or correctness.** In case of questions, please get in touch with Max Welz (`welz <at> ese <dot> eur <dot> nl`).
 
-# Examples
-## Complete case
+## Installation
+To install `predmod`, use the function `install_github()` of the `devtools` package.
 
 ```R
-library(predmod)
-
-set.seed(1)
-lung <- survival::lung
-lung <- na.omit(lung)
-time <- lung$time
-status <- lung$status - 1L
-X <- as.matrix(lung[, 4:10]) # randomly assign treatment status
-W <- rbinom(nrow(X), 1, 0.5)
-
-## 1. cross-sectional models (disregard time)
-# fit
-crss_risk <- risk_model(X = X, status = status, w = W)
-crss_effect <- effect_model(X = X, status = status, w = W, interacted = c("sex", "age"))
-crss_grf <- grf_model(X = X, status = status, w = W, num_trees = 500)
-
-# plot
-calibration_plot(crss_risk)
-calibration_plot(crss_effect)
-calibration_plot_grf(crss_grf)
-
-## 2. survival models
-# fit
-surv_risk   <- risk_model_survival(X = X, status = status, time = time, w = W)
-surv_effect <- effect_model_survival(X = X, status = status, time = time, w = W, interacted = c("age", "sex"))
-surv_grf    <- grf_model_survival(X = X, status = status, time = time, w = W, num_trees = 500)
-
-# plot
-calibration_plot(surv_risk)
-calibration_plot(surv_effect)
-calibration_plot_grf(surv_grf, baseline_risk = surv_risk$risk$baseline)
-
+install.packages("devtools")
+devtools::install_github("mwelz/predmod")
 ```
 
-## Imputation 
+## Example
+
+```R
+# load package
+library("predmod", quietly = TRUE)
+set.seed(1)
+
+# generate data for 200 individuals for whom we observe 5 variables
+n <- 200
+p <- 5
+
+# random treatment assignment
+w <- rbinom(n, 1, 0.5)
+
+# covariates
+X <- matrix(runif(n * p), n)
+colnames(X) <- paste0("var",1:p)
+
+# mortality probability (heterogeneous; driven by X1 and X2)
+pi <- plogis(X[,1] + X[,2] + w * X[,2])
+
+# observed outcome 
+status <- rbinom(n, 1, pi)
+
+# run effect model
+EM <- effect_model(X = X, status = status, w = w)
+
+# make calibration plot
+calibration_plot(EM)
+
+# run risk model
+RM <- risk_model(X = X, status = status, w = w)
+calibration_plot(RM)
+
+```
