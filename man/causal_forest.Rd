@@ -2,7 +2,7 @@
 % Please edit documentation in R/grf.R
 \name{causal_forest}
 \alias{causal_forest}
-\title{Causal random forest}
+\title{Estimates a causal random forest as described in Wager & Athey (2018)}
 \usage{
 causal_forest(X, status, w, failcode = 1, num_trees = 2000, ...)
 }
@@ -26,6 +26,5 @@ A list with predicted absolute benefits, the baseline risk, the causal forest, f
 Estimates a causal random forest as described in Wager & Athey (2018)
 }
 \references{
-Wager S. &  Athey S. (2018) Estimation and Inference of Heterogeneous Treatment Effects using Random Forests,
-Journal of the American Statistical Association, 113:523, 1228-1242, DOI: 10.1080/01621459.2017.1319839
+Wager S. &  Athey S. (2018) Estimation and Inference of Heterogeneous Treatment Effects using Random Forests, Journal of the American Statistical Association, 113:523, 1228-1242, DOI: 10.1080/01621459.2017.1319839
 }

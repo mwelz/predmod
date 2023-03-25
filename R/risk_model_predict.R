@@ -85,8 +85,3 @@ predict_risk_model_NoChecks <- function(object, neww, newz, ...)
     risk_counterfactual = risk_rev
   ))
 } # FUN
-<<<<<<< HEAD
-
-
-=======
->>>>>>> master

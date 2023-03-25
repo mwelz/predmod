@@ -21,11 +21,6 @@ average_treatment_effect(
 
 \item{relative}{Shall relative ATE be calculated?}
 
-<<<<<<< HEAD
-\item{time_eval}{Time at which to evaluate the failure risk predictions.}
-
-=======
->>>>>>> master
 \item{neww}{Optional treatment assignment variables to calculate benefits with}
 
 \item{newX}{Optional covariate matrix to calculate benefits with}
