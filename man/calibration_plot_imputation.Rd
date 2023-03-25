@@ -46,9 +46,15 @@ calibration_plot_imputation(
 
 \item{flip_sign}{logical. Shall the sign of the benefits be flipped?}
 
+\item{newX}{TODO}
+
 \item{newstatus}{Optional list of target variables to calculate benefits with}
 
 \item{neww}{Optional list of treatment assignment variables to calculate benefits with}
+
+\item{newz}{TODO}
+
+\item{shrunk}{TODO}
 }
 \description{
 makes an imputation-accounted calibration plot for imputed prediction models

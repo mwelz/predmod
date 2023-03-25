@@ -6,7 +6,7 @@
 #' @param shrunk Shall 1st (TRUE) or 2nd (FALSE) stage be used for predictions?
 #' @param ... Additional parameters to be passed down
 #' 
-#' @return A matrix of risk predictions
+#' @return A matrix of risk predictions, predicted absolute benefits, predicted relative benefits
 #' 
 #' @export
 predict.effect_model <- function(object,
@@ -25,7 +25,7 @@ predict.effect_model <- function(object,
     stop("object must be an instance of effect_model_crss()")
   }
   
-  ## check correctness of inpurs
+  ## check correctness of inputs
   InputChecks_W(neww)
   InputChecks_newX(newX)
   InputChecks_equal.length2(neww, newX)

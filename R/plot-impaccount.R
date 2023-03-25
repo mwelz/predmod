@@ -11,8 +11,11 @@
 #' @param xlim limits of x-axis
 #' @param ylim limits of y-xcis
 #' @param flip_sign logical. Shall the sign of the benefits be flipped?
+#' @param newX Optional covariate matrix to calculate benefits with
 #' @param newstatus Optional list of target variables to calculate benefits with
 #' @param neww Optional list of treatment assignment variables to calculate benefits with
+#' @param newz Optional linear predictors
+#' @param shrunk TODO
 #' 
 #' @import ggplot2
 #' 

@@ -168,6 +168,10 @@ odds_ratio <- function(status, w, significance_level = 0.05){
 #' @param relative Shall relative ATE be calculated?
 #' @param time_eval Time at which to evaluate the failure risk predictions.
 #' @param significance_level The significance level, default is 0.05
+#' @param neww Optional treatment assignment variables to calculate benefits with
+#' @param newX Optional covariate matrix to calculate benefits with
+#' @param newz Optional linear predictors
+#' @param shrunk TODO
 #' 
 #' @export
 predicted_benefit_inference <- function(x, 
@@ -222,9 +226,11 @@ predicted_benefit_inference <- function(x,
 #' @param time_eval Time at which we evaluate the risk predictions.
 #' @param odds_ratio Logical. If \code{TRUE}, odds ratios per quantile group will be computed. Default is \code{FALSE}.
 #' @param significance_level the significance level. Default is 0.05.
-#' @param X Optional covariate matrix to calculate benefits with
-#' @param status Optional target variables to calculate benefits with
-#' @param w Optional treatment assignment variables to calculate benefits with
+#' @param newX Optional covariate matrix to calculate benefits with
+#' @param newstatus Optional target variables to calculate benefits with
+#' @param neww Optional treatment assignment variables to calculate benefits with
+#' @param newz Optional linear predictors
+#' @param shrunk TODO
 #' 
 #' @export
 get_benefits <- function(x,

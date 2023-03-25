@@ -1,15 +1,17 @@
-#' Calculates imputation-adjusted group-level benefits from a prediction model, and the associated confidence intervals.
-#' The returned benefits are the observed and predicted relative and absolute benefits as well as the odds ratio
+#' Calculates imputation-adjusted group-level benefits 
 #' 
+#' Calculates imputation-adjusted group-level benefits  from a prediction model, and the associated confidence intervals.The returned benefits are the observed and predicted relative and absolute benefits as well as the odds ratio.
 #' @param x a list of prediction model object
 #' @param cutoffs the quantile cutoff points. Default is c(0.25, 0.5, 0.75), which yields the quartiles.
 #' @param breaks List of breaks along which to perform the grouping. If passed, overrules the grouping implied by \code{cutoffs}
 #' @param baseline_risk A list of baseline risks that shall be used for grouping. If \code{NULL} (default), then the baseline risks in \code{x} are used.
 #' @param time_eval Time at which we evaluate the risk predictions.
 #' @param significance_level the significance level. Default is 0.05.
+#' @param newX Optional covariate matrix to calculate benefits with
 #' @param newstatus Optional list of target variables to calculate benefits with
 #' @param neww Optional list of treatment assignment variables to calculate benefits with
-#' 
+#' @param newz Optional linear predictors
+#' @param shrunk TODO
 #' @export
 get_benefits_imputation <- function(x, 
                                     cutoffs = c(0.25, 0.5, 0.75),

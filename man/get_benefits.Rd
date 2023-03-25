@@ -35,11 +35,15 @@ get_benefits(
 
 \item{significance_level}{the significance level. Default is 0.05.}
 
-\item{X}{Optional covariate matrix to calculate benefits with}
+\item{newX}{Optional covariate matrix to calculate benefits with}
 
-\item{status}{Optional target variables to calculate benefits with}
+\item{newstatus}{Optional target variables to calculate benefits with}
 
-\item{w}{Optional treatment assignment variables to calculate benefits with}
+\item{neww}{Optional treatment assignment variables to calculate benefits with}
+
+\item{newz}{TODO}
+
+\item{shrunk}{TODO}
 }
 \description{
 Calculates group-level benefits from a prediction model, and the associated confidence intervals.

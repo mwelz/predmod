@@ -9,7 +9,7 @@
 \arguments{
 \item{object}{A \code{predmod_crss} object.}
 
-\item{neww}{Treatment assignment}
+\item{neww}{TODO}
 
 \item{newz}{TODO}
 

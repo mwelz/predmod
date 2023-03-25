@@ -4,7 +4,10 @@
 #' @param subset The indices of the subgroup of interest
 #' @param relative Shall relative ATE be calculated?
 #' @param time_eval Time at which to evaluate the failure risk predictions.
-#' 
+#' @param neww Optional treatment assignment variables to calculate benefits with
+#' @param newX Optional covariate matrix to calculate benefits with
+#' @param newz Optional linear predictors
+#' @param shrunk TODO
 #' @export
 average_treatment_effect <- function(x, 
                                      subset = NULL, 

@@ -14,7 +14,17 @@ concordance(
 )
 }
 \arguments{
-\item{x}{A predmod object. TODO}
+\item{x}{A predmod object of a risk or effect model}
+
+\item{baseline_risk}{the baseline risk estimated by the modle}
+
+\item{risk}{the final risk estimate of the model}
+
+\item{benefit}{vector of estimated benefits}
+
+\item{status}{vector of binary outcomes}
+
+\item{w}{a binary vector of treatment status}
 }
 \description{
 Function to predict concordance

@@ -1,11 +1,16 @@
 #' calculates C index for benefit
 #' 
+#' Calculates the C index for benefit as proposed by van Klaveren et al (2018)
 #' @param y binary response vector
 #' @param w binary treatment assignment vector
 #' @param pred_ben vector of predicted benefits
 #' 
 #' @return point estimate and standard error of C index for benefit
 #' 
+#' @references van Klaveren D., Steyerberg E.W., Seeruys P.W., Kent D.M. (2018).
+#' The proposed concordance-statistic for benefit provided 
+#' a useful metric when modeling heterogeneous treatment effects 
+#'J Clin Epidemiol. 2018 Feb;94:59-68. doi: 10.1016/j.jclinepi.2017.10.021. Epub 2017 Nov 11. PMID: 29132832; PMCID: PMC7448760.
 #' @export
 C_benefit <- function(y, w, pred_ben){
   
@@ -62,8 +67,12 @@ C_outcome <- function(y, risk){
 
 
 #' Function to predict concordance
-#' @param x A predmod object. TODO
-#' 
+#' @param x A predmod object of a risk or effect model
+#' @param baseline_risk the baseline risk estimated by the modle
+#' @param risk the final risk estimate of the model
+#' @param benefit vector of estimated benefits
+#' @param status vector of binary outcomes
+#' @param w a binary vector of treatment status
 #' @export
 concordance <- function(x, 
                         baseline_risk = NULL, 

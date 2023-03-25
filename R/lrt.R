@@ -1,13 +1,13 @@
 #' calculate likelihood ratio test statistic (LRT) for cross-sectional models
 #' 
-#' LRT between models with and without constant treatment effect
+#' Performs a likelihood ratio test between models with and without constant treatment effect using the lmtest package
 #' @param status A \strong{binary} vector of status. Zero is survivor, one is failure.
 #' @param w A binary treatment assignment status.
-#' @param w_flipped Treatment assignment status, but flipped .
-#' @param z TODO
-#' @param significance_level significance level of test
+#' @param w_flipped Treatment assignment status, but flipped.
+#' @param z The linear predictor of the first stage model
+#' @param significance_level Significance level of test
 #' @param ... Additional arguments
-#' 
+#' @references  Zeileis A, Hothorn T (2002). “Diagnostic Checking in Regression Relationships.” R News, 2(3), 7–10. https://CRAN.R-project.org/doc/Rnews/. 
 #' @noRd
 LRT_crss <- function(status, w, w_flipped, z, significance_level, glm_data, ...)
 {
@@ -37,83 +37,6 @@ LRT_crss <- function(status, w, w_flipped, z, significance_level, glm_data, ...)
   ## calculate deviance
   lmtest_obj <- lmtest::lrtest(mod_full, mod_0)
   deviance   <- 2.0 * (lmtest_obj$LogLik[1] - lmtest_obj$LogLik[2])
-  
-  ## return
-  LRT_return(stage2_full = stage2_full,
-             stage2_0 = stage2_0,
-             deviance = deviance,
-             significance_level = significance_level)
-  
-} # FUN
-
-
-#' calculate likelihood ratio test statistic (LRT) in survival models
-#' 
-#' LRT between models with and without constant treatment effect
-#' @param status A \strong{binary} vector of status. Zero is survivor, one is failure.
-#' @param time (Possibly) Right-censored failure times
-#' @param w A binary treatment assignment status.
-#' @param w_flipped Treatment assignment status, but flipped .
-#' @param z TODO
-#' @param significance_level significance level of test
-#' @param failcode Failcode of status
-#' @param cmprsk Logical. If \code{TRUE}, then a competing risks model is used
-#' @param ... Additional arguments
-#' 
-#' @noRd
-LRT_surv <- function(status, time, w, w_flipped, z, 
-                     significance_level, failcode, cmprsk, ...)
-{
-  
-  ## fit restricted and full model
-  if(cmprsk)
-  {
-    stage2_0 <- 
-      risk_model_stage2_cmprsk(status = status, 
-                               time = time,
-                               w = w, 
-                               w_flipped = w_flipped, 
-                               z = z, 
-                               constant = TRUE,
-                               failcode = failcode, ... = ...)
-    
-    stage2_full <- 
-      risk_model_stage2_cmprsk(status = status, 
-                               time = time,
-                               w = w, 
-                               w_flipped = w_flipped, 
-                               z = z, 
-                               constant = FALSE,
-                               failcode = failcode, ... = ...)
-    
-    ## calculate deviance (LRT test statistic)
-    deviance   <- 2.0 * (stage2_full$model$loglik - stage2_0$model$loglik)
-    
-  } else{
-    
-    stage2_0 <- 
-      risk_model_stage2_nocmprsk(status = status, 
-                                 time = time,
-                                 w = w, 
-                                 w_flipped = w_flipped, 
-                                 z = z, 
-                                 constant = TRUE,
-                                 ... = ...)
-    
-    stage2_full <- 
-      risk_model_stage2_nocmprsk(status = status, 
-                                 time = time,
-                                 w = w, 
-                                 w_flipped = w_flipped, 
-                                 z = z, 
-                                 constant = FALSE,
-                                 ... = ...)
-    
-    ## calculate deviance (LRT test statistic)
-    deviance   <- 2.0 * (stage2_full$model$loglik[2] - stage2_0$model$loglik[2])
-    
-  } # IF
-  
   
   ## return
   LRT_return(stage2_full = stage2_full,

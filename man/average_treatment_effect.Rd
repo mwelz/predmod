@@ -23,6 +23,14 @@ average_treatment_effect(
 \item{relative}{Shall relative ATE be calculated?}
 
 \item{time_eval}{Time at which to evaluate the failure risk predictions.}
+
+\item{neww}{TODO}
+
+\item{newX}{TODO}
+
+\item{newz}{TODO}
+
+\item{shrunk}{TODO}
 }
 \description{
 computes the average treatment effect (ATE) of a predmod object

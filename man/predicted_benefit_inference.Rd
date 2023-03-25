@@ -26,6 +26,14 @@ predicted_benefit_inference(
 \item{time_eval}{Time at which to evaluate the failure risk predictions.}
 
 \item{significance_level}{The significance level, default is 0.05}
+
+\item{neww}{TODO}
+
+\item{newX}{TODO}
+
+\item{newz}{TODO}
+
+\item{shrunk}{TODO}
 }
 \description{
 performs inference on the per-individual predicted benefits

@@ -1,5 +1,5 @@
 Package: predmod
-Title: TODO
+Title: Predmod: a package for evaluating heterogenous treatment effects through different methodologies
 Version: 0.0.1
 Authors@R: 
     c(person(given = "Max",
@@ -15,7 +15,8 @@ Authors@R:
       person(given = "Kevin",
              family = "ten Haaf",
              role = "aut",
-             email = "k.tenhaaf@erasmusmc.nl")) 
+             email = "k.tenhaaf@erasmusmc.nl",
+             comment = c(ORCID = "0000-0001-5006-6938")))
 Author: Max Welz [aut, cre], Andreas Alfons [aut], Kevin ten Haaf [aut]
 Maintainer: Max Welz <welz@ese.eur.nl>           
 Description: To come!
@@ -36,6 +37,7 @@ Imports:
     cmprsk,
     grf,
     lgr,
+    lmtest,
     mlr3,
     mlr3verse,
     DoubleML,

@@ -1,20 +1,21 @@
 
 #' Performs DML estimation by using an interactive regression model
 #' 
+#' Performs DML using the DoubleML package. 
 #' @param X a matrix or data frame of covariates
 #' @param w a binary vector of treatment status
 #' @param status a binary vector of outcomes
 #' @param ml_g a regression machine learner; refers to the nuisance function \code{g0(X) = E[Y|X,W]}. Either  'glm', 'random.forest', or 'tree'. Can alternatively be specified by using the mlr3 framework, for example ml_g = mlr3::lrn("regr.ranger", num.trees = 500, mtry = NULL, min.node.size = NULL, max.depth = NULL) for a classification forest, which is also the default. 
 #' @param ml_m a classification machine learner; refers to the nuisance function \code{m0(X) = E[W|X]}. Either  'glm', 'random.forest', or 'tree'. Can alternatively be specified by using the mlr3 framework, for example ml_m = mlr3::lrn("classif.ranger", num.trees = 500, mtry = NULL, min.node.size = NULL, max.depth = NULL) for a classification forest, which is also the default.
-#' @param significance.level TODO
-#' @param n_folds TODO
-#' @param score TODO
-#' @param trimming_rule TODO
-#' @param trimming_threshold TODO
-#' @param dml_procedure TODO
-#' @param draw_sample_splitting TODO
-#' @param apply_cross_fitting TODO
-#' 
+#' @param significance.level the significance level. Default is 0.05.
+#' @param n_folds number of folds. Default is 5. 
+#' @param score the score. Default is "ATE"
+#' @param trimming_rule the trimming rule. Default is "truncate"
+#' @param trimming_threshold the trimming rule. Default is "1e-12"
+#' @param dml_procedure the DML procedure. Default is "dm12"
+#' @param draw_sample_splitting Indicates whether the sample splitting should be drawn during initialization of the object. Default is TRUE.
+#' @param apply_cross_fitting ndicates whether cross-fitting should be applied. Default is TRUE.
+#' @references Bach P, Chernozhukov V, Kurz M, Spindler M (2021). “DoubleML – An Object-Oriented Implementation of Double Machine Learning in R.” arXiv:2103.09603 [stat.ML], 2103.09603. 
 #' @return Estimates of the causal parameter and a 'DoubleML' object 
 #' 
 #' @import mlr3verse

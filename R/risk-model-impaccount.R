@@ -1,7 +1,7 @@
 #' Account for imputation uncertainty in risk models
 #' 
 #' @param x a list of effect model objects (imputed)
-#' @return A list of imputation-accounted stuff
+#' @return A list of imputation-accounted absolute and relative benefits, coefficients and risk-predictions
 #' 
 #' @export
 impaccount_risk_model <- function(x)
