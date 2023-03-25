@@ -47,6 +47,10 @@ LRT_crss <- function(status, w, w_flipped, z, significance_level, glm_data, ...)
 } # FUN
 
 
+<<<<<<< HEAD
+=======
+
+>>>>>>> master
 # helper function that formats the returns of the LRT function
 LRT_return <- function(stage2_full, stage2_0, deviance, significance_level)
 {

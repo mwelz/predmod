@@ -10,7 +10,6 @@ get_benefits(
   cutoffs = c(0.25, 0.5, 0.75),
   breaks = NULL,
   baseline_risk = NULL,
-  time_eval = NULL,
   odds_ratio = FALSE,
   significance_level = 0.05,
   newX = NULL,
@@ -28,8 +27,6 @@ get_benefits(
 \item{breaks}{Breaks along which to perform the grouping. If passed, overrules the grouping implied by \code{cutoffs}}
 
 \item{baseline_risk}{The baseline risk that shall be used for grouping. If \code{NULL} (default), then the baseline risk in \code{x} is used.}
-
-\item{time_eval}{Time at which we evaluate the risk predictions.}
 
 \item{odds_ratio}{Logical. If \code{TRUE}, odds ratios per quantile group will be computed. Default is \code{FALSE}.}
 

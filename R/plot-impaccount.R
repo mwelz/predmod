@@ -5,7 +5,6 @@
 #' @param breaks List of breaks along which to perform the grouping. If passed, overrules the grouping implied by \code{cutoffs}
 #' @param relative logical. If `TRUE`, then relative benefits will be plotted. Default is `FALSE`
 #' @param baseline_risk A list of baseline risks that shall be used for grouping. If \code{NULL} (default), then the baseline risks as in \code{x} are used.
-#' @param time_eval Time at which we evaluate the risk predictions.
 #' @param significance_level significance level for the confidence intervals. Default is 0.05
 #' @param title optional title of the plot
 #' @param xlim limits of x-axis
@@ -25,7 +24,6 @@ calibration_plot_imputation <- function(x,
                                         breaks = NULL,
                                         relative = FALSE,
                                         baseline_risk = NULL,
-                                        time_eval = NULL,
                                         significance_level = 0.05,
                                         title = NULL,
                                         xlim = NULL,
@@ -45,7 +43,6 @@ calibration_plot_imputation <- function(x,
                                       cutoffs            = cutoffs,
                                       breaks             = breaks,
                                       baseline_risk      = baseline_risk,
-                                      time_eval          = time_eval,
                                       significance_level = significance_level,
                                       newX               = newX, 
                                       newstatus          = newstatus, 
@@ -129,9 +126,9 @@ calibration_plot_imputation <- function(x,
 } # FUN
 
 
-#' makes a calibration plot for a GRF model and adjusts for imputation uncertainty
+#' makes a calibration plot for a causal_forest model and adjusts for imputation uncertainty
 #' 
-#' @param x A list of grf models
+#' @param x A list of causal_forest models
 #' @param cutoffs the cutoff points of quantiles that shall be used for GATES grouping. Default is `c(0.25, 0.5, 0.75)`, which corresponds to the quartiles.
 #' @param breaks List of breaks along which to perform the grouping. If passed, overrules the grouping implied by \code{cutoffs}
 #' @param baseline_risk A list of baseline risks that shall be used for grouping. If \code{NULL} (default), then the baseline risks in \code{x} are used.
@@ -144,7 +141,7 @@ calibration_plot_imputation <- function(x,
 #' @import ggplot2
 #' 
 #' @export
-calibration_plot_grf_imputation <- function(x,
+calibration_plot_causal_forest_imputation <- function(x,
                                             cutoffs = c(0.25, 0.5, 0.75), 
                                             breaks = NULL,
                                             baseline_risk = NULL,
@@ -158,7 +155,7 @@ calibration_plot_grf_imputation <- function(x,
   pb.means <- ob.means <- ob.means.ci.lo <- ob.means.ci.up <- risk.quantile <- NULL
   
   # get observed and predicted benefit by quantile group (imputation-adjusted)
-  benefits <- get_benefits_grf_imputation(x                  = x,
+  benefits <- get_benefits_causal_forest_imputation(x  = x,
                                           cutoffs            = cutoffs,
                                           breaks             = breaks,
                                           baseline_risk      = baseline_risk,

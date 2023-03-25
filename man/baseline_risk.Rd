@@ -21,5 +21,5 @@ The penalty is defined as \deqn{(1-\alpha)/2||\beta||_2^2+\alpha||\beta||_1.} \c
 \item{...}{Additional arguments to be passed}
 }
 \description{
-baseline risk prediction via penalized logistic regression (treatment assignment is not used)
+Hello there
 }

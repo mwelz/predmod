@@ -166,7 +166,6 @@ odds_ratio <- function(status, w, significance_level = 0.05){
 #' @param x A predmod object
 #' @param subset The indices of the subgroup of interest
 #' @param relative Shall relative ATE be calculated?
-#' @param time_eval Time at which to evaluate the failure risk predictions.
 #' @param significance_level The significance level, default is 0.05
 #' @param neww Optional treatment assignment variables to calculate benefits with
 #' @param newX Optional covariate matrix to calculate benefits with
@@ -177,7 +176,6 @@ odds_ratio <- function(status, w, significance_level = 0.05){
 predicted_benefit_inference <- function(x, 
                                         subset = NULL, 
                                         relative = FALSE,
-                                        time_eval = NULL,
                                         significance_level = 0.05,
                                         neww = NULL, 
                                         newX = NULL,
@@ -188,7 +186,6 @@ predicted_benefit_inference <- function(x,
                                       x = x, 
                                       subset = subset,
                                       relative = relative,
-                                      time_eval = time_eval, 
                                       neww = neww, 
                                       newX = newX,
                                       newz = newz,
@@ -223,7 +220,6 @@ predicted_benefit_inference <- function(x,
 #' @param cutoffs the quantile cutoff points. Default is c(0.25, 0.5, 0.75), which yields the quartiles.
 #' @param breaks Breaks along which to perform the grouping. If passed, overrules the grouping implied by \code{cutoffs}
 #' @param baseline_risk The baseline risk that shall be used for grouping. If \code{NULL} (default), then the baseline risk in \code{x} is used.
-#' @param time_eval Time at which we evaluate the risk predictions.
 #' @param odds_ratio Logical. If \code{TRUE}, odds ratios per quantile group will be computed. Default is \code{FALSE}.
 #' @param significance_level the significance level. Default is 0.05.
 #' @param newX Optional covariate matrix to calculate benefits with
@@ -237,7 +233,6 @@ get_benefits <- function(x,
                          cutoffs = c(0.25, 0.5, 0.75),
                          breaks = NULL,
                          baseline_risk = NULL,
-                         time_eval = NULL,
                          odds_ratio = FALSE,
                          significance_level = 0.05, 
                          newX = NULL,
@@ -246,7 +241,7 @@ get_benefits <- function(x,
                          newz = NULL,
                          shrunk = FALSE){
   
-  stopifnot(inherits(x = x, what = c("risk_model_crss", "effect_model_crss", "grf_model_crss")))
+  stopifnot(inherits(x = x, what = c("risk_model_crss", "effect_model_crss", "causal_forest")))
   if(!is.null(cutoffs) && !is.null(breaks))
   {
     message("Both cutoffs and breaks were passed. Breaks will be used for grouping")
@@ -315,7 +310,6 @@ get_benefits <- function(x,
     abs.pred.ben.mat[i, ] <- 
       predicted_benefit_inference(x = x, subset = group, 
                                   relative = FALSE, 
-                                  time_eval = time_eval, 
                                   significance_level = significance_level, 
                                   neww = neww, newX = newX, newz = newz, shrunk = shrunk) # keep them as passed
 
@@ -329,7 +323,6 @@ get_benefits <- function(x,
     rel.pred.ben.mat[i, ] <- 
       predicted_benefit_inference(x = x, subset = group, 
                                   relative = TRUE, 
-                                  time_eval = time_eval, 
                                   significance_level = significance_level,
                                   neww = neww, newX = newX, newz = newz, shrunk = shrunk) # keep them as passed
     
@@ -353,23 +346,23 @@ get_benefits <- function(x,
 } # FUN
 
 
-#' Calculates group-level benefits from a GRF model, and the associated confidence intervals.
+#' Calculates group-level benefits from a causal_forest model, and the associated confidence intervals.
 #' The returned benefits are the observed and predicted relative and absolute benefits as well as the odds ratio
 #' 
-#' @param x GRF model object
+#' @param x causal_forest model object
 #' @param cutoffs the quantile cutoff points. Default is \code{c(0.25, 0.5, 0.75)}, which yields the quartiles.
 #' @param breaks Breaks along which to perform the grouping. If passed, overrules the grouping implied by \code{cutoffs}
 #' @param baseline_risk The baseline risk that shall be used for grouping. If \code{NULL} (default), then the baseline risk in \code{x} is used.
 #' @param significance_level the significance level. Default is 0.05.
 #' 
 #' @export
-get_benefits_grf <- function(x, 
+get_benefits_causal_forest <- function(x, 
                              cutoffs = c(0.25, 0.5, 0.75),
                              breaks = NULL,
                              baseline_risk = NULL,
                              significance_level = 0.05){
   
-  stopifnot(inherits(x, what = "grf_crss"))
+  stopifnot(inherits(x, what = "causal_forest"))
   if(!is.null(cutoffs) && !is.null(breaks))
   {
     message("Both cutoffs and breaks were passed. Breaks will be used for grouping")

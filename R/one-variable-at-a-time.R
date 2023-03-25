@@ -21,7 +21,7 @@ rate_ratio <- function(status, time, w, subgroup = NULL, ...){
 
   # if no subgroup is specified, all samples are considered
   if(is.null(subgroup)){
-    smpl <- 1:length(status)
+    smpl <- seq_len(status)
   } else{
     smpl <- subgroup
   }

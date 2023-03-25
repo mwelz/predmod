@@ -5,7 +5,6 @@
 #' @param breaks Breaks along which to perform the grouping. If passed, overrules the grouping implied by \code{cutoffs}
 #' @param relative logical. If `TRUE`, then relative benefits will be plotted. Default is `FALSE`
 #' @param baseline_risk The baseline risk that shall be used for grouping. If \code{NULL} (default), then the baseline risk in \code{x} is used.
-#' @param time_eval Time at which we evaluate the risk predictions.
 #' @param significance_level significance level for the confidence intervals. Default is 0.05
 #' @param title optional title of the plot
 #' @param xlim limits of x-axis
@@ -25,7 +24,6 @@ calibration_plot <- function( x,
                               breaks = NULL,
                               relative = FALSE,
                               baseline_risk = NULL,
-                              time_eval = NULL,
                               significance_level = 0.05,
                               title = NULL,
                               xlim = NULL,
@@ -45,7 +43,6 @@ calibration_plot <- function( x,
                            cutoffs            = cutoffs, 
                            breaks             = breaks,
                            baseline_risk      = baseline_risk,
-                           time_eval          = time_eval,
                            odds_ratio         = FALSE,
                            significance_level = significance_level, 
                            newX               = newX,
@@ -128,9 +125,9 @@ calibration_plot <- function( x,
 } # FUN
 
 
-#' makes a calibration plot for a GRF model
+#' makes a calibration plot for a causal_forest model
 #' 
-#' @param x grf model
+#' @param x causal_forest model
 #' @param cutoffs the cutoff points of quantiles that shall be used for GATES grouping. Default is `c(0.25, 0.5, 0.75)`, which corresponds to the quartiles.
 #' @param breaks Breaks along which to perform the grouping. If passed, overrules the grouping implied by \code{cutoffs}
 #' @param baseline_risk The baseline risk that shall be used for grouping. If \code{NULL} (default), then the baseline risk in \code{x} is used.
@@ -143,7 +140,7 @@ calibration_plot <- function( x,
 #' @import ggplot2
 #' 
 #' @export
-calibration_plot_grf <- function(x,
+calibration_plot_causal_forest <- function(x,
                                  cutoffs = c(0.25, 0.5, 0.75), 
                                  breaks = NULL,
                                  baseline_risk = NULL,
@@ -157,7 +154,7 @@ calibration_plot_grf <- function(x,
   pb.means <- ob.means <- ob.means.ci.lo <- ob.means.ci.up <- NULL
   
   # get observed and predicted benefit by quantile group
-  benefits <- get_benefits_grf(x = x, cutoffs = cutoffs, breaks = breaks,
+  benefits <- get_benefits_causal_forest(x = x, cutoffs = cutoffs, breaks = breaks,
                                baseline_risk = baseline_risk,
                                significance_level = significance_level)
   
