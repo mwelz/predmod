@@ -20,6 +20,14 @@ average_treatment_effect(
 \item{subset}{The indices of the subgroup of interest}
 
 \item{relative}{Shall relative ATE be calculated?}
+
+\item{neww}{Optional treatment assignment variables to calculate benefits with}
+
+\item{newX}{Optional covariate matrix to calculate benefits with}
+
+\item{newz}{Optional linear predictors}
+
+\item{shrunk}{TODO}
 }
 \description{
 computes the average treatment effect (ATE) of a predmod object

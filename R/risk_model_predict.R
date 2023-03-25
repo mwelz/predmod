@@ -1,8 +1,8 @@
 #' Predict method for a \code{predmod_crss} object
 #' 
 #' @param object A \code{predmod_crss} object.
-#' @param neww Treatment assignment
-#' @param newz TODO
+#' @param neww Optional treatment assignment variables to calculate benefits with
+#' @param newz Optional linear predictors
 #' @param ... Additional parameters to be passed down
 #' 
 #' @return A matrix of risk predictions

@@ -1,12 +1,16 @@
-#' GRF modeling
+#' Causal random forest
 #' 
+#' Estimates a causal random forest as described in Wager & Athey (2018)
 #' @param X Matrix of fixed covariates.
 #' @param status Numeric vector with a unique code for each failure type. Code 0 denotes a censored observation.
 #' @param w Binary vector of treatment assignment status. Equal to 1 for treatment group and 0 for control group.
 #' @param num_trees number of trees
 #' @param failcode Code of status that denotes the failure type of interest. Default is one.
 #' @param ... Additional arguments
-#' 
+#' @return A list with predicted absolute benefits, the baseline risk, the causal forest, failure type and failure status
+#' @references   Wager S. &  Athey S. (2018) Estimation and Inference of Heterogeneous Treatment Effects using Random Forests,
+#'   Journal of the American Statistical Association, 113:523, 1228-1242, DOI: 10.1080/01621459.2017.1319839 
+#'   
 #' @export
 causal_forest <- function(X, 
                       status, 

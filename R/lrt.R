@@ -1,13 +1,13 @@
 #' calculate likelihood ratio test statistic (LRT) for cross-sectional models
 #' 
-#' LRT between models with and without constant treatment effect
+#' Performs a likelihood ratio test between models with and without constant treatment effect using the lmtest package
 #' @param status A \strong{binary} vector of status. Zero is survivor, one is failure.
 #' @param w A binary treatment assignment status.
-#' @param w_flipped Treatment assignment status, but flipped .
-#' @param z TODO
-#' @param significance_level significance level of test
+#' @param w_flipped Treatment assignment status, but flipped.
+#' @param z The linear predictor of the first stage model
+#' @param significance_level Significance level of test
 #' @param ... Additional arguments
-#' 
+#' @references  Zeileis A, Hothorn T (2002). “Diagnostic Checking in Regression Relationships.” R News, 2(3), 7–10. https://CRAN.R-project.org/doc/Rnews/. 
 #' @noRd
 LRT_crss <- function(status, w, w_flipped, z, significance_level, glm_data, ...)
 {
